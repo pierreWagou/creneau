@@ -1,7 +1,7 @@
 import { db } from './db';
-import { booking, flat, slot } from './db/schema';
-import { eq, and, or, lt, gt, gte, lte } from 'drizzle-orm';
-import { rangesOverlap } from '$lib/utils/time';
+import { booking, flat } from './db/schema';
+import { eq, and, lt, gt } from 'drizzle-orm';
+import type { BookingWithFlat } from '$lib/types';
 
 export interface CreateBookingInput {
 	slotId: number;
@@ -10,19 +10,6 @@ export interface CreateBookingInput {
 	endTime: string;
 	label?: string | null;
 	note?: string | null;
-}
-
-export interface BookingWithFlat {
-	id: number;
-	slotId: number;
-	flatId: number;
-	startTime: string;
-	endTime: string;
-	label: string | null;
-	note: string | null;
-	createdAt: string;
-	flatNumber: string;
-	flatDisplayName: string | null;
 }
 
 /**

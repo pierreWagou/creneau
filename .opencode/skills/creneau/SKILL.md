@@ -24,13 +24,13 @@ Creneau is a shared parking spot booking app for apartment buildings. See the pr
 
 | File | Purpose |
 |------|---------|
-| `src/lib/types.ts` | `DAY_START`, `DAY_END` constants, `AvailableSlot`, `CalendarDayStatus` types |
+| `src/lib/types.ts` | `DAY_START`/`DAY_END` constants, `AvailableSlot`, `CalendarDayStatus`, `BookingWithFlat` types |
 | `src/lib/server/availability.ts` | `getAvailableSlots()` — core algorithm, `getCalendarStatuses()` — calendar coloring |
 | `src/lib/server/bookings.ts` | CRUD, `hasConflict()` overlap detection |
 | `src/lib/server/sse.ts` | SSE broadcaster singleton |
 | `src/lib/server/auth.ts` | PIN hashing, session create/validate |
 | `src/lib/server/db/schema.ts` | Drizzle schema: building, flat, slot, booking, session |
-| `src/lib/utils/time.ts` | `TIME_BLOCKS` (matin/après-midi/soirée), helper functions |
+| `src/lib/utils/time.ts` | `TIME_BLOCKS`, `padH()`, `getHourFromISO()`, `formatDateISO()` |
 | `src/routes/(app)/book/+page.svelte` | Booking page (main UX) |
 | `src/routes/(app)/calendar/+page.svelte` | Calendar view (@event-calendar) |
 | `src/routes/api/availability/+server.ts` | `GET` → returns `AvailableSlot[]` for date range + slot |
@@ -44,10 +44,10 @@ The core function `getAvailableSlots(from, to, slotId)` in `src/lib/server/avail
 
 1. **Builds a bookable timeline** — one `[DAY_START:00, DAY_END:00]` interval per day in the range
 2. **Subtracts existing bookings** — splits intervals at booking boundaries
-3. **Merges overnight bridges** — consecutive free days (ending at DAY_END, starting at DAY_START next day) merge into one continuous `AvailableSlot`
+3. **Merges consecutive days** — consecutive free days (ending at DAY_END, starting at DAY_START next day) merge into one continuous `AvailableSlot`
 4. **Returns `AvailableSlot[]`** — ISO datetime pairs representing contiguous free time
 
-An `AvailableSlot` can span multiple days. The overnight gap is implicitly bridged (not bookable time, but doesn't break slot continuity).
+An `AvailableSlot` can span multiple days. With DAY_START=0 and DAY_END=24, consecutive free days are always merged (no gap between them).
 
 ### Two independent concerns
 
@@ -147,4 +147,6 @@ npm run db:migrate     # Apply to local DB
 
 - **Timezone safety**: Always use `'T12:00:00'` (not `'T00:00:00'`) when creating `Date` objects for day iteration, then using `toISOString().split('T')[0]`. Midnight in local time can shift the date backwards in UTC.
 - **Pre-existing type errors**: The shadcn-svelte calendar component (`src/lib/components/ui/calendar/calendar.svelte`) has 2 TS errors from `bits-ui` type complexity. These are harmless and can be ignored.
-- **`rangesOverlap` import**: `src/lib/server/bookings.ts` imports from `$lib/utils/time` but doesn't currently use it. Kept for future use.
+- **Shared utilities**: `padH()`, `getHourFromISO()`, `formatDateISO()` live in `$lib/utils/time.ts`. Always import from there — do NOT create local duplicates.
+- **API error messages**: All user-facing errors are in French. Keep this consistent.
+- **`label` field**: Set automatically from presets (`'morning'`, `'afternoon'`, `'evening'`) or `null` for custom/full-day bookings.

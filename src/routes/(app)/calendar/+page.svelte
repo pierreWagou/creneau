@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { Calendar, TimeGrid, DayGrid, List, Interaction } from '@event-calendar/core';
 	import '@event-calendar/core/index.css';
-	import type { BookingWithFlat } from '$lib/server/bookings';
+	import type { BookingWithFlat } from '$lib/types';
 
 	let { data } = $props();
 

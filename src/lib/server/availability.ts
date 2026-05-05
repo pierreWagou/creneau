@@ -2,6 +2,15 @@ import { db } from './db';
 import { booking, flat } from './db/schema';
 import { eq, and, lt, gt } from 'drizzle-orm';
 import { DAY_START, DAY_END, DAY_TOTAL_MINUTES, type AvailableSlot, type CalendarDayStatus } from '$lib/types';
+import { padH } from '$lib/utils/time';
+
+// ============================================================
+// Constants
+// ============================================================
+
+const MS_PER_DAY = 86400000;
+const BRIDGE_TOLERANCE_MS = 1000;
+const FULL_DAY_TOLERANCE_MINUTES = 30;
 
 // ============================================================
 // Available slots computation
@@ -11,8 +20,7 @@ import { DAY_START, DAY_END, DAY_TOTAL_MINUTES, type AvailableSlot, type Calenda
  * Compute available slots for a date range on a given slot.
  *
  * Returns a list of AvailableSlot (ISO datetime ranges) representing
- * contiguous free time. Multi-day free periods are merged into a single slot
- * (overnight 22:00→07:00 is bridged as non-bookable but doesn't break continuity).
+ * contiguous free time. Consecutive free days are merged into a single slot.
  */
 export async function getAvailableSlots(
 	from: string,
@@ -45,11 +53,11 @@ export async function getAvailableSlots(
 	const freeIntervals = subtractBookings(timeline, bookings);
 
 	// Merge consecutive intervals that are bridged by overnight gaps
-	return mergeOvernightBridges(freeIntervals);
+	return mergeConsecutiveDays(freeIntervals);
 }
 
 /**
- * Build the raw bookable timeline: one interval per day [07:00, 22:00].
+ * Build the raw bookable timeline: one interval per day [DAY_START, DAY_END].
  */
 function buildBookableTimeline(from: string, to: string): { start: string; end: string }[] {
 	const intervals: { start: string; end: string }[] = [];
@@ -104,15 +112,13 @@ function subtractBookings(
 }
 
 /**
- * Merge consecutive free intervals that are bridged by overnight gaps.
+ * Merge consecutive free intervals into a single AvailableSlot.
  *
- * Two intervals are "overnight-bridged" if:
+ * Two intervals are consecutive if:
  * - First ends at DAY_END on day N
  * - Second starts at DAY_START on day N+1
- *
- * These get merged into a single AvailableSlot spanning both days.
  */
-function mergeOvernightBridges(intervals: { start: string; end: string }[]): AvailableSlot[] {
+function mergeConsecutiveDays(intervals: { start: string; end: string }[]): AvailableSlot[] {
 	if (intervals.length === 0) return [];
 
 	// Sort by start time
@@ -124,7 +130,7 @@ function mergeOvernightBridges(intervals: { start: string; end: string }[]): Ava
 		const prev = merged[merged.length - 1];
 		const curr = sorted[i];
 
-		if (areBridgedByOvernight(prev.end, curr.start)) {
+		if (areConsecutiveDays(prev.end, curr.start)) {
 			// Merge: extend prev to cover curr
 			prev.end = curr.end;
 		} else {
@@ -136,12 +142,10 @@ function mergeOvernightBridges(intervals: { start: string; end: string }[]): Ava
 }
 
 /**
- * Check if two timestamps are bridged by exactly one overnight gap.
- * i.e., prevEnd is DAY_END on some day N, and currStart is DAY_START on day N+1.
+ * Check if two timestamps represent consecutive day boundaries.
+ * i.e., prevEnd is DAY_END on day N, and currStart is DAY_START on day N+1.
  */
-function areBridgedByOvernight(prevEnd: string, currStart: string): boolean {
-	// prevEnd should be "YYYY-MM-DDT22:00:00"
-	// currStart should be "YYYY-MM-DDT07:00:00" and be the next day
+function areConsecutiveDays(prevEnd: string, currStart: string): boolean {
 	const prevEndTime = prevEnd.split('T')[1];
 	const currStartTime = currStart.split('T')[1];
 
@@ -153,7 +157,7 @@ function areBridgedByOvernight(prevEnd: string, currStart: string): boolean {
 	const currDate = new Date(currStart.split('T')[0] + 'T12:00:00');
 	const diffMs = currDate.getTime() - prevDate.getTime();
 
-	return Math.abs(diffMs - 86400000) < 1000; // 1 day difference
+	return Math.abs(diffMs - MS_PER_DAY) < BRIDGE_TOLERANCE_MS;
 }
 
 // ============================================================
@@ -207,7 +211,7 @@ export async function getCalendarStatuses(
 		let status: 'free' | 'partial' | 'full';
 		if (bookedMinutes === 0) {
 			status = 'free';
-		} else if (bookedMinutes >= DAY_TOTAL_MINUTES - 30) {
+		} else if (bookedMinutes >= DAY_TOTAL_MINUTES - FULL_DAY_TOLERANCE_MINUTES) {
 			status = 'full';
 		} else {
 			status = 'partial';
@@ -218,12 +222,4 @@ export async function getCalendarStatuses(
 	}
 
 	return statuses;
-}
-
-// ============================================================
-// Helpers
-// ============================================================
-
-function padH(h: number): string {
-	return String(h).padStart(2, '0');
 }

@@ -1,10 +1,11 @@
+import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { sseManager } from '$lib/server/sse';
 import { randomUUID } from 'crypto';
 
 export const GET: RequestHandler = async ({ locals }) => {
 	if (!locals.user) {
-		return new Response('Unauthorized', { status: 401 });
+		return json({ error: 'Non autorisé' }, { status: 401 });
 	}
 
 	const clientId = randomUUID();

@@ -17,12 +17,12 @@ export const DAY_TOTAL_MINUTES = (DAY_END - DAY_START) * 60;
 
 /**
  * An available time range for booking.
- * Can span multiple days (overnight 22:00→07:00 is implicitly bridged).
- * Start and end are ISO datetime strings representing actual bookable boundaries.
+ * Can span multiple days — consecutive days are merged into a single slot
+ * when the end of one day (DAY_END) meets the start of the next (DAY_START).
  */
 export interface AvailableSlot {
-	start: string; // e.g. "2026-05-06T14:00:00"
-	end: string; // e.g. "2026-05-08T10:00:00"
+	start: string; // ISO datetime, e.g. "2026-05-06T14:00:00"
+	end: string; // ISO datetime, e.g. "2026-05-08T10:00:00"
 }
 
 /** Day status for calendar coloring */
@@ -31,11 +31,16 @@ export interface CalendarDayStatus {
 	status: 'free' | 'partial' | 'full';
 }
 
-/** Booking info for calendar display */
-export interface BookingForCalendar {
+/** Booking data joined with flat info */
+export interface BookingWithFlat {
 	id: number;
+	slotId: number;
+	flatId: number;
 	startTime: string;
 	endTime: string;
+	label: string | null;
+	note: string | null;
+	createdAt: string;
 	flatNumber: string;
 	flatDisplayName: string | null;
 }

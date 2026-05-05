@@ -6,7 +6,7 @@ import { generateActivationCode } from '$lib/server/auth';
 
 export const GET: RequestHandler = async ({ locals }) => {
 	if (!locals.user?.isAdmin) {
-		return json({ error: 'Forbidden' }, { status: 403 });
+		return json({ error: 'Accès interdit' }, { status: 403 });
 	}
 
 	const flats = await db
@@ -27,7 +27,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user?.isAdmin) {
-		return json({ error: 'Forbidden' }, { status: 403 });
+		return json({ error: 'Accès interdit' }, { status: 403 });
 	}
 
 	const { number } = await request.json();

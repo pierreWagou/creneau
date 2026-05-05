@@ -1,5 +1,3 @@
-import { DAY_START, DAY_END } from '$lib/types';
-
 export const TIME_BLOCKS = {
 	morning: { start: '06:00', end: '12:00', label: 'Matin' },
 	afternoon: { start: '12:00', end: '18:00', label: 'Après-midi' },
@@ -9,50 +7,22 @@ export const TIME_BLOCKS = {
 export type TimeBlockKey = keyof typeof TIME_BLOCKS;
 
 /**
- * Compute the combined time range for multiple selected blocks
+ * Pad an hour number to 2 digits (e.g., 7 → "07")
  */
-export function blocksToTimeRange(blocks: TimeBlockKey[]): { start: string; end: string; label: string } {
-	if (blocks.length === 0) {
-		const startStr = `${String(DAY_START).padStart(2, '0')}:00`;
-		const endStr = `${String(DAY_END).padStart(2, '0')}:00`;
-		return { start: startStr, end: endStr, label: 'Journée entière' };
-	}
-
-	// Sort blocks by their start time
-	const sorted = [...blocks].sort(
-		(a, b) => TIME_BLOCKS[a].start.localeCompare(TIME_BLOCKS[b].start)
-	);
-
-	const start = TIME_BLOCKS[sorted[0]].start;
-	const end = TIME_BLOCKS[sorted[sorted.length - 1]].end;
-	const label = sorted.map((b) => TIME_BLOCKS[b].label).join(' + ');
-
-	return { start, end, label };
+export function padH(h: number): string {
+	return String(h).padStart(2, '0');
 }
 
 /**
- * Given a date string and custom start/end times (HH:MM), returns ISO datetime strings
+ * Extract hour from an ISO datetime string (e.g., "2026-05-06T14:00:00" → 14)
  */
-export function customToDateRange(
-	startDate: string,
-	startTime: string,
-	endDate: string,
-	endTime: string
-): { start: string; end: string } {
-	return {
-		start: `${startDate}T${startTime}:00`,
-		end: `${endDate}T${endTime}:00`
-	};
+export function getHourFromISO(iso: string): number {
+	return parseInt(iso.split('T')[1]?.substring(0, 2) || '0');
 }
 
 /**
- * Check if two time ranges overlap
+ * Format a Date to YYYY-MM-DD string (timezone-safe, uses noon trick)
  */
-export function rangesOverlap(
-	aStart: string,
-	aEnd: string,
-	bStart: string,
-	bEnd: string
-): boolean {
-	return aStart < bEnd && bStart < aEnd;
+export function formatDateISO(d: Date): string {
+	return d.toISOString().split('T')[0];
 }

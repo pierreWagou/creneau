@@ -5,7 +5,7 @@ import { slot } from '$lib/server/db/schema';
 
 export const GET: RequestHandler = async ({ locals }) => {
 	if (!locals.user) {
-		return json({ error: 'Unauthorized' }, { status: 401 });
+		return json({ error: 'Non autorisé' }, { status: 401 });
 	}
 
 	const slots = await db.select().from(slot).all();
@@ -14,7 +14,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user?.isAdmin) {
-		return json({ error: 'Forbidden' }, { status: 403 });
+		return json({ error: 'Accès interdit' }, { status: 403 });
 	}
 
 	const { name, description } = await request.json();

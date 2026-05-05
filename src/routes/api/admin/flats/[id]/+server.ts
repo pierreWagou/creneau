@@ -7,7 +7,7 @@ import { generateActivationCode } from '$lib/server/auth';
 
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	if (!locals.user?.isAdmin) {
-		return json({ error: 'Forbidden' }, { status: 403 });
+		return json({ error: 'Accès interdit' }, { status: 403 });
 	}
 
 	const flatId = parseInt(params.id);
@@ -39,7 +39,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
 	if (!locals.user?.isAdmin) {
-		return json({ error: 'Forbidden' }, { status: 403 });
+		return json({ error: 'Accès interdit' }, { status: 403 });
 	}
 
 	const flatId = parseInt(params.id);

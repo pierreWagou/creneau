@@ -9,7 +9,7 @@
 	import { RangeCalendar } from '$lib/components/ui/range-calendar';
 	import { toast } from 'svelte-sonner';
 	import { today, getLocalTimeZone, parseDate, type DateValue } from '@internationalized/date';
-	import { TIME_BLOCKS, type TimeBlockKey } from '$lib/utils/time';
+	import { TIME_BLOCKS, type TimeBlockKey, padH, getHourFromISO, formatDateISO } from '$lib/utils/time';
 	import { DAY_START, DAY_END, type AvailableSlot, type CalendarDayStatus } from '$lib/types';
 
 	let { data } = $props();
@@ -34,6 +34,7 @@
 	let multiDayStartHour = $state(data.prefilledStartHour ?? DAY_START);
 	let multiDayEndHour = $state(data.prefilledEndHour ?? DAY_END);
 	let note = $state('');
+	let selectedLabel = $state<string | null>(null);
 	let loading = $state(false);
 	let loadingSlots = $state(false);
 
@@ -103,10 +104,6 @@
 		}
 	}
 
-	function formatDateISO(d: Date): string {
-		return d.toISOString().split('T')[0];
-	}
-
 	// Re-fetch calendar statuses when slot changes
 	let initialSlotId = data.initialSlotId;
 	let isFirstSlotRun = true;
@@ -157,8 +154,8 @@
 		return availableSlots
 			.filter((s) => s.start < dayEnd && s.end > dayStart)
 			.map((s) => ({
-				start: s.start <= dayStart ? DAY_START : getHour(s.start),
-				end: s.end >= dayEnd ? DAY_END : getHour(s.end)
+				start: s.start <= dayStart ? DAY_START : getHourFromISO(s.start),
+				end: s.end >= dayEnd ? DAY_END : getHourFromISO(s.end)
 			}));
 	}
 
@@ -187,13 +184,13 @@
 
 	/** Multi-day: valid start hours on the start date (from slot start to DAY_END) */
 	function getMultiDayStartHours(slot: AvailableSlot): number[] {
-		const slotStartOnDay = slot.start.startsWith(startDateStr) ? getHour(slot.start) : DAY_START;
+		const slotStartOnDay = slot.start.startsWith(startDateStr) ? getHourFromISO(slot.start) : DAY_START;
 		return Array.from({ length: DAY_END - slotStartOnDay }, (_, i) => slotStartOnDay + i);
 	}
 
 	/** Multi-day: valid end hours on the end date (from DAY_START to slot end) */
 	function getMultiDayEndHours(slot: AvailableSlot): number[] {
-		const slotEndOnDay = slot.end.startsWith(endDateStr) ? getHour(slot.end) : DAY_END;
+		const slotEndOnDay = slot.end.startsWith(endDateStr) ? getHourFromISO(slot.end) : DAY_END;
 		return Array.from({ length: slotEndOnDay - DAY_START }, (_, i) => DAY_START + 1 + i);
 	}
 
@@ -264,6 +261,9 @@
 	$effect(() => {
 		if (!hasDateSelection || !hasAvailableTime) return;
 
+		// Reset label when date changes (user will re-select a preset if desired)
+		selectedLabel = null;
+
 		// If both hours were prefilled (from drag-select), skip entirely on first load
 		if (skipAutoSelect) {
 			skipAutoSelect = false;
@@ -317,11 +317,13 @@
 		const block = TIME_BLOCKS[blockKey];
 		startHour = parseInt(block.start.split(':')[0]);
 		endHour = parseInt(block.end.split(':')[0]);
+		selectedLabel = blockKey;
 	}
 
 	function applyFullDay() {
 		startHour = DAY_START;
 		endHour = DAY_END;
+		selectedLabel = null;
 	}
 
 	// ============================================================
@@ -351,7 +353,7 @@
 					slotId: selectedSlotId,
 					startTime: getStartTimeStr(),
 					endTime: getEndTimeStr(),
-					label: null,
+					label: selectedLabel,
 					note: note || null
 				})
 			});
@@ -381,14 +383,6 @@
 
 	function formatHour(h: number): string {
 		return `${padH(h)}:00`;
-	}
-
-	function padH(h: number): string {
-		return String(h).padStart(2, '0');
-	}
-
-	function getHour(iso: string): number {
-		return parseInt(iso.split('T')[1]?.substring(0, 2) || '0');
 	}
 
 	function getDayStatus(dateStr: string): string {

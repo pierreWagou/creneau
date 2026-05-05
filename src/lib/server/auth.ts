@@ -1,7 +1,7 @@
 import { hash, verify } from '@node-rs/argon2';
 import { db } from './db';
 import { session, flat } from './db/schema';
-import { eq, and, gt, lt, sql } from 'drizzle-orm';
+import { eq, and, gt, lt } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 
 const SESSION_DURATION_DAYS = 30;
@@ -60,9 +60,4 @@ export async function validateSession(sessionId: string) {
 
 export async function deleteSession(sessionId: string): Promise<void> {
 	await db.delete(session).where(eq(session.id, sessionId));
-}
-
-export async function cleanExpiredSessions(): Promise<void> {
-	const now = new Date().toISOString();
-	await db.delete(session).where(lt(session.expiresAt, now));
 }

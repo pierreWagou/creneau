@@ -5,7 +5,7 @@ import { sseManager } from '$lib/server/sse';
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
 	if (!locals.user) {
-		return json({ error: 'Unauthorized' }, { status: 401 });
+		return json({ error: 'Non autorisé' }, { status: 401 });
 	}
 
 	const bookingId = parseInt(params.id);

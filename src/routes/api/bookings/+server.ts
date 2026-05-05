@@ -5,7 +5,7 @@ import { sseManager } from '$lib/server/sse';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
 	if (!locals.user) {
-		return json({ error: 'Unauthorized' }, { status: 401 });
+		return json({ error: 'Non autorisé' }, { status: 401 });
 	}
 
 	const from = url.searchParams.get('from');
@@ -22,13 +22,13 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) {
-		return json({ error: 'Unauthorized' }, { status: 401 });
+		return json({ error: 'Non autorisé' }, { status: 401 });
 	}
 
 	const { slotId, startTime, endTime, label, note } = await request.json();
 
 	if (!slotId || !startTime || !endTime) {
-		return json({ error: 'Missing required fields' }, { status: 400 });
+		return json({ error: 'Champs requis manquants' }, { status: 400 });
 	}
 
 	const result = await createBooking({
