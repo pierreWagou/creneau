@@ -56,7 +56,13 @@
 		const rawDate = info.dateStr || info.date?.toISOString();
 		if (rawDate) {
 			const date = rawDate.split('T')[0];
-			goto(`/book?date=${date}`);
+			const hour = info.date instanceof Date ? info.date.getHours() : null;
+			const params = new URLSearchParams();
+			params.set('date', date);
+			if (hour !== null && hour >= 0 && hour < 24) {
+				params.set('startHour', String(hour));
+			}
+			goto(`/book?${params.toString()}`);
 		}
 	}
 
@@ -67,8 +73,8 @@
 
 		const startDate = start instanceof Date ? start.toISOString().split('T')[0] : String(start).split('T')[0];
 		const endDate = end instanceof Date ? end.toISOString().split('T')[0] : String(end).split('T')[0];
-		const startHour = start instanceof Date ? start.getHours() : parseInt(String(start).split('T')[1]?.substring(0, 2) || '7');
-		const endHour = end instanceof Date ? end.getHours() : parseInt(String(end).split('T')[1]?.substring(0, 2) || '22');
+		const startHour = start instanceof Date ? start.getHours() : parseInt(String(start).split('T')[1]?.substring(0, 2) || '0');
+		const endHour = end instanceof Date ? end.getHours() : parseInt(String(end).split('T')[1]?.substring(0, 2) || '24');
 
 		const params = new URLSearchParams();
 		params.set('date', startDate);
@@ -91,8 +97,8 @@
 			end: isMobile ? 'dayGridMonth,timeGridDay' : 'dayGridMonth,timeGridWeek,timeGridDay'
 		},
 		locale: 'fr',
-		slotMinTime: '07:00:00',
-		slotMaxTime: '22:00:00',
+		slotMinTime: '00:00:00',
+		slotMaxTime: '24:00:00',
 		slotDuration: '01:00:00',
 		firstDay: 1,
 		nowIndicator: true,

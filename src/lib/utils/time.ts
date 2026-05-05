@@ -1,9 +1,9 @@
 import { DAY_START, DAY_END } from '$lib/types';
 
 export const TIME_BLOCKS = {
-	morning: { start: '07:00', end: '12:00', label: 'Matin' },
+	morning: { start: '06:00', end: '12:00', label: 'Matin' },
 	afternoon: { start: '12:00', end: '18:00', label: 'Après-midi' },
-	evening: { start: '18:00', end: '22:00', label: 'Soirée' }
+	evening: { start: '18:00', end: '24:00', label: 'Soirée' }
 } as const;
 
 export type TimeBlockKey = keyof typeof TIME_BLOCKS;

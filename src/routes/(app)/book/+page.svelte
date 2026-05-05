@@ -220,6 +220,9 @@
 	let multiDaySlotStartH = $derived(multiDayStartHours.length > 0 ? multiDayStartHours[0] : DAY_START);
 	let multiDaySlotEndH = $derived(multiDayEndHoursValid.length > 0 ? multiDayEndHoursValid[multiDayEndHoursValid.length - 1] : DAY_END);
 
+	// Full day preset availability
+	let fullDayAvailable = $derived(isPresetAvailable(startDaySlots, DAY_START, DAY_END));
+
 	let hasAvailableTime = $derived.by(() => {
 		if (!hasDateSelection || loadingSlots) return false;
 		if (multiDay) {
@@ -255,13 +258,27 @@
 	// Auto-select hours
 	// ============================================================
 
-	let hasPrefilledHours = data.prefilledStartHour !== null;
+	let skipAutoSelect = data.prefilledStartHour !== null && data.prefilledEndHour !== null;
+	let needsEndHourFromStart = data.prefilledStartHour !== null && data.prefilledEndHour === null;
+
 	$effect(() => {
 		if (!hasDateSelection || !hasAvailableTime) return;
 
-		// Skip auto-selection on first load if hours were prefilled from URL
-		if (hasPrefilledHours) {
-			hasPrefilledHours = false;
+		// If both hours were prefilled (from drag-select), skip entirely on first load
+		if (skipAutoSelect) {
+			skipAutoSelect = false;
+			return;
+		}
+
+		// If only startHour was prefilled (from click), compute longest end from that hour
+		if (needsEndHourFromStart) {
+			needsEndHourFromStart = false;
+			if (!multiDay && startDaySlots.length > 0) {
+				const slot = startDaySlots.find((s) => s.start <= startHour && s.end > startHour);
+				if (slot) {
+					endHour = slot.end;
+				}
+			}
 			return;
 		}
 
@@ -302,12 +319,9 @@
 		endHour = parseInt(block.end.split(':')[0]);
 	}
 
-	function applyMaxAvailable() {
-		if (startDaySlots.length > 0) {
-			const largest = [...startDaySlots].sort((a, b) => (b.end - b.start) - (a.end - a.start))[0];
-			startHour = largest.start;
-			endHour = largest.end;
-		}
+	function applyFullDay() {
+		startHour = DAY_START;
+		endHour = DAY_END;
 	}
 
 	// ============================================================
@@ -509,35 +523,43 @@
 								></div>
 							</div>
 							<div class="flex justify-between text-[10px] text-muted-foreground px-3">
-								<span>{DAY_START}h</span>
+								<span>0h</span>
+								<span>6h</span>
 								<span>12h</span>
-								<span>17h</span>
-								<span>{DAY_END}h</span>
+								<span>18h</span>
+								<span>24h</span>
 							</div>
 						</div>
 
 						<!-- Quick presets -->
-						<div class="space-y-1.5">
+						<div class="space-y-2">
 							<span class="text-xs text-muted-foreground font-medium">Créneaux rapides</span>
-							<div class="flex gap-2 flex-wrap">
-								{#each Object.entries(TIME_BLOCKS) as [key, block]}
-									{@const presetStart = parseInt(block.start.split(':')[0])}
-									{@const presetEnd = parseInt(block.end.split(':')[0])}
-									{@const available = isPresetAvailable(startDaySlots, presetStart, presetEnd)}
-									<Button
-										variant={available ? 'outline' : 'ghost'}
-										size="sm"
-										class="text-xs {!available ? 'opacity-40 line-through' : ''}"
-										disabled={!available}
-										onclick={() => applyPreset(key as TimeBlockKey)}
-									>
-										{block.label}
-										<span class="ml-1 text-muted-foreground">{block.start}-{block.end}</span>
-									</Button>
-								{/each}
-								<Button variant="outline" size="sm" class="text-xs" onclick={applyMaxAvailable}>
-									Max. dispo
+							<div class="space-y-2">
+								<Button
+									variant={fullDayAvailable ? 'outline' : 'ghost'}
+									size="sm"
+									class="w-full text-xs {!fullDayAvailable ? 'opacity-40 line-through' : ''}"
+									disabled={!fullDayAvailable}
+									onclick={applyFullDay}
+								>
+									Journée entière
 								</Button>
+								<div class="grid grid-cols-3 gap-2">
+									{#each Object.entries(TIME_BLOCKS) as [key, block]}
+										{@const presetStart = parseInt(block.start.split(':')[0])}
+										{@const presetEnd = parseInt(block.end.split(':')[0])}
+										{@const available = isPresetAvailable(startDaySlots, presetStart, presetEnd)}
+										<Button
+											variant={available ? 'outline' : 'ghost'}
+											size="sm"
+											class="text-xs {!available ? 'opacity-40 line-through' : ''}"
+											disabled={!available}
+											onclick={() => applyPreset(key as TimeBlockKey)}
+										>
+											{block.label}
+										</Button>
+									{/each}
+								</div>
 							</div>
 						</div>
 
@@ -606,10 +628,11 @@
 									></div>
 								</div>
 								<div class="flex justify-between text-[10px] text-muted-foreground px-3">
-									<span>{DAY_START}h</span>
+									<span>0h</span>
+									<span>6h</span>
 									<span>12h</span>
-									<span>17h</span>
-									<span>{DAY_END}h</span>
+									<span>18h</span>
+									<span>24h</span>
 								</div>
 							</div>
 							<select bind:value={multiDayStartHour} class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
@@ -646,10 +669,11 @@
 									{/if}
 								</div>
 								<div class="flex justify-between text-[10px] text-muted-foreground px-3">
-									<span>{DAY_START}h</span>
+									<span>0h</span>
+									<span>6h</span>
 									<span>12h</span>
-									<span>17h</span>
-									<span>{DAY_END}h</span>
+									<span>18h</span>
+									<span>24h</span>
 								</div>
 							</div>
 							<select bind:value={multiDayEndHour} class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">

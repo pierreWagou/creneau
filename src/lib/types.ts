@@ -3,10 +3,10 @@
 // ============================================================
 
 /** Start of bookable day (hour) */
-export const DAY_START = 7;
+export const DAY_START = 0;
 
 /** End of bookable day (hour) */
-export const DAY_END = 22;
+export const DAY_END = 24;
 
 /** Total bookable minutes in a day */
 export const DAY_TOTAL_MINUTES = (DAY_END - DAY_START) * 60;
