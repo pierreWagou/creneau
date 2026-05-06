@@ -5,8 +5,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import * as Card from '$lib/components/ui/card';
 	import { toast } from 'svelte-sonner';
-
-	let { data } = $props();
+	import Car from '@lucide/svelte/icons/car';
 
 	let flatNumber = $state('');
 	let pin = $state('');
@@ -38,10 +37,13 @@
 	}
 </script>
 
-<Card.Root>
-	<Card.Header>
-		<Card.Title class="text-2xl">Créneau</Card.Title>
-		<Card.Description>Entrez votre numéro d'appartement et votre code PIN pour accéder au système de réservation.</Card.Description>
+<Card.Root class="shadow-sm">
+	<Card.Header class="text-center pb-2">
+		<div class="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+			<Car class="h-6 w-6 text-primary" />
+		</div>
+		<Card.Title class="text-2xl font-bold tracking-tight">Créneau</Card.Title>
+		<Card.Description>Réservation parking — Metropolitan</Card.Description>
 	</Card.Header>
 	<Card.Content>
 		<form onsubmit={handleLogin} class="space-y-4">
@@ -75,7 +77,7 @@
 	</Card.Content>
 	<Card.Footer class="flex-col gap-2">
 		<p class="text-sm text-muted-foreground">
-			Première fois ? <a href="/activate" class="underline text-primary">Activer mon appartement</a>
+			Première fois ? <a href="/activate" class="underline text-primary font-medium hover:text-primary/80 transition-colors">Activer mon appartement</a>
 		</p>
 	</Card.Footer>
 </Card.Root>

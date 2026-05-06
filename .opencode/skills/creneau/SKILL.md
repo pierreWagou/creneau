@@ -26,16 +26,25 @@ Creneau is a shared parking spot booking app for apartment buildings. See the pr
 |------|---------|
 | `src/lib/types.ts` | `DAY_START`/`DAY_END` constants, `AvailableSlot`, `CalendarDayStatus`, `BookingWithFlat` types |
 | `src/lib/server/availability.ts` | `getAvailableSlots()` — core algorithm, `getCalendarStatuses()` — calendar coloring |
-| `src/lib/server/bookings.ts` | CRUD, `hasConflict()` overlap detection |
+| `src/lib/server/bookings.ts` | CRUD, `hasConflict()` overlap detection, `cancelBooking()` |
 | `src/lib/server/sse.ts` | SSE broadcaster singleton |
-| `src/lib/server/auth.ts` | PIN hashing, session create/validate |
-| `src/lib/server/db/schema.ts` | Drizzle schema: building, flat, slot, booking, session |
+| `src/lib/server/auth.ts` | PIN hashing, session create/validate, shared constants (`SESSION_COOKIE_NAME`, `SESSION_MAX_AGE`, `PIN_MIN_LENGTH`, `PIN_MAX_LENGTH`) |
+| `src/lib/server/db/schema.ts` | Drizzle schema: flat, spot, booking, session |
 | `src/lib/utils/time.ts` | `TIME_BLOCKS`, `padH()`, `getHourFromISO()`, `formatDateISO()` |
+| `src/lib/utils.ts` | `cn()` utility (clsx + tailwind-merge) |
 | `src/routes/(app)/book/+page.svelte` | Booking page (main UX) |
 | `src/routes/(app)/calendar/+page.svelte` | Calendar view (@event-calendar) |
+| `src/routes/(app)/my-bookings/+page.svelte` | User's booking list with SSE updates |
 | `src/routes/api/availability/+server.ts` | `GET` → returns `AvailableSlot[]` for date range + slot |
 | `src/routes/api/calendar-statuses/+server.ts` | `GET` → returns `CalendarDayStatus[]` for calendar coloring |
 | `src/routes/api/bookings/+server.ts` | `GET`/`POST` bookings, broadcasts SSE |
+| `src/routes/api/bookings/[id]/+server.ts` | `DELETE` cancel a booking |
+| `src/routes/api/spots/+server.ts` | `GET`/`POST` parking spots (admin for POST) |
+| `src/routes/api/admin/flats/+server.ts` | `GET`/`POST` flats (admin only) |
+| `src/routes/api/admin/flats/[id]/+server.ts` | `PATCH`/`DELETE` specific flat (admin only) |
+| `src/routes/api/auth/login/+server.ts` | `POST` login with flat number + PIN |
+| `src/routes/api/auth/activate/+server.ts` | `POST` activate a flat with activation code |
+| `src/routes/api/auth/logout/+server.ts` | `POST` logout (clear session) |
 | `src/routes/api/events/+server.ts` | SSE stream endpoint |
 
 ## Availability computation — how it works
@@ -93,18 +102,17 @@ onDestroy(() => { eventSource?.close(); });
 
 ### Pre-filling from URL params
 
-The booking page accepts URL params: `?date=`, `?endDate=`, `?startHour=`, `?endHour=`, `?slotId=`. These are passed from the calendar view when a user clicks/selects a time range.
+The booking page accepts URL params: `?date=`, `?endDate=`, `?startHour=`, `?endHour=`, `?spotId=`. These are passed from the calendar view when a user clicks/selects a time range.
 
 ## Database schema
 
-Five tables (SQLite, WAL mode):
+Four tables (SQLite, WAL mode):
 
 | Table | Key fields |
 |-------|-----------|
-| `building` | id, name |
-| `flat` | id, number (unique), activationCode, pinHash, isAdmin, isActive |
-| `slot` | id, name, description |
-| `booking` | id, slotId (FK), flatId (FK), startTime, endTime, label, note |
+| `flat` | id, number (unique), activationCode, displayName, pinHash, isAdmin, isActive |
+| `spot` | id, name, description |
+| `booking` | id, spotId (FK), flatId (FK), startTime, endTime, note |
 | `session` | id (UUID), flatId (FK), expiresAt |
 
 Bookings store full ISO datetime strings (e.g., `"2026-05-06T14:00:00"`).
@@ -149,4 +157,4 @@ npm run db:migrate     # Apply to local DB
 - **Pre-existing type errors**: The shadcn-svelte calendar component (`src/lib/components/ui/calendar/calendar.svelte`) has 2 TS errors from `bits-ui` type complexity. These are harmless and can be ignored.
 - **Shared utilities**: `padH()`, `getHourFromISO()`, `formatDateISO()` live in `$lib/utils/time.ts`. Always import from there — do NOT create local duplicates.
 - **API error messages**: All user-facing errors are in French. Keep this consistent.
-- **`label` field**: Set automatically from presets (`'morning'`, `'afternoon'`, `'evening'`) or `null` for custom/full-day bookings.
+- **Presets (Matin, Après-midi, Soirée)**: These are UX shortcuts that auto-select hour ranges. They do NOT persist any field — just set startHour/endHour.

@@ -9,12 +9,17 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
 	const from = url.searchParams.get('from');
 	const to = url.searchParams.get('to');
-	const slotId = url.searchParams.get('slotId');
+	const spotId = url.searchParams.get('spotId');
 
 	if (!from || !to) {
 		return json({ error: 'Paramètres from/to requis' }, { status: 400 });
 	}
 
-	const statuses = await getCalendarStatuses(from, to, slotId ? parseInt(slotId) : undefined);
+	const parsedSpotId = spotId ? parseInt(spotId) : undefined;
+	if (spotId && (parsedSpotId === undefined || isNaN(parsedSpotId))) {
+		return json({ error: 'Paramètre spotId invalide' }, { status: 400 });
+	}
+
+	const statuses = await getCalendarStatuses(from, to, parsedSpotId);
 	return json({ statuses });
 };

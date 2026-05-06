@@ -24,9 +24,6 @@ if (existingFlats.length === 0) {
 	// Seed initial data
 	console.log('Seeding initial data...');
 
-	// Create building
-	db.insert(schema.building).values({ name: 'My Building' }).run();
-
 	// Create admin flat
 	const adminCode = 'A1B2';
 	db.insert(schema.flat)
@@ -37,11 +34,11 @@ if (existingFlats.length === 0) {
 		})
 		.run();
 
-	// Create a parking slot
-	db.insert(schema.slot)
+	// Create a parking spot
+	db.insert(schema.spot)
 		.values({
 			name: 'Place 1',
-			description: 'Shared parking spot'
+			description: 'Place de parking partagée'
 		})
 		.run();
 
@@ -52,7 +49,7 @@ if (existingFlats.length === 0) {
 	console.log(`Activation code: ${adminCode}`);
 	console.log('');
 	console.log('Go to /activate and use these credentials to set up your admin account.');
-	console.log('Then use the admin panel to add more flats and parking slots.');
+	console.log('Then use the admin panel to add more flats and parking spots.');
 	console.log('');
 } else {
 	console.log('Database already has data, skipping seed.');

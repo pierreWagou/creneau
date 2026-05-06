@@ -12,29 +12,33 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
 	const flatId = parseInt(params.id);
 	if (isNaN(flatId)) {
-		return json({ error: 'Invalid flat ID' }, { status: 400 });
+		return json({ error: 'Identifiant invalide' }, { status: 400 });
 	}
 
-	const updates = await request.json();
-	const allowedFields: Record<string, unknown> = {};
+	try {
+		const updates = await request.json();
+		const allowedFields: Record<string, unknown> = {};
 
-	if ('isAdmin' in updates) allowedFields.isAdmin = updates.isAdmin;
-	if ('regenerateCode' in updates && updates.regenerateCode) {
-		allowedFields.activationCode = generateActivationCode();
-		allowedFields.isActive = false;
-		allowedFields.pinHash = null;
-		allowedFields.displayName = null;
-		allowedFields.activatedAt = null;
+		if ('isAdmin' in updates) allowedFields.isAdmin = updates.isAdmin;
+		if ('regenerateCode' in updates && updates.regenerateCode) {
+			allowedFields.activationCode = generateActivationCode();
+			allowedFields.isActive = false;
+			allowedFields.pinHash = null;
+			allowedFields.displayName = null;
+			allowedFields.activatedAt = null;
+		}
+
+		if (Object.keys(allowedFields).length === 0) {
+			return json({ error: 'Aucun champ valide à mettre à jour' }, { status: 400 });
+		}
+
+		await db.update(flat).set(allowedFields).where(eq(flat.id, flatId));
+
+		const updated = await db.select().from(flat).where(eq(flat.id, flatId)).get();
+		return json({ flat: updated });
+	} catch {
+		return json({ error: 'Requête invalide' }, { status: 400 });
 	}
-
-	if (Object.keys(allowedFields).length === 0) {
-		return json({ error: 'No valid fields to update' }, { status: 400 });
-	}
-
-	await db.update(flat).set(allowedFields).where(eq(flat.id, flatId));
-
-	const updated = await db.select().from(flat).where(eq(flat.id, flatId)).get();
-	return json({ flat: updated });
 };
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
@@ -44,12 +48,11 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 
 	const flatId = parseInt(params.id);
 	if (isNaN(flatId)) {
-		return json({ error: 'Invalid flat ID' }, { status: 400 });
+		return json({ error: 'Identifiant invalide' }, { status: 400 });
 	}
 
-	// Don't allow deleting yourself
 	if (flatId === locals.user.id) {
-		return json({ error: 'Cannot delete your own flat' }, { status: 400 });
+		return json({ error: 'Impossible de supprimer votre propre appartement' }, { status: 400 });
 	}
 
 	await db.delete(flat).where(eq(flat.id, flatId));

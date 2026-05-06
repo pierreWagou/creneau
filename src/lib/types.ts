@@ -34,11 +34,10 @@ export interface CalendarDayStatus {
 /** Booking data joined with flat info */
 export interface BookingWithFlat {
 	id: number;
-	slotId: number;
+	spotId: number;
 	flatId: number;
 	startTime: string;
 	endTime: string;
-	label: string | null;
 	note: string | null;
 	createdAt: string;
 	flatNumber: string;

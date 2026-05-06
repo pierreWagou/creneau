@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { cancelBooking, getBookingById } from '$lib/server/bookings';
+import { cancelBooking } from '$lib/server/bookings';
 import { sseManager } from '$lib/server/sse';
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
@@ -10,13 +10,13 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 
 	const bookingId = parseInt(params.id);
 	if (isNaN(bookingId)) {
-		return json({ error: 'Invalid booking ID' }, { status: 400 });
+		return json({ error: 'Identifiant de réservation invalide' }, { status: 400 });
 	}
 
 	const result = await cancelBooking(bookingId, locals.user.id, locals.user.isAdmin);
 
 	if (!result.success) {
-		return json({ error: result.error }, { status: result.error === "Vous n'êtes pas autorisé à annuler cette réservation" ? 403 : 404 });
+		return json({ error: result.error }, { status: result.status ?? 400 });
 	}
 
 	// Broadcast cancellation

@@ -11,8 +11,8 @@
 	let { data } = $props();
 
 	let newFlatNumber = $state('');
-	let newSlotName = $state('');
-	let newSlotDescription = $state('');
+	let newSpotName = $state('');
+	let newSpotDescription = $state('');
 
 	async function addFlat() {
 		if (!newFlatNumber.trim()) return;
@@ -33,19 +33,19 @@
 		}
 	}
 
-	async function addSlot() {
-		if (!newSlotName.trim()) return;
+	async function addSpot() {
+		if (!newSpotName.trim()) return;
 
-		const res = await fetch('/api/slots', {
+		const res = await fetch('/api/spots', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ name: newSlotName.trim(), description: newSlotDescription.trim() || null })
+			body: JSON.stringify({ name: newSpotName.trim(), description: newSpotDescription.trim() || null })
 		});
 
 		if (res.ok) {
-			toast.success(`Place "${newSlotName}" ajoutée`);
-			newSlotName = '';
-			newSlotDescription = '';
+			toast.success(`Place "${newSpotName}" ajoutée`);
+			newSpotName = '';
+			newSpotDescription = '';
 			invalidateAll();
 		} else {
 			const result = await res.json();
@@ -110,11 +110,11 @@
 			<Card.Description>Gérez les places de parking disponibles dans votre immeuble.</Card.Description>
 		</Card.Header>
 		<Card.Content class="space-y-4">
-			{#if data.slots.length === 0}
+			{#if data.spots.length === 0}
 				<p class="text-sm text-muted-foreground">Aucune place configurée. Ajoutez votre première place ci-dessous.</p>
 			{:else}
 				<div class="space-y-2">
-					{#each data.slots as s}
+					{#each data.spots as s}
 						<div class="flex items-center justify-between rounded-md border p-3">
 							<div>
 								<p class="font-medium">{s.name}</p>
@@ -132,9 +132,9 @@
 			<div class="space-y-2">
 				<Label>Ajouter une place</Label>
 				<div class="flex gap-2">
-					<Input placeholder="Nom (ex. Place 7)" bind:value={newSlotName} />
-					<Input placeholder="Description (optionnel)" bind:value={newSlotDescription} />
-					<Button onclick={addSlot}>Ajouter</Button>
+					<Input placeholder="Nom (ex. Place 7)" bind:value={newSpotName} />
+					<Input placeholder="Description (optionnel)" bind:value={newSpotDescription} />
+					<Button onclick={addSpot}>Ajouter</Button>
 				</div>
 			</div>
 		</Card.Content>

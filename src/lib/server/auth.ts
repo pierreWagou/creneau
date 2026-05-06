@@ -1,10 +1,15 @@
 import { hash, verify } from '@node-rs/argon2';
 import { db } from './db';
 import { session, flat } from './db/schema';
-import { eq, and, gt, lt } from 'drizzle-orm';
+import { eq, and, gt } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 
 const SESSION_DURATION_DAYS = 30;
+
+export const SESSION_COOKIE_NAME = 'session';
+export const SESSION_MAX_AGE = SESSION_DURATION_DAYS * 24 * 60 * 60; // seconds
+export const PIN_MIN_LENGTH = 4;
+export const PIN_MAX_LENGTH = 6;
 
 export async function hashPin(pin: string): Promise<string> {
 	return await hash(pin);

@@ -10,7 +10,7 @@
 	import { toast } from 'svelte-sonner';
 	import { today, getLocalTimeZone, parseDate, type DateValue } from '@internationalized/date';
 	import { TIME_BLOCKS, type TimeBlockKey, padH, getHourFromISO, formatDateISO } from '$lib/utils/time';
-	import { DAY_START, DAY_END, type AvailableSlot, type CalendarDayStatus } from '$lib/types';
+	import { DAY_START, DAY_END, type AvailableSlot, type CalendarDayStatus, type BookingWithFlat } from '$lib/types';
 
 	let { data } = $props();
 
@@ -20,7 +20,7 @@
 	const TOTAL_HOURS = DAY_END - DAY_START;
 
 	// Form state
-	let selectedSlotId = $state(data.initialSlotId ?? data.slots[0]?.id ?? 0);
+	let selectedSpotId = $state(data.initialSpotId ?? data.spots[0]?.id ?? 0);
 	let calendarValue = $state<{ start: DateValue; end: DateValue } | undefined>(
 		data.prefilledDate
 			? {
@@ -43,6 +43,9 @@
 
 	// Available slots (fetched when user selects dates)
 	let availableSlots = $state<AvailableSlot[]>([]);
+
+	// Bookings for the selected date (for capsule display)
+	let dayBookings = $state<BookingWithFlat[]>([]);
 
 	// SSE for real-time updates
 	let eventSource: EventSource | null = null;
@@ -74,7 +77,7 @@
 		const to = formatDateISO(toDate);
 
 		try {
-			const res = await fetch(`/api/calendar-statuses?from=${from}&to=${to}&slotId=${selectedSlotId}`);
+			const res = await fetch(`/api/calendar-statuses?from=${from}&to=${to}&spotId=${selectedSpotId}`);
 			if (res.ok) {
 				const result = await res.json();
 				calendarStatuses = result.statuses;
@@ -92,28 +95,36 @@
 
 		try {
 			loadingSlots = true;
-			const res = await fetch(`/api/availability?from=${from}&to=${to}&slotId=${selectedSlotId}`);
-			if (res.ok) {
-				const result = await res.json();
+			const [availRes, bookingsRes] = await Promise.all([
+				fetch(`/api/availability?from=${from}&to=${to}&spotId=${selectedSpotId}`),
+				fetch(`/api/bookings?from=${from}&to=${to}&spotId=${selectedSpotId}`)
+			]);
+			if (availRes.ok) {
+				const result = await availRes.json();
 				availableSlots = result.slots;
+			}
+			if (bookingsRes.ok) {
+				const result = await bookingsRes.json();
+				dayBookings = result.bookings;
 			}
 		} catch {
 			availableSlots = [];
+			dayBookings = [];
 		} finally {
 			loadingSlots = false;
 		}
 	}
 
-	// Re-fetch calendar statuses when slot changes
-	let initialSlotId = data.initialSlotId;
-	let isFirstSlotRun = true;
+	// Re-fetch calendar statuses when spot changes
+	let initialSpotId = data.initialSpotId;
+	let isFirstSpotRun = true;
 	$effect(() => {
-		const currentSlotId = selectedSlotId;
-		if (isFirstSlotRun && currentSlotId === initialSlotId) {
-			isFirstSlotRun = false;
+		const currentSpotId = selectedSpotId;
+		if (isFirstSpotRun && currentSpotId === initialSpotId) {
+			isFirstSpotRun = false;
 			return;
 		}
-		isFirstSlotRun = false;
+		isFirstSpotRun = false;
 		refreshCalendarStatuses();
 		if (hasDateSelection) fetchAvailableSlots();
 	});
@@ -233,22 +244,20 @@
 	// We'll fetch bookings inline when needed, or derive from what the page server provides
 	// For the capsule visualization, we'll infer booked ranges from gaps in available slots
 
-	/** Infer booked ranges on a day from the gaps in available slots */
+	/** Get actual bookings for the start day, clipped to day boundaries */
 	let startDayBookedRanges = $derived.by(() => {
 		if (!startDateStr) return [];
-		const daySlots = startDaySlots;
-		const booked: { start: number; end: number }[] = [];
-		let cursor = DAY_START;
-		for (const s of daySlots.sort((a, b) => a.start - b.start)) {
-			if (s.start > cursor) {
-				booked.push({ start: cursor, end: s.start });
-			}
-			cursor = Math.max(cursor, s.end);
-		}
-		if (cursor < DAY_END) {
-			booked.push({ start: cursor, end: DAY_END });
-		}
-		return booked;
+		const dayStart = `${startDateStr}T${padH(DAY_START)}:00:00`;
+		const dayEnd = `${startDateStr}T${padH(DAY_END)}:00:00`;
+
+		return dayBookings
+			.filter((b) => b.startTime < dayEnd && b.endTime > dayStart)
+			.map((b) => ({
+				start: b.startTime <= dayStart ? DAY_START : getHourFromISO(b.startTime),
+				end: b.endTime >= dayEnd ? DAY_END : getHourFromISO(b.endTime),
+				flatNumber: b.flatNumber,
+				note: b.note
+			}));
 	});
 
 	// ============================================================
@@ -350,10 +359,9 @@
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					slotId: selectedSlotId,
+					spotId: selectedSpotId,
 					startTime: getStartTimeStr(),
 					endTime: getEndTimeStr(),
-					label: selectedLabel,
 					note: note || null
 				})
 			});
@@ -402,12 +410,10 @@
 			cells.forEach((cell) => {
 				const dateAttr = cell.getAttribute('data-value');
 				if (!dateAttr) return;
-				(cell as HTMLElement).style.backgroundColor = '';
+				(cell as HTMLElement).removeAttribute('data-booking-status');
 				const status = getDayStatus(dateAttr);
-				if (status === 'full') {
-					(cell as HTMLElement).style.backgroundColor = 'hsl(var(--destructive) / 0.2)';
-				} else if (status === 'partial') {
-					(cell as HTMLElement).style.backgroundColor = 'hsl(30 80% 55% / 0.2)';
+				if (status === 'full' || status === 'partial') {
+					(cell as HTMLElement).setAttribute('data-booking-status', status);
 				}
 			});
 		});
@@ -415,7 +421,7 @@
 </script>
 
 <div class="mx-auto max-w-md space-y-4">
-	<h2 class="text-2xl font-bold">Réserver une place</h2>
+	<h2 class="text-2xl font-bold tracking-tight">Réserver une place</h2>
 
 	<!-- Date selection -->
 	<Card.Root>
@@ -424,11 +430,11 @@
 			<p class="text-sm text-muted-foreground">Sélectionnez un jour ou une plage de dates</p>
 		</Card.Header>
 		<Card.Content class="space-y-3">
-			{#if data.slots.length > 1}
+			{#if data.spots.length > 1}
 				<div class="space-y-2">
-					<Label for="slot">Place de parking</Label>
-					<select id="slot" bind:value={selectedSlotId} class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-						{#each data.slots as s}
+					<Label for="spot">Place de parking</Label>
+					<select id="spot" bind:value={selectedSpotId} class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+						{#each data.spots as s}
 							<option value={s.id}>{s.name}</option>
 						{/each}
 					</select>
@@ -446,10 +452,10 @@
 
 			<div class="flex items-center gap-4 text-xs text-muted-foreground justify-center">
 				<span class="flex items-center gap-1">
-					<span class="h-3 w-3 rounded-sm bg-[hsl(30_80%_55%/0.2)] border"></span> Partiellement réservé
+					<span class="h-3 w-3 rounded-sm bg-accent/40 border border-accent/60"></span> Partiellement réservé
 				</span>
 				<span class="flex items-center gap-1">
-					<span class="h-3 w-3 rounded-sm bg-[hsl(var(--destructive)/0.2)] border"></span> Complet
+					<span class="h-3 w-3 rounded-sm bg-accent/70 border border-accent/80"></span> Complet
 				</span>
 			</div>
 
@@ -503,12 +509,16 @@
 						<!-- Time capsule -->
 						<div class="space-y-1.5">
 							<div class="relative h-10 rounded-[10px] bg-muted border border-border/60 mx-1">
-								<!-- Booked ranges (inferred from gaps) -->
+								<!-- Booked ranges -->
 								{#each startDayBookedRanges as range}
 									<div
-										class="absolute top-[4px] bottom-[4px] rounded-[6px] bg-destructive/15 border border-destructive/25"
+										class="absolute top-[4px] bottom-[4px] rounded-[6px] bg-accent/70 flex items-center justify-center overflow-hidden"
 										style="left: calc({((range.start - DAY_START) / TOTAL_HOURS) * 100}% + 4px); width: calc({((range.end - range.start) / TOTAL_HOURS) * 100}% - 8px);"
-									></div>
+									>
+										<span class="text-[9px] font-medium text-accent-foreground truncate px-1">
+											{range.flatNumber}{range.note ? ` · ${range.note}` : ''}
+										</span>
+									</div>
 								{/each}
 								<!-- User's selection -->
 								<div
@@ -611,7 +621,7 @@
 									<!-- Booked part before the available slot -->
 									{#if multiDaySlotStartH > DAY_START}
 										<div
-											class="absolute top-[3px] bottom-[3px] rounded-[5px] bg-destructive/15 border border-destructive/25"
+											class="absolute top-[3px] bottom-[3px] rounded-[5px] bg-accent/70"
 											style="left: calc(0% + 3px); width: calc({((multiDaySlotStartH - DAY_START) / TOTAL_HOURS) * 100}% - 6px);"
 										></div>
 									{/if}
@@ -657,7 +667,7 @@
 									<!-- Booked part after the available slot -->
 									{#if multiDaySlotEndH < DAY_END}
 										<div
-											class="absolute top-[3px] bottom-[3px] rounded-[5px] bg-destructive/15 border border-destructive/25"
+											class="absolute top-[3px] bottom-[3px] rounded-[5px] bg-accent/70"
 											style="left: calc({((multiDaySlotEndH - DAY_START) / TOTAL_HOURS) * 100}% + 3px); width: calc({((DAY_END - multiDaySlotEndH) / TOTAL_HOURS) * 100}% - 6px);"
 										></div>
 									{/if}
@@ -712,8 +722,8 @@
 						<p><span class="font-medium">Date :</span> {formatDate(startDateStr)}</p>
 						<p><span class="font-medium">Horaire :</span> {formatHour(startHour)} → {formatHour(endHour)}</p>
 					{/if}
-					{#if data.slots.length > 1}
-						<p><span class="font-medium">Place :</span> {data.slots.find((s: { id: number; name: string }) => s.id === selectedSlotId)?.name}</p>
+					{#if data.spots.length > 1}
+						<p><span class="font-medium">Place :</span> {data.spots.find((s: { id: number; name: string }) => s.id === selectedSpotId)?.name}</p>
 					{/if}
 				</div>
 
@@ -729,3 +739,20 @@
 		</Card.Root>
 	{/if}
 </div>
+
+<style>
+	:global([data-booking-status="partial"]:not([data-range-middle]):not([data-range-start]):not([data-range-end])) {
+		background-color: hsl(var(--accent) / 0.4);
+	}
+	:global([data-booking-status="full"]:not([data-range-middle]):not([data-range-start]):not([data-range-end])) {
+		background-color: hsl(var(--accent) / 0.7);
+	}
+	:global([data-booking-status]:not([data-selected]):hover) {
+		background-color: hsl(var(--primary) / 0.15) !important;
+	}
+	:global([data-booking-status][data-range-start]),
+	:global([data-booking-status][data-range-end]) {
+		background-color: hsl(var(--primary)) !important;
+		color: hsl(var(--primary-foreground)) !important;
+	}
+</style>

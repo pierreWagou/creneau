@@ -51,9 +51,9 @@
 	}
 </script>
 
-<Card.Root>
-	<Card.Header>
-		<Card.Title class="text-2xl">Activer votre appartement</Card.Title>
+<Card.Root class="shadow-sm">
+	<Card.Header class="text-center pb-2">
+		<Card.Title class="text-2xl font-bold tracking-tight">Activation</Card.Title>
 		<Card.Description>
 			Entrez le code d'activation fourni par l'administrateur de votre immeuble.
 		</Card.Description>
@@ -124,7 +124,7 @@
 	</Card.Content>
 	<Card.Footer class="flex-col gap-2">
 		<p class="text-sm text-muted-foreground">
-			Déjà activé ? <a href="/login" class="underline text-primary">Se connecter</a>
+			Déjà activé ? <a href="/login" class="underline text-primary font-medium hover:text-primary/80 transition-colors">Se connecter</a>
 		</p>
 	</Card.Footer>
 </Card.Root>

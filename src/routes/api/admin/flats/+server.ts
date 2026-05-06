@@ -30,19 +30,23 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'Accès interdit' }, { status: 403 });
 	}
 
-	const { number } = await request.json();
+	try {
+		const { number } = await request.json();
 
-	if (!number) {
-		return json({ error: 'Flat number is required' }, { status: 400 });
+		if (!number) {
+			return json({ error: "Numéro d'appartement requis" }, { status: 400 });
+		}
+
+		const activationCode = generateActivationCode();
+
+		const result = await db
+			.insert(flat)
+			.values({ number, activationCode })
+			.returning()
+			.get();
+
+		return json({ flat: result }, { status: 201 });
+	} catch {
+		return json({ error: 'Requête invalide' }, { status: 400 });
 	}
-
-	const activationCode = generateActivationCode();
-
-	const result = await db
-		.insert(flat)
-		.values({ number, activationCode })
-		.returning()
-		.get();
-
-	return json({ flat: result }, { status: 201 });
 };

@@ -1,20 +1,13 @@
 CREATE TABLE `booking` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`slot_id` integer NOT NULL,
+	`spot_id` integer NOT NULL,
 	`flat_id` integer NOT NULL,
 	`start_time` text NOT NULL,
 	`end_time` text NOT NULL,
-	`label` text,
 	`note` text,
 	`created_at` text DEFAULT (datetime('now')) NOT NULL,
-	FOREIGN KEY (`slot_id`) REFERENCES `slot`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`spot_id`) REFERENCES `spot`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`flat_id`) REFERENCES `flat`(`id`) ON UPDATE no action ON DELETE no action
-);
---> statement-breakpoint
-CREATE TABLE `building` (
-	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`name` text NOT NULL,
-	`created_at` text DEFAULT (datetime('now')) NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `flat` (
@@ -38,7 +31,7 @@ CREATE TABLE `session` (
 	FOREIGN KEY (`flat_id`) REFERENCES `flat`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE TABLE `slot` (
+CREATE TABLE `spot` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`name` text NOT NULL,
 	`description` text,

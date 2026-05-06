@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import { onMount, onDestroy } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
@@ -8,6 +9,18 @@
 	import { fr } from 'date-fns/locale';
 
 	let { data } = $props();
+
+	let eventSource: EventSource | null = null;
+
+	onMount(() => {
+		eventSource = new EventSource('/api/events');
+		eventSource.addEventListener('booking_cancelled', () => invalidateAll());
+		eventSource.addEventListener('booking_created', () => invalidateAll());
+	});
+
+	onDestroy(() => {
+		eventSource?.close();
+	});
 
 	async function cancelBooking(id: number) {
 		if (!confirm('Êtes-vous sûr de vouloir annuler cette réservation ?')) return;
@@ -45,7 +58,7 @@
 </script>
 
 <div class="space-y-6">
-	<h2 class="text-2xl font-bold">Mes réservations</h2>
+	<h2 class="text-2xl font-bold tracking-tight">Mes réservations</h2>
 
 	{#if upcoming.length === 0 && past.length === 0}
 		<Card.Root>
@@ -67,8 +80,8 @@
 						<div class="space-y-1">
 							<div class="flex items-center gap-2">
 								<p class="font-medium">{formatDateTime(booking.startTime)}</p>
-								{#if booking.label}
-									<Badge variant="secondary">{booking.label}</Badge>
+								{#if booking.note}
+									<Badge variant="secondary">{booking.note}</Badge>
 								{/if}
 							</div>
 							<p class="text-sm text-muted-foreground">
@@ -100,8 +113,8 @@
 						<div class="space-y-1">
 							<div class="flex items-center gap-2">
 								<p class="font-medium">{formatDateTime(booking.startTime)}</p>
-								{#if booking.label}
-									<Badge variant="outline">{booking.label}</Badge>
+								{#if booking.note}
+									<Badge variant="outline">{booking.note}</Badge>
 								{/if}
 							</div>
 							<p class="text-sm text-muted-foreground">

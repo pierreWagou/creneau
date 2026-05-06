@@ -4,33 +4,29 @@ import { eq, and, lt, gt } from 'drizzle-orm';
 import type { BookingWithFlat } from '$lib/types';
 
 export interface CreateBookingInput {
-	slotId: number;
+	spotId: number;
 	flatId: number;
 	startTime: string;
 	endTime: string;
-	label?: string | null;
 	note?: string | null;
 }
 
 /**
- * Check if a booking conflicts with existing bookings on the same slot
+ * Check if a booking conflicts with existing bookings on the same spot
  */
-export async function hasConflict(slotId: number, startTime: string, endTime: string, excludeBookingId?: number): Promise<boolean> {
-	// Get all bookings for this slot that might overlap
+export async function hasConflict(spotId: number, startTime: string, endTime: string, excludeBookingId?: number): Promise<boolean> {
 	const existingBookings = await db
 		.select()
 		.from(booking)
 		.where(
 			and(
-				eq(booking.slotId, slotId),
-				// Potential overlap: existing.start < new.end AND existing.end > new.start
+				eq(booking.spotId, spotId),
 				lt(booking.startTime, endTime),
 				gt(booking.endTime, startTime)
 			)
 		)
 		.all();
 
-	// If we're editing a booking, exclude it from conflict check
 	const filtered = excludeBookingId
 		? existingBookings.filter((b) => b.id !== excludeBookingId)
 		: existingBookings;
@@ -42,32 +38,27 @@ export async function hasConflict(slotId: number, startTime: string, endTime: st
  * Create a new booking after checking for conflicts
  */
 export async function createBooking(input: CreateBookingInput): Promise<{ success: true; booking: BookingWithFlat } | { success: false; error: string }> {
-	// Validate time range
 	if (input.startTime >= input.endTime) {
 		return { success: false, error: "L'heure de fin doit être après l'heure de début" };
 	}
 
-	// Check for simple overlap conflicts
-	const conflict = await hasConflict(input.slotId, input.startTime, input.endTime);
+	const conflict = await hasConflict(input.spotId, input.startTime, input.endTime);
 	if (conflict) {
 		return { success: false, error: 'Ce créneau est déjà réservé' };
 	}
 
-	// Insert booking
 	const result = await db
 		.insert(booking)
 		.values({
-			slotId: input.slotId,
+			spotId: input.spotId,
 			flatId: input.flatId,
 			startTime: input.startTime,
 			endTime: input.endTime,
-			label: input.label ?? null,
 			note: input.note ?? null
 		})
 		.returning()
 		.get();
 
-	// Fetch with flat info
 	const bookingWithFlat = await getBookingById(result.id);
 	if (!bookingWithFlat) {
 		return { success: false, error: 'Impossible de récupérer la réservation' };
@@ -83,11 +74,10 @@ export async function getBookingById(id: number): Promise<BookingWithFlat | null
 	const result = await db
 		.select({
 			id: booking.id,
-			slotId: booking.slotId,
+			spotId: booking.spotId,
 			flatId: booking.flatId,
 			startTime: booking.startTime,
 			endTime: booking.endTime,
-			label: booking.label,
 			note: booking.note,
 			createdAt: booking.createdAt,
 			flatNumber: flat.number,
@@ -104,24 +94,23 @@ export async function getBookingById(id: number): Promise<BookingWithFlat | null
 /**
  * Get bookings in a date range (for calendar display)
  */
-export async function getBookingsInRange(from: string, to: string, slotId?: number): Promise<BookingWithFlat[]> {
+export async function getBookingsInRange(from: string, to: string, spotId?: number): Promise<BookingWithFlat[]> {
 	const conditions = [
 		lt(booking.startTime, to),
 		gt(booking.endTime, from)
 	];
 
-	if (slotId) {
-		conditions.push(eq(booking.slotId, slotId));
+	if (spotId) {
+		conditions.push(eq(booking.spotId, spotId));
 	}
 
 	return await db
 		.select({
 			id: booking.id,
-			slotId: booking.slotId,
+			spotId: booking.spotId,
 			flatId: booking.flatId,
 			startTime: booking.startTime,
 			endTime: booking.endTime,
-			label: booking.label,
 			note: booking.note,
 			createdAt: booking.createdAt,
 			flatNumber: flat.number,
@@ -140,11 +129,10 @@ export async function getBookingsByFlat(flatId: number): Promise<BookingWithFlat
 	return await db
 		.select({
 			id: booking.id,
-			slotId: booking.slotId,
+			spotId: booking.spotId,
 			flatId: booking.flatId,
 			startTime: booking.startTime,
 			endTime: booking.endTime,
-			label: booking.label,
 			note: booking.note,
 			createdAt: booking.createdAt,
 			flatNumber: flat.number,
@@ -159,15 +147,15 @@ export async function getBookingsByFlat(flatId: number): Promise<BookingWithFlat
 /**
  * Cancel a booking (only by owner or admin)
  */
-export async function cancelBooking(bookingId: number, flatId: number, isAdmin: boolean): Promise<{ success: boolean; error?: string }> {
+export async function cancelBooking(bookingId: number, flatId: number, isAdmin: boolean): Promise<{ success: boolean; error?: string; status?: number }> {
 	const existing = await db.select().from(booking).where(eq(booking.id, bookingId)).get();
 
 	if (!existing) {
-		return { success: false, error: 'Réservation introuvable' };
+		return { success: false, error: 'Réservation introuvable', status: 404 };
 	}
 
 	if (existing.flatId !== flatId && !isAdmin) {
-		return { success: false, error: "Vous n'êtes pas autorisé à annuler cette réservation" };
+		return { success: false, error: "Vous n'êtes pas autorisé à annuler cette réservation", status: 403 };
 	}
 
 	await db.delete(booking).where(eq(booking.id, bookingId));

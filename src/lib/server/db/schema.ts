@@ -1,14 +1,6 @@
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
-export const building = sqliteTable('building', {
-	id: integer('id').primaryKey({ autoIncrement: true }),
-	name: text('name').notNull(),
-	createdAt: text('created_at')
-		.notNull()
-		.default(sql`(datetime('now'))`)
-});
-
 export const flat = sqliteTable('flat', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
 	number: text('number').notNull().unique(),
@@ -23,7 +15,7 @@ export const flat = sqliteTable('flat', {
 		.default(sql`(datetime('now'))`)
 });
 
-export const slot = sqliteTable('slot', {
+export const spot = sqliteTable('spot', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
 	name: text('name').notNull(),
 	description: text('description'),
@@ -34,15 +26,14 @@ export const slot = sqliteTable('slot', {
 
 export const booking = sqliteTable('booking', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
-	slotId: integer('slot_id')
+	spotId: integer('spot_id')
 		.notNull()
-		.references(() => slot.id),
+		.references(() => spot.id),
 	flatId: integer('flat_id')
 		.notNull()
 		.references(() => flat.id),
 	startTime: text('start_time').notNull(),
 	endTime: text('end_time').notNull(),
-	label: text('label'), // 'morning', 'afternoon', 'evening', or null for custom
 	note: text('note'),
 	createdAt: text('created_at')
 		.notNull()

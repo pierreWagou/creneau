@@ -3,6 +3,9 @@
 	import { goto } from '$app/navigation';
 	import { Calendar, TimeGrid, DayGrid, List, Interaction } from '@event-calendar/core';
 	import '@event-calendar/core/index.css';
+	import { Button } from '$lib/components/ui/button';
+	import { mode } from 'mode-watcher';
+	import CirclePlus from '@lucide/svelte/icons/circle-plus';
 	import type { BookingWithFlat } from '$lib/types';
 
 	let { data } = $props();
@@ -10,20 +13,54 @@
 	let isMobile = $state(false);
 	let eventSource: EventSource | null = null;
 
-	// Convert bookings to calendar events
-	function bookingsToEvents(bookings: BookingWithFlat[]) {
-		return bookings.map((b) => ({
-			id: String(b.id),
-			start: b.startTime,
-			end: b.endTime,
-			title: `${b.flatDisplayName || b.flatNumber}${b.label ? ` (${b.label})` : ''}`,
-			backgroundColor: b.flatId === data.user.id ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
-			textColor: b.flatId === data.user.id ? 'hsl(var(--primary-foreground))' : 'hsl(var(--background))',
-			extendedProps: { booking: b }
-		}));
+	// Track dark mode for the calendar container class
+	let isDark = $derived(mode.current === 'dark');
+
+	// Catppuccin colors for different apartments (no blue/orange — reserved for primary/accent)
+	const FLAT_COLORS_LIGHT = [
+		'#8839ef', // mauve
+		'#179299', // teal
+		'#e64553', // maroon
+		'#ea76cb', // pink
+		'#40a02b', // green
+		'#df8e1d', // yellow
+		'#7287fd', // lavender
+		'#d20f39', // red
+	];
+	const FLAT_COLORS_DARK = [
+		'#cba6f7', // mauve
+		'#94e2d5', // teal
+		'#eba0ac', // maroon
+		'#f5c2e7', // pink
+		'#a6e3a1', // green
+		'#f9e2af', // yellow
+		'#b4befe', // lavender
+		'#f38ba8', // red
+	];
+
+	function getFlatColor(flatId: number): string {
+		const colors = isDark ? FLAT_COLORS_DARK : FLAT_COLORS_LIGHT;
+		return colors[flatId % colors.length];
 	}
 
-	let events = $state(bookingsToEvents(data.bookings));
+	// Convert bookings to calendar events
+	function bookingsToEvents(bookings: BookingWithFlat[]) {
+		return bookings.map((b) => {
+			const isOwn = b.flatId === data.user.id;
+			return {
+				id: String(b.id),
+				start: b.startTime,
+				end: b.endTime,
+				title: `${b.flatNumber}${b.note ? ` · ${b.note}` : ''}`,
+				backgroundColor: isOwn ? (isDark ? '#89b4fa' : '#1e66f5') : getFlatColor(b.flatId),
+				textColor: isDark ? '#1e1e2e' : '#eff1f5',
+				extendedProps: { booking: b }
+			};
+		});
+	}
+
+	let bookings = $state<BookingWithFlat[]>(data.bookings);
+	let events = $derived(bookingsToEvents(bookings));
 
 	function checkMobile() {
 		isMobile = window.innerWidth < 768;
@@ -37,11 +74,11 @@
 		eventSource = new EventSource('/api/events');
 		eventSource.addEventListener('booking_created', (e) => {
 			const booking = JSON.parse(e.data) as BookingWithFlat;
-			events = [...events, ...bookingsToEvents([booking])];
+			bookings = [...bookings, booking];
 		});
 		eventSource.addEventListener('booking_cancelled', (e) => {
 			const { id } = JSON.parse(e.data);
-			events = events.filter((ev) => ev.id !== String(id));
+			bookings = bookings.filter((b) => b.id !== id);
 		});
 	});
 
@@ -123,15 +160,16 @@
 
 <div class="space-y-4">
 	<div class="flex items-center justify-between">
-		<h2 class="text-2xl font-bold">Planning Parking</h2>
+		<h2 class="text-2xl font-bold tracking-tight">Planning Parking</h2>
 		<a href="/book">
-			<button class="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90">
+			<Button size="sm" class="gap-1.5 cursor-pointer">
+				<CirclePlus class="h-4 w-4" />
 				Réserver
-			</button>
+			</Button>
 		</a>
 	</div>
 
-	{#if data.slots.length === 0}
+	{#if data.spots.length === 0}
 		<div class="rounded-lg border bg-card p-8 text-center">
 			<p class="text-muted-foreground">Aucune place de parking configurée.</p>
 			{#if data.user.isAdmin}
@@ -139,42 +177,121 @@
 			{/if}
 		</div>
 	{:else}
-		<div class="ec-container">
+		<div class="ec-container" class:ec-dark={isDark}>
 			<Calendar {plugins} options={calendarOptions} />
 		</div>
 	{/if}
 </div>
 
 <style>
-	.ec-container {
-		--ec-border-color: hsl(var(--border));
-		--ec-bg-color: hsl(var(--background));
-		--ec-text-color: hsl(var(--foreground));
-		--ec-today-bg-color: hsl(var(--accent));
-		--ec-highlight-color: hsl(var(--primary) / 0.1);
-		--ec-button-bg-color: hsl(var(--secondary));
-		--ec-button-active-bg-color: hsl(var(--primary));
-		--ec-button-active-text-color: hsl(var(--primary-foreground));
-	}
-
-	:global(.ec) {
+	/* Force our palette onto the EC calendar in both light and dark modes.
+	   EC defines vars on .ec — we override on .ec-container .ec for higher specificity. */
+	:global(.ec-container .ec) {
 		font-family: inherit;
 		border-radius: var(--radius);
 		border: 1px solid hsl(var(--border));
+		overflow: hidden;
+
+		/* Core colors */
+		--ec-bg-color: hsl(var(--card));
+		--ec-text-color: hsl(var(--foreground));
+		--ec-border-color: hsl(var(--border));
+		--ec-today-bg-color: hsl(var(--primary) / 0.06);
+		--ec-highlight-color: hsl(var(--primary) / 0.12);
+		--ec-now-indicator-color: hsl(var(--primary));
+		--ec-popup-bg-color: hsl(var(--card));
+
+		/* Events — peach for existing bookings */
+		--ec-event-bg-color: hsl(var(--accent));
+		--ec-event-text-color: hsl(var(--accent-foreground));
+
+		/* Buttons */
+		--ec-button-bg-color: hsl(var(--card));
+		--ec-button-border-color: hsl(var(--border));
+		--ec-button-text-color: hsl(var(--foreground));
+		--ec-button-active-bg-color: hsl(var(--primary));
+		--ec-button-active-border-color: hsl(var(--primary));
+		--ec-button-active-text-color: hsl(var(--primary-foreground));
+
+		/* Grayscale scale mapped to our palette */
+		--ec-color-400: hsl(var(--muted-foreground));
+		--ec-color-300: hsl(var(--border));
+		--ec-color-200: hsl(var(--muted));
+		--ec-color-100: hsl(var(--card));
+		--ec-color-50: hsl(var(--background));
 	}
 
-	:global(.ec-event) {
+	/* Dark mode — override EC's built-in oklch dark values */
+	:global(.ec-dark.ec-container .ec) {
+		color-scheme: dark;
+		--ec-bg-color: hsl(var(--card));
+		--ec-text-color: hsl(var(--foreground));
+		--ec-border-color: hsl(var(--border));
+		--ec-today-bg-color: hsl(var(--primary) / 0.1);
+		--ec-highlight-color: hsl(var(--primary) / 0.18);
+		--ec-now-indicator-color: hsl(var(--primary));
+		--ec-popup-bg-color: hsl(var(--card));
+		--ec-event-bg-color: hsl(var(--accent));
+		--ec-event-text-color: hsl(var(--accent-foreground));
+		--ec-button-bg-color: hsl(var(--card));
+		--ec-button-border-color: hsl(var(--border));
+		--ec-button-text-color: hsl(var(--foreground));
+		--ec-button-active-bg-color: hsl(var(--primary));
+		--ec-button-active-border-color: hsl(var(--primary));
+		--ec-button-active-text-color: hsl(var(--primary-foreground));
+		--ec-color-400: hsl(var(--muted-foreground));
+		--ec-color-300: hsl(var(--border));
+		--ec-color-200: hsl(var(--muted));
+		--ec-color-100: hsl(var(--card));
+		--ec-color-50: hsl(var(--background));
+		--ec-bg-event-opacity: 0.5;
+	}
+
+	:global(.ec-container .ec .ec-event) {
 		border-radius: calc(var(--radius) - 2px);
+		font-size: 0.75rem;
+		font-weight: 500;
+		border: none !important;
+	}
+
+	:global(.ec-container .ec .ec-toolbar) {
+		padding: 0.75rem 1rem;
+	}
+
+	:global(.ec-container .ec .ec-title) {
+		font-size: 1rem;
+		font-weight: 600;
+	}
+
+	:global(.ec-container .ec .ec-button) {
+		border-radius: calc(var(--radius) - 2px);
+		font-size: 0.8rem;
+		font-weight: 500;
+		transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+	}
+
+	:global(.ec-container .ec .ec-button:not(:disabled):hover) {
+		background-color: hsl(var(--muted));
+	}
+
+	:global(.ec-container .ec .ec-button.ec-active:not(:disabled):hover) {
+		background-color: hsl(var(--primary));
+	}
+
+	/* Time slot labels */
+	:global(.ec-container .ec .ec-time) {
+		font-size: 0.7rem;
+		color: hsl(var(--muted-foreground));
+	}
+
+	/* Day headers */
+	:global(.ec-container .ec .ec-day-head) {
 		font-size: 0.75rem;
 		font-weight: 500;
 	}
 
-	:global(.ec-toolbar) {
-		padding: 0.75rem;
-	}
-
-	:global(.ec-button) {
-		border-radius: calc(var(--radius) - 2px);
-		font-size: 0.8rem;
+	/* Scrollbar styling */
+	:global(.ec-container .ec .ec-body) {
+		scrollbar-color: hsl(var(--border)) transparent;
 	}
 </style>

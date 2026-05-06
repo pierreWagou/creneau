@@ -1,5 +1,5 @@
 import { db } from './db';
-import { booking, flat } from './db/schema';
+import { booking } from './db/schema';
 import { eq, and, lt, gt } from 'drizzle-orm';
 import { DAY_START, DAY_END, DAY_TOTAL_MINUTES, type AvailableSlot, type CalendarDayStatus } from '$lib/types';
 import { padH } from '$lib/utils/time';
@@ -25,7 +25,7 @@ const FULL_DAY_TOLERANCE_MINUTES = 30;
 export async function getAvailableSlots(
 	from: string,
 	to: string,
-	slotId: number
+	spotId: number
 ): Promise<AvailableSlot[]> {
 	const fromDateTime = `${from}T${padH(DAY_START)}:00:00`;
 	const toDateTime = `${to}T${padH(DAY_END)}:00:00`;
@@ -39,7 +39,7 @@ export async function getAvailableSlots(
 		.from(booking)
 		.where(
 			and(
-				eq(booking.slotId, slotId),
+				eq(booking.spotId, spotId),
 				lt(booking.startTime, toDateTime),
 				gt(booking.endTime, fromDateTime)
 			)
@@ -171,14 +171,14 @@ function areConsecutiveDays(prevEnd: string, currStart: string): boolean {
 export async function getCalendarStatuses(
 	from: string,
 	to: string,
-	slotId?: number
+	spotId?: number
 ): Promise<CalendarDayStatus[]> {
 	const fromDateTime = `${from}T00:00:00`;
 	const toDateTime = `${to}T23:59:59`;
 
 	const conditions = [lt(booking.startTime, toDateTime), gt(booking.endTime, fromDateTime)];
-	if (slotId) {
-		conditions.push(eq(booking.slotId, slotId));
+	if (spotId) {
+		conditions.push(eq(booking.spotId, spotId));
 	}
 
 	const bookings = await db

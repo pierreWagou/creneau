@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "54cdd6bc-1b67-4072-b4ab-d66ce69b2b86",
+  "id": "8c8cc3a8-7809-4dd5-8e16-b143f7b8f717",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "booking": {
@@ -14,8 +14,8 @@
           "notNull": true,
           "autoincrement": true
         },
-        "slot_id": {
-          "name": "slot_id",
+        "spot_id": {
+          "name": "spot_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
@@ -42,13 +42,6 @@
           "notNull": true,
           "autoincrement": false
         },
-        "label": {
-          "name": "label",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "note": {
           "name": "note",
           "type": "text",
@@ -67,12 +60,12 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "booking_slot_id_slot_id_fk": {
-          "name": "booking_slot_id_slot_id_fk",
+        "booking_spot_id_spot_id_fk": {
+          "name": "booking_spot_id_spot_id_fk",
           "tableFrom": "booking",
-          "tableTo": "slot",
+          "tableTo": "spot",
           "columnsFrom": [
-            "slot_id"
+            "spot_id"
           ],
           "columnsTo": [
             "id"
@@ -94,38 +87,6 @@
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "building": {
-      "name": "building",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(datetime('now'))"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
@@ -267,8 +228,8 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "slot": {
-      "name": "slot",
+    "spot": {
+      "name": "spot",
       "columns": {
         "id": {
           "name": "id",
