@@ -23,7 +23,7 @@
 		"@types/better-sqlite3": "^7.6.13",
 		"drizzle-kit": "^0.31.10",
 		"mode-watcher": "^1.1.0",
-		"svelte": "^5.55.2",
+		"svelte": "^5.55.7",
 		"svelte-check": "^4.4.6",
 		"svelte-sonner": "^1.1.1",
 		"tailwind-variants": "^3.2.2",
