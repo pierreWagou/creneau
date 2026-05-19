@@ -416,7 +416,7 @@
 			<Card.Title>Quand avez-vous besoin de la place ?</Card.Title>
 			<p class="text-sm text-muted-foreground">Sélectionnez un jour ou une plage de dates</p>
 		</Card.Header>
-		<Card.Content class="space-y-3">
+		<Card.Content class="space-y-4">
 			{#if data.spots.length > 1}
 				<div class="space-y-2">
 					<Label for="spot">Place de parking</Label>
@@ -522,11 +522,11 @@
 							</div>
 						</div>
 
-						<!-- Quick presets -->
-						<div class="space-y-2">
-							<span class="text-xs text-muted-foreground font-medium">Créneaux rapides</span>
-							<div class="space-y-2">
-								<Button
+					<!-- Quick presets -->
+					<div class="space-y-2">
+						<span class="text-xs text-muted-foreground font-medium">Créneaux rapides</span>
+						<div class="space-y-3">
+							<Button
 									variant={fullDayAvailable ? 'outline' : 'ghost'}
 									size="sm"
 									class="w-full text-xs {!fullDayAvailable ? 'opacity-40 line-through' : ''}"
@@ -535,7 +535,7 @@
 								>
 									Journée entière
 								</Button>
-								<div class="grid grid-cols-3 gap-2">
+								<div class="grid grid-cols-3 gap-3">
 									{#each Object.entries(TIME_BLOCKS) as [key, block]}
 										{@const presetStart = parseInt(block.start.split(':')[0])}
 										{@const presetEnd = parseInt(block.end.split(':')[0])}
@@ -700,7 +700,7 @@
 			<Card.Header>
 				<Card.Title>Résumé</Card.Title>
 			</Card.Header>
-			<Card.Content class="space-y-3">
+			<Card.Content class="space-y-4">
 				<div class="rounded-md bg-muted p-3 text-sm space-y-1">
 					{#if multiDay}
 						<p><span class="font-medium">Du</span> {formatDate(startDateStr)} à {formatHour(multiDayStartHour)}</p>

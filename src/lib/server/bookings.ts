@@ -2,6 +2,8 @@ import { db } from './db';
 import { booking, flat } from './db/schema';
 import { eq, and, lt, gt } from 'drizzle-orm';
 import type { BookingWithFlat } from '$lib/types';
+import { DAY_START, DAY_END } from '$lib/types';
+import { padH } from '$lib/utils/time';
 
 interface CreateBookingInput {
 	spotId: number;
@@ -98,9 +100,14 @@ export async function createBooking(input: CreateBookingInput): Promise<{ succes
  * Get bookings in a date range (for timeline/calendar)
  */
 export async function getBookingsInRange(from: string, to: string, spotId?: number): Promise<BookingWithFlat[]> {
+	// Expand bare date strings to full datetime boundaries so that
+	// lexicographic comparison against stored ISO datetimes is correct.
+	const rangeStart = from.includes('T') ? from : `${from}T${padH(DAY_START)}:00:00`;
+	const rangeEnd = to.includes('T') ? to : `${to}T${padH(DAY_END)}:00:00`;
+
 	const conditions = [
-		lt(booking.startTime, to),
-		gt(booking.endTime, from)
+		lt(booking.startTime, rangeEnd),
+		gt(booking.endTime, rangeStart)
 	];
 
 	if (spotId) {

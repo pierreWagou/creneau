@@ -271,12 +271,30 @@
 		transition: background-color 0.15s, border-color 0.15s, color 0.15s;
 	}
 
+	/* Add gaps between buttons within button groups */
+	:global(.ec-container .ec .ec-button-group) {
+		gap: 0.375rem;
+	}
+
+	:global(.ec-container .ec .ec-button-group .ec-button:not(:first-child)) {
+		margin-inline-start: 0;
+		border-radius: calc(var(--radius) - 2px);
+	}
+
+	:global(.ec-container .ec .ec-button-group .ec-button:not(:last-child)) {
+		border-radius: calc(var(--radius) - 2px);
+	}
+
 	:global(.ec-container .ec .ec-button:not(:disabled):hover) {
 		background-color: hsl(var(--muted));
+		border-color: hsl(var(--border));
+		color: hsl(var(--foreground));
 	}
 
 	:global(.ec-container .ec .ec-button.ec-active:not(:disabled):hover) {
-		background-color: hsl(var(--primary));
+		background-color: hsl(var(--primary) / 0.85);
+		border-color: hsl(var(--primary) / 0.85);
+		color: hsl(var(--primary-foreground));
 	}
 
 	/* Time slot labels */
