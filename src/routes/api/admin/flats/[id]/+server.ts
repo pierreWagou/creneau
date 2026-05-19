@@ -6,7 +6,7 @@ import { eq } from 'drizzle-orm';
 import { generateActivationCode } from '$lib/server/auth';
 
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
-	if (!locals.user?.isAdmin) {
+	if (!locals.flat?.isAdmin) {
 		return json({ error: 'Accès interdit' }, { status: 403 });
 	}
 
@@ -42,7 +42,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 };
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
-	if (!locals.user?.isAdmin) {
+	if (!locals.flat?.isAdmin) {
 		return json({ error: 'Accès interdit' }, { status: 403 });
 	}
 
@@ -51,7 +51,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 		return json({ error: 'Identifiant invalide' }, { status: 400 });
 	}
 
-	if (flatId === locals.user.id) {
+	if (flatId === locals.flat.id) {
 		return json({ error: 'Impossible de supprimer votre propre appartement' }, { status: 400 });
 	}
 

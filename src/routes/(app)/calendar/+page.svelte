@@ -47,7 +47,7 @@
 	// Convert bookings to calendar events
 	function bookingsToEvents(bookings: BookingWithFlat[]) {
 		return bookings.map((b) => {
-			const isOwn = b.flatId === data.user.id;
+			const isOwn = b.flatId === data.flat.id;
 			return {
 				id: String(b.id),
 				start: b.startTime,
@@ -173,7 +173,7 @@
 	{#if data.spots.length === 0}
 		<div class="rounded-lg border bg-card p-8 text-center">
 			<p class="text-muted-foreground">Aucune place de parking configurée.</p>
-			{#if data.user.isAdmin}
+			{#if data.flat.isAdmin}
 				<p class="mt-2 text-sm text-muted-foreground">Allez dans <a href="/admin" class="underline">Admin</a> pour ajouter des places.</p>
 			{/if}
 		</div>

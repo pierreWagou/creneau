@@ -4,7 +4,7 @@ import { createBooking } from '$lib/server/bookings';
 import { sseManager } from '$lib/server/sse';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	if (!locals.user) {
+	if (!locals.flat) {
 		return json({ error: 'Non autorisé' }, { status: 401 });
 	}
 
@@ -17,7 +17,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 		const result = await createBooking({
 			spotId,
-			flatId: locals.user.id,
+			flatId: locals.flat.id,
 			startTime,
 			endTime,
 			note: note || null

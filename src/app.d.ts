@@ -1,15 +1,12 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
+import type { SessionFlat } from '$lib/types';
+
 declare global {
 	namespace App {
 		// interface Error {}
 		interface Locals {
-			user?: {
-				id: number;
-				number: string;
-				displayName: string | null;
-				isAdmin: boolean;
-			};
+			flat?: SessionFlat;
 		}
 		// interface PageData {}
 		// interface PageState {}

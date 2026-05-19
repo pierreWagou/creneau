@@ -5,7 +5,7 @@ import { flat } from '$lib/server/db/schema';
 import { generateActivationCode } from '$lib/server/auth';
 
 export const GET: RequestHandler = async ({ locals }) => {
-	if (!locals.user?.isAdmin) {
+	if (!locals.flat?.isAdmin) {
 		return json({ error: 'Accès interdit' }, { status: 403 });
 	}
 
@@ -26,7 +26,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 };
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	if (!locals.user?.isAdmin) {
+	if (!locals.flat?.isAdmin) {
 		return json({ error: 'Accès interdit' }, { status: 403 });
 	}
 

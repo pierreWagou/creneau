@@ -4,7 +4,7 @@ import { buildSpotTimeline } from '$lib/server/availability';
 import { getBookingsInRange } from '$lib/server/bookings';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
-	if (!locals.user) {
+	if (!locals.flat) {
 		return json({ error: 'Non autorisé' }, { status: 401 });
 	}
 

@@ -4,7 +4,7 @@ import { sseManager } from '$lib/server/sse';
 import { randomUUID } from 'crypto';
 
 export const GET: RequestHandler = async ({ locals }) => {
-	if (!locals.user) {
+	if (!locals.flat) {
 		return json({ error: 'Non autorisé' }, { status: 401 });
 	}
 

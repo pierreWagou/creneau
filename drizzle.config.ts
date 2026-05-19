@@ -5,6 +5,6 @@ export default defineConfig({
 	out: './drizzle',
 	dialect: 'sqlite',
 	dbCredentials: {
-		url: './data/creneau.db'
+		url: 'file:./data/creneau.db'
 	}
 });

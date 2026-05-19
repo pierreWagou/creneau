@@ -12,6 +12,14 @@ export const DAY_END = 24;
 // Types
 // ============================================================
 
+/** Flat info carried in the session (subset of the full flat record) */
+export interface SessionFlat {
+	id: number;
+	number: string;
+	displayName: string | null;
+	isAdmin: boolean;
+}
+
 /**
  * An available time range for booking.
  * Can span multiple days — consecutive days are merged into a single slot

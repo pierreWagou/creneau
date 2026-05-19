@@ -4,7 +4,7 @@ import { db } from '$lib/server/db';
 import { spot } from '$lib/server/db/schema';
 
 export const GET: RequestHandler = async ({ locals }) => {
-	if (!locals.user) {
+	if (!locals.flat) {
 		return json({ error: 'Non autorisé' }, { status: 401 });
 	}
 
@@ -13,7 +13,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 };
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	if (!locals.user?.isAdmin) {
+	if (!locals.flat?.isAdmin) {
 		return json({ error: 'Accès interdit' }, { status: 403 });
 	}
 

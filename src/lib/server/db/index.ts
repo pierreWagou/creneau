@@ -1,12 +1,14 @@
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import Database from 'better-sqlite3';
+import { drizzle } from 'drizzle-orm/libsql';
+import { createClient } from '@libsql/client';
 import * as schema from './schema';
 import { resolve } from 'path';
 
-const DB_PATH = process.env.DATABASE_URL || resolve('data/creneau.db');
+const DB_PATH = process.env.DATABASE_URL || `file:${resolve('data/creneau.db')}`;
 
-const sqlite = new Database(DB_PATH);
-sqlite.pragma('journal_mode = WAL');
-sqlite.pragma('foreign_keys = ON');
+const client = createClient({ url: DB_PATH });
 
-export const db = drizzle(sqlite, { schema });
+// Enable WAL mode and foreign keys (fire-and-forget; these are idempotent)
+client.execute('PRAGMA journal_mode = WAL');
+client.execute('PRAGMA foreign_keys = ON');
+
+export const db = drizzle(client, { schema });

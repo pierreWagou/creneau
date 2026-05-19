@@ -3,7 +3,7 @@ import type { RequestHandler } from './$types';
 import { getCalendarStatuses } from '$lib/server/availability';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
-	if (!locals.user) {
+	if (!locals.flat) {
 		return json({ error: 'Non autorisé' }, { status: 401 });
 	}
 

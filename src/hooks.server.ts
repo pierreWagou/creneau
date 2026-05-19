@@ -7,7 +7,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	if (sessionId) {
 		const sessionData = await validateSession(sessionId);
 		if (sessionData) {
-			event.locals.user = sessionData.flat;
+			event.locals.flat = sessionData.flat;
 		} else {
 			event.cookies.delete(SESSION_COOKIE_NAME, { path: '/' });
 		}

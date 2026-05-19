@@ -6,6 +6,7 @@
 	import CalendarDays from '@lucide/svelte/icons/calendar-days';
 	import CirclePlus from '@lucide/svelte/icons/circle-plus';
 	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
+	import CircleUser from '@lucide/svelte/icons/circle-user';
 	import LogOut from '@lucide/svelte/icons/log-out';
 	import Sun from '@lucide/svelte/icons/sun';
 	import Moon from '@lucide/svelte/icons/moon';
@@ -15,7 +16,8 @@
 	const navItems = [
 		{ href: '/calendar', label: 'Calendrier', icon: CalendarDays },
 		{ href: '/book', label: 'Réserver', icon: CirclePlus },
-		{ href: '/my-bookings', label: 'Mes réservations', icon: ClipboardList }
+		{ href: '/my-bookings', label: 'Mes réservations', icon: ClipboardList },
+		{ href: '/account', label: 'Compte', icon: CircleUser }
 	];
 
 	async function handleLogout() {
@@ -32,10 +34,10 @@
 				Créneau
 			</a>
 			<div class="flex items-center gap-1">
-				<span class="text-sm font-medium text-muted-foreground mr-1 hidden sm:inline">
-					{data.user.displayName || data.user.number}
-				</span>
-				{#if data.user.isAdmin}
+				<a href="/account" class="text-sm font-medium text-muted-foreground mr-1 hidden sm:inline hover:text-foreground transition-colors">
+					{data.flat.displayName || data.flat.number}
+				</a>
+				{#if data.flat.isAdmin}
 					<a href="/admin">
 						<Button variant="ghost" size="sm">Admin</Button>
 					</a>

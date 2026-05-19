@@ -4,7 +4,7 @@ import { cancelBooking } from '$lib/server/bookings';
 import { sseManager } from '$lib/server/sse';
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
-	if (!locals.user) {
+	if (!locals.flat) {
 		return json({ error: 'Non autorisé' }, { status: 401 });
 	}
 
@@ -14,7 +14,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 	}
 
 	try {
-		const result = await cancelBooking(bookingId, locals.user.id, locals.user.isAdmin);
+		const result = await cancelBooking(bookingId, locals.flat.id, locals.flat.isAdmin);
 
 		if (!result.success) {
 			return json({ error: result.error }, { status: result.status ?? 400 });

@@ -4,7 +4,7 @@ import { db } from '$lib/server/db';
 import { flat, spot } from '$lib/server/db/schema';
 
 export const load: PageServerLoad = async ({ locals }) => {
-	if (!locals.user?.isAdmin) {
+	if (!locals.flat?.isAdmin) {
 		throw redirect(302, '/calendar');
 	}
 

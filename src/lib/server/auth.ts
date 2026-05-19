@@ -4,6 +4,7 @@ import { session, flat } from './db/schema';
 import { eq, and, gt } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import type { Cookies } from '@sveltejs/kit';
+import type { SessionFlat } from '$lib/types';
 
 const SESSION_DURATION_DAYS = 30;
 
@@ -49,7 +50,7 @@ export async function createSession(flatId: number): Promise<string> {
 	return id;
 }
 
-export async function validateSession(sessionId: string) {
+export async function validateSession(sessionId: string): Promise<{ sessionId: string; flat: SessionFlat } | null> {
 	const now = new Date().toISOString();
 
 	const result = await db
