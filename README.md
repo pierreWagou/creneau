@@ -102,6 +102,10 @@ Data is persisted in a named volume (`creneau-data`).
 | ------------------ | --------------------- |
 | Dev server         | `npm run dev`         |
 | Type check         | `npm run check`       |
+| Lint               | `npm run lint`        |
+| Format             | `npm run format`      |
+| Tests              | `npm run test`        |
+| CI check (all)     | `npm run ci`          |
 | Build              | `npm run build`       |
 | Preview prod       | `npm run preview`     |
 | Generate migration | `npm run db:generate` |

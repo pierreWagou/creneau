@@ -8,6 +8,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { RangeCalendar } from '$lib/components/ui/range-calendar';
+	import { CALENDAR_LOOKAHEAD_MONTHS } from '$lib/constants';
 	import { type AvailableSlot, type BookingWithFlat, type CalendarDayStatus, DAY_END, DAY_START } from '$lib/types';
 	import { formatDateISO, getHourFromISO, padH, TIME_BLOCKS, type TimeBlockKey } from '$lib/utils/time';
 
@@ -71,7 +72,7 @@
 	async function refreshCalendarStatuses() {
 		const now = new Date();
 		const from = formatDateISO(new Date(now.getFullYear(), now.getMonth(), 1));
-		const toDate = new Date(now.getFullYear(), now.getMonth() + 3, 0);
+		const toDate = new Date(now.getFullYear(), now.getMonth() + CALENDAR_LOOKAHEAD_MONTHS, 0);
 		const to = formatDateISO(toDate);
 
 		try {

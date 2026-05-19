@@ -28,7 +28,7 @@ Creneau is a shared parking spot booking app for apartment buildings. See the pr
 | `src/lib/server/availability.ts`              | `buildSpotTimeline()` — pure computation (no DB), `getCalendarStatuses()` — calendar coloring                                                |
 | `src/lib/server/bookings.ts`                  | CRUD: `createBooking()`, `getBookingsInRange()`, `getBookingsByFlat()`, `cancelBooking()`                                                    |
 | `src/lib/server/sse.ts`                       | SSE broadcaster singleton                                                                                                                    |
-| `src/lib/server/auth.ts`                      | PIN hashing, session create/validate, `setSessionCookie()`, shared constants                                                                 |
+| `src/lib/server/auth.ts`                      | PIN hashing, session create/validate, `setSessionCookie()`                                                                                   |
 | `src/lib/server/db/schema.ts`                 | Drizzle schema: flat, spot, booking, session                                                                                                 |
 | `src/lib/utils/time.ts`                       | `TIME_BLOCKS`, `padH()`, `getHourFromISO()`, `formatDateISO()`                                                                               |
 | `src/lib/utils.ts`                            | `cn()` utility (clsx + tailwind-merge)                                                                                                       |
@@ -154,6 +154,24 @@ export const DAY_END = 24; // end of day
 ```
 
 These define the bookable window. Changing them adjusts the entire system (calendar view, availability computation, hour dropdowns, presets).
+
+Shared validation/config constants defined in `src/lib/constants.ts`:
+
+```typescript
+export const PIN_MIN_LENGTH = 4;
+export const PIN_MAX_LENGTH = 6;
+export const DISPLAY_NAME_MAX_LENGTH = 50;
+export const CALENDAR_LOOKAHEAD_MONTHS = 3;
+```
+
+## CI/CD, Testing & Hooks
+
+- **Tooling**: Biome (format + lint in one tool), Vitest (tests), Husky (git hooks)
+- **CI** (`.github/workflows/ci.yml`): `biome ci` → `svelte-check` → `vitest run` → `vite build`
+- **CD** (`.github/workflows/deploy.yml`): Builds Docker image on CI success, pushes to `ghcr.io`
+- **Pre-commit** (`.husky/pre-commit`): Runs `biome ci --changed --since=HEAD` + `npm run check`
+- **Tests**: Vitest, config in `vite.config.ts`, test files colocated (`*.test.ts`)
+- **ON DELETE CASCADE**: All FKs (`booking.spotId`, `booking.flatId`, `session.flatId`) cascade on delete
 
 ## Common tasks
 
