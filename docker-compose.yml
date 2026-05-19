@@ -2,7 +2,7 @@ services:
   creneau:
     image: ghcr.io/pierrewagou/creneau:latest
     ports:
-      - "3000:3000"
+      - '3000:3000'
     volumes:
       - creneau-data:/app/data
     environment:

@@ -96,15 +96,15 @@ Data is persisted in a named volume (`creneau-data`).
 
 ## Development
 
-| Action | Command |
-|--------|---------|
-| Dev server | `npm run dev` |
-| Type check | `npm run check` |
-| Build | `npm run build` |
-| Preview prod | `npm run preview` |
+| Action             | Command               |
+| ------------------ | --------------------- |
+| Dev server         | `npm run dev`         |
+| Type check         | `npm run check`       |
+| Build              | `npm run build`       |
+| Preview prod       | `npm run preview`     |
 | Generate migration | `npm run db:generate` |
-| Run migrations | `npm run db:migrate` |
-| Setup DB + seed | `npm run db:setup` |
+| Run migrations     | `npm run db:migrate`  |
+| Setup DB + seed    | `npm run db:setup`    |
 
 ### Key concepts
 
@@ -118,14 +118,14 @@ Data is persisted in a named volume (`creneau-data`).
 
 ## Quick Reference
 
-| Action | Command |
-|--------|---------|
-| Install | `npm install` |
-| Setup DB | `npm run db:setup` |
-| Dev | `npm run dev` |
-| Build | `npm run build` |
-| Type check | `npm run check` |
-| Docker | `docker compose up -d` |
+| Action     | Command                |
+| ---------- | ---------------------- |
+| Install    | `npm install`          |
+| Setup DB   | `npm run db:setup`     |
+| Dev        | `npm run dev`          |
+| Build      | `npm run build`        |
+| Type check | `npm run check`        |
+| Docker     | `docker compose up -d` |
 
 ## License
 

@@ -1,115 +1,115 @@
-@import "tailwindcss";
-@import "tw-animate-css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
-  --color-popover: hsl(var(--popover));
-  --color-popover-foreground: hsl(var(--popover-foreground));
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
-  --color-border: hsl(var(--border));
-  --color-input: hsl(var(--input));
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
-  --color-secondary: hsl(var(--secondary));
-  --color-secondary-foreground: hsl(var(--secondary-foreground));
-  --color-accent: hsl(var(--accent));
-  --color-accent-foreground: hsl(var(--accent-foreground));
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
-  --color-ring: hsl(var(--ring));
-  --color-sidebar: hsl(var(--sidebar));
-  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
-  --color-sidebar-primary: hsl(var(--sidebar-primary));
-  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
-  --color-sidebar-accent: hsl(var(--sidebar-accent));
-  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
-  --color-sidebar-border: hsl(var(--sidebar-border));
-  --color-sidebar-ring: hsl(var(--sidebar-ring));
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+	--font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+	--color-background: hsl(var(--background));
+	--color-foreground: hsl(var(--foreground));
+	--color-muted: hsl(var(--muted));
+	--color-muted-foreground: hsl(var(--muted-foreground));
+	--color-popover: hsl(var(--popover));
+	--color-popover-foreground: hsl(var(--popover-foreground));
+	--color-card: hsl(var(--card));
+	--color-card-foreground: hsl(var(--card-foreground));
+	--color-border: hsl(var(--border));
+	--color-input: hsl(var(--input));
+	--color-primary: hsl(var(--primary));
+	--color-primary-foreground: hsl(var(--primary-foreground));
+	--color-secondary: hsl(var(--secondary));
+	--color-secondary-foreground: hsl(var(--secondary-foreground));
+	--color-accent: hsl(var(--accent));
+	--color-accent-foreground: hsl(var(--accent-foreground));
+	--color-destructive: hsl(var(--destructive));
+	--color-destructive-foreground: hsl(var(--destructive-foreground));
+	--color-ring: hsl(var(--ring));
+	--color-sidebar: hsl(var(--sidebar));
+	--color-sidebar-foreground: hsl(var(--sidebar-foreground));
+	--color-sidebar-primary: hsl(var(--sidebar-primary));
+	--color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+	--color-sidebar-accent: hsl(var(--sidebar-accent));
+	--color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+	--color-sidebar-border: hsl(var(--sidebar-border));
+	--color-sidebar-ring: hsl(var(--sidebar-ring));
+	--radius-sm: calc(var(--radius) - 4px);
+	--radius-md: calc(var(--radius) - 2px);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) + 4px);
 }
 
 @layer base {
-  :root {
-    /* Catppuccin Latte — Blue primary + Peach accent */
-    --background: 220 23% 95%;       /* Base #eff1f5 */
-    --foreground: 234 16% 35%;       /* Text #4c4f69 */
-    --muted: 223 16% 88%;            /* Surface0 #ccd0da */
-    --muted-foreground: 233 10% 47%; /* Subtext0 #6c6f85 */
-    --popover: 220 22% 92%;          /* Mantle #e6e9ef */
-    --popover-foreground: 234 16% 35%;
-    --card: 220 22% 92%;             /* Mantle #e6e9ef */
-    --card-foreground: 234 16% 35%;
-    --border: 225 14% 82%;           /* Surface1 #bcc0cc */
-    --input: 225 14% 82%;
-    --primary: 220 91% 54%;          /* Blue #1e66f5 */
-    --primary-foreground: 220 23% 95%;
-    --secondary: 223 16% 88%;        /* Surface0 */
-    --secondary-foreground: 234 16% 35%;
-    --accent: 22 99% 52%;            /* Peach #fe640b */
-    --accent-foreground: 220 23% 95%;
-    --destructive: 347 87% 44%;      /* Red #d20f39 */
-    --destructive-foreground: 220 23% 95%;
-    --ring: 220 91% 54%;
-    --radius: 0.625rem;
-    --sidebar: 220 22% 92%;
-    --sidebar-foreground: 234 16% 35%;
-    --sidebar-primary: 220 91% 54%;
-    --sidebar-primary-foreground: 220 23% 95%;
-    --sidebar-accent: 223 16% 88%;
-    --sidebar-accent-foreground: 234 16% 35%;
-    --sidebar-border: 225 14% 82%;
-    --sidebar-ring: 220 91% 54%;
-  }
+	:root {
+		/* Catppuccin Latte — Blue primary + Peach accent */
+		--background: 220 23% 95%; /* Base #eff1f5 */
+		--foreground: 234 16% 35%; /* Text #4c4f69 */
+		--muted: 223 16% 88%; /* Surface0 #ccd0da */
+		--muted-foreground: 233 10% 47%; /* Subtext0 #6c6f85 */
+		--popover: 220 22% 92%; /* Mantle #e6e9ef */
+		--popover-foreground: 234 16% 35%;
+		--card: 220 22% 92%; /* Mantle #e6e9ef */
+		--card-foreground: 234 16% 35%;
+		--border: 225 14% 82%; /* Surface1 #bcc0cc */
+		--input: 225 14% 82%;
+		--primary: 220 91% 54%; /* Blue #1e66f5 */
+		--primary-foreground: 220 23% 95%;
+		--secondary: 223 16% 88%; /* Surface0 */
+		--secondary-foreground: 234 16% 35%;
+		--accent: 22 99% 52%; /* Peach #fe640b */
+		--accent-foreground: 220 23% 95%;
+		--destructive: 347 87% 44%; /* Red #d20f39 */
+		--destructive-foreground: 220 23% 95%;
+		--ring: 220 91% 54%;
+		--radius: 0.625rem;
+		--sidebar: 220 22% 92%;
+		--sidebar-foreground: 234 16% 35%;
+		--sidebar-primary: 220 91% 54%;
+		--sidebar-primary-foreground: 220 23% 95%;
+		--sidebar-accent: 223 16% 88%;
+		--sidebar-accent-foreground: 234 16% 35%;
+		--sidebar-border: 225 14% 82%;
+		--sidebar-ring: 220 91% 54%;
+	}
 
-  .dark {
-    /* Catppuccin Mocha — Blue primary + Peach accent */
-    --background: 240 21% 15%;       /* Base #1e1e2e */
-    --foreground: 226 64% 88%;       /* Text #cdd6f4 */
-    --muted: 237 16% 23%;            /* Surface0 #313244 */
-    --muted-foreground: 228 24% 72%; /* Subtext1 #a6adc8 */
-    --popover: 240 21% 12%;          /* Mantle #181825 */
-    --popover-foreground: 226 64% 88%;
-    --card: 240 21% 12%;             /* Mantle #181825 */
-    --card-foreground: 226 64% 88%;
-    --border: 236 16% 28%;           /* Surface1 #45475a */
-    --input: 236 16% 28%;
-    --primary: 217 92% 76%;          /* Blue #89b4fa */
-    --primary-foreground: 240 21% 15%;
-    --secondary: 237 16% 23%;        /* Surface0 */
-    --secondary-foreground: 226 64% 88%;
-    --accent: 23 92% 75%;            /* Peach #fab387 */
-    --accent-foreground: 240 21% 15%;
-    --destructive: 343 81% 75%;      /* Red #f38ba8 */
-    --destructive-foreground: 240 21% 15%;
-    --ring: 217 92% 76%;
-    --sidebar: 240 21% 12%;
-    --sidebar-foreground: 226 64% 88%;
-    --sidebar-primary: 217 92% 76%;
-    --sidebar-primary-foreground: 240 21% 15%;
-    --sidebar-accent: 237 16% 23%;
-    --sidebar-accent-foreground: 226 64% 88%;
-    --sidebar-border: 236 16% 28%;
-    --sidebar-ring: 217 92% 76%;
-  }
+	.dark {
+		/* Catppuccin Mocha — Blue primary + Peach accent */
+		--background: 240 21% 15%; /* Base #1e1e2e */
+		--foreground: 226 64% 88%; /* Text #cdd6f4 */
+		--muted: 237 16% 23%; /* Surface0 #313244 */
+		--muted-foreground: 228 24% 72%; /* Subtext1 #a6adc8 */
+		--popover: 240 21% 12%; /* Mantle #181825 */
+		--popover-foreground: 226 64% 88%;
+		--card: 240 21% 12%; /* Mantle #181825 */
+		--card-foreground: 226 64% 88%;
+		--border: 236 16% 28%; /* Surface1 #45475a */
+		--input: 236 16% 28%;
+		--primary: 217 92% 76%; /* Blue #89b4fa */
+		--primary-foreground: 240 21% 15%;
+		--secondary: 237 16% 23%; /* Surface0 */
+		--secondary-foreground: 226 64% 88%;
+		--accent: 23 92% 75%; /* Peach #fab387 */
+		--accent-foreground: 240 21% 15%;
+		--destructive: 343 81% 75%; /* Red #f38ba8 */
+		--destructive-foreground: 240 21% 15%;
+		--ring: 217 92% 76%;
+		--sidebar: 240 21% 12%;
+		--sidebar-foreground: 226 64% 88%;
+		--sidebar-primary: 217 92% 76%;
+		--sidebar-primary-foreground: 240 21% 15%;
+		--sidebar-accent: 237 16% 23%;
+		--sidebar-accent-foreground: 226 64% 88%;
+		--sidebar-border: 236 16% 28%;
+		--sidebar-ring: 217 92% 76%;
+	}
 }
 
 @layer base {
-  * {
-    border-color: hsl(var(--border));
-  }
-  body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
-    font-family: var(--font-sans);
-  }
+	* {
+		border-color: hsl(var(--border));
+	}
+	body {
+		background-color: hsl(var(--background));
+		color: hsl(var(--foreground));
+		font-family: var(--font-sans);
+	}
 }

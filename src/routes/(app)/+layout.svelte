@@ -21,9 +21,9 @@
 
 <div class="flex min-h-svh flex-col">
 	<!-- En-tête -->
-	<header class="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+	<header class="bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-0 z-40 border-b backdrop-blur">
 		<div class="flex h-14 items-center justify-between px-4">
-			<a href="/calendar" class="text-lg font-bold tracking-tight text-primary hover:opacity-80 transition-opacity">
+			<a href="/calendar" class="text-primary text-lg font-bold tracking-tight transition-opacity hover:opacity-80">
 				Créneau
 			</a>
 			<div class="flex items-center gap-1">
@@ -40,7 +40,7 @@
 					{/if}
 				</Button>
 				<a href="/account">
-					<Button variant="ghost" size="sm" class="gap-1.5 font-semibold text-foreground">
+					<Button variant="ghost" size="sm" class="text-foreground gap-1.5 font-semibold">
 						<CircleUser class="h-4 w-4" />
 						<span class="hidden sm:inline">{data.flat.displayName || data.flat.number}</span>
 					</Button>
@@ -55,12 +55,17 @@
 	</main>
 
 	<!-- Navigation mobile -->
-	<nav class="sticky bottom-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:hidden">
+	<nav
+		class="bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky bottom-0 z-40 border-t backdrop-blur md:hidden"
+	>
 		<div class="flex items-center justify-around py-2">
 			{#each navItems as item}
 				<a
 					href={item.href}
-					class="flex flex-col items-center gap-1 px-3 py-1.5 text-xs font-medium transition-colors {$page.url.pathname === item.href ? 'text-primary' : 'text-muted-foreground'}"
+					class="flex flex-col items-center gap-1 px-3 py-1.5 text-xs font-medium transition-colors {$page.url
+						.pathname === item.href
+						? 'text-primary'
+						: 'text-muted-foreground'}"
 				>
 					<item.icon class="h-5 w-5" />
 					<span>{item.label}</span>

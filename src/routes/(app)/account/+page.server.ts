@@ -10,11 +10,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const flatInfo = await db.select().from(flat).where(eq(flat.id, sessionFlat.id)).get();
 
 	// Count total bookings
-	const allBookings = await db
-		.select({ id: booking.id })
-		.from(booking)
-		.where(eq(booking.flatId, sessionFlat.id))
-		.all();
+	const allBookings = await db.select({ id: booking.id }).from(booking).where(eq(booking.flatId, sessionFlat.id)).all();
 
 	// Count upcoming bookings (endTime > now)
 	const now = new Date().toISOString();

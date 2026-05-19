@@ -45,15 +45,11 @@
 
 	// Séparer en à venir et passées
 	const upcoming = $derived(
-		data.bookings
-			.filter((b) => !isPast(parseISO(b.endTime)))
-			.sort((a, b) => a.startTime.localeCompare(b.startTime))
+		data.bookings.filter((b) => !isPast(parseISO(b.endTime))).sort((a, b) => a.startTime.localeCompare(b.startTime))
 	);
 
 	const past = $derived(
-		data.bookings
-			.filter((b) => isPast(parseISO(b.endTime)))
-			.sort((a, b) => b.startTime.localeCompare(a.startTime))
+		data.bookings.filter((b) => isPast(parseISO(b.endTime))).sort((a, b) => b.startTime.localeCompare(a.startTime))
 	);
 </script>
 
@@ -84,20 +80,14 @@
 									<Badge variant="secondary">{booking.note}</Badge>
 								{/if}
 							</div>
-							<p class="text-sm text-muted-foreground">
+							<p class="text-muted-foreground text-sm">
 								jusqu'au {formatDateTime(booking.endTime)}
 							</p>
 							{#if booking.note}
-								<p class="text-sm text-muted-foreground italic">{booking.note}</p>
+								<p class="text-muted-foreground text-sm italic">{booking.note}</p>
 							{/if}
 						</div>
-						<Button
-							variant="destructive"
-							size="sm"
-							onclick={() => cancelBooking(booking.id)}
-						>
-							Annuler
-						</Button>
+						<Button variant="destructive" size="sm" onclick={() => cancelBooking(booking.id)}>Annuler</Button>
 					</Card.Content>
 				</Card.Root>
 			{/each}
@@ -106,7 +96,7 @@
 
 	{#if past.length > 0}
 		<div class="space-y-3">
-			<h3 class="text-lg font-semibold text-muted-foreground">Passées</h3>
+			<h3 class="text-muted-foreground text-lg font-semibold">Passées</h3>
 			{#each past as booking}
 				<Card.Root class="opacity-60">
 					<Card.Content class="p-4">
@@ -117,7 +107,7 @@
 									<Badge variant="outline">{booking.note}</Badge>
 								{/if}
 							</div>
-							<p class="text-sm text-muted-foreground">
+							<p class="text-muted-foreground text-sm">
 								jusqu'au {formatDateTime(booking.endTime)}
 							</p>
 						</div>

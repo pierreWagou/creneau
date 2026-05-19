@@ -4,7 +4,7 @@ import { db } from '$lib/server/db';
 import { spot } from '$lib/server/db/schema';
 import { startOfWeek, endOfWeek, addWeeks, format } from 'date-fns';
 
-export const load: PageServerLoad = async ({ url }) => {
+export const load: PageServerLoad = async () => {
 	const now = new Date();
 	// Show current week + next 3 weeks by default
 	const from = format(startOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd'T'00:00:00");

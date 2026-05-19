@@ -52,23 +52,15 @@
 </script>
 
 <Card.Root class="shadow-sm">
-	<Card.Header class="text-center pb-2">
+	<Card.Header class="pb-2 text-center">
 		<Card.Title class="text-2xl font-bold tracking-tight">Activation</Card.Title>
-		<Card.Description>
-			Entrez le code d'activation fourni par l'administrateur de votre immeuble.
-		</Card.Description>
+		<Card.Description>Entrez le code d'activation fourni par l'administrateur de votre immeuble.</Card.Description>
 	</Card.Header>
 	<Card.Content>
 		<form onsubmit={handleActivate} class="space-y-4">
 			<div class="space-y-2">
 				<Label for="flat">Numéro d'appartement</Label>
-				<Input
-					id="flat"
-					type="text"
-					placeholder="ex. 3B"
-					bind:value={flatNumber}
-					required
-				/>
+				<Input id="flat" type="text" placeholder="ex. 3B" bind:value={flatNumber} required />
 			</div>
 			<div class="space-y-2">
 				<Label for="code">Code d'activation</Label>
@@ -84,12 +76,7 @@
 			</div>
 			<div class="space-y-2">
 				<Label for="name">Votre prénom (optionnel)</Label>
-				<Input
-					id="name"
-					type="text"
-					placeholder="ex. Marc"
-					bind:value={displayName}
-				/>
+				<Input id="name" type="text" placeholder="ex. Marc" bind:value={displayName} />
 			</div>
 			<div class="space-y-2">
 				<Label for="pin">Choisir un code PIN</Label>
@@ -123,8 +110,10 @@
 		</form>
 	</Card.Content>
 	<Card.Footer class="flex-col gap-2">
-		<p class="text-sm text-muted-foreground">
-			Déjà activé ? <a href="/login" class="underline text-primary font-medium hover:text-primary/80 transition-colors">Se connecter</a>
+		<p class="text-muted-foreground text-sm">
+			Déjà activé ? <a href="/login" class="text-primary hover:text-primary/80 font-medium underline transition-colors"
+				>Se connecter</a
+			>
 		</p>
 	</Card.Footer>
 </Card.Root>

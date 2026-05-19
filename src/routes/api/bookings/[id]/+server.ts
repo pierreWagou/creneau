@@ -23,6 +23,6 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 		sseManager.broadcast('booking_cancelled', { id: bookingId });
 		return json({ success: true });
 	} catch {
-		return json({ error: 'Erreur lors de l\'annulation' }, { status: 500 });
+		return json({ error: "Erreur lors de l'annulation" }, { status: 500 });
 	}
 };

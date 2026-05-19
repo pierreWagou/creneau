@@ -26,10 +26,10 @@
 	let pinMismatch = $derived(newPin.length > 0 && confirmPin.length > 0 && newPin !== confirmPin);
 	let pinValid = $derived(
 		newPin.length >= PIN_MIN_LENGTH &&
-		newPin.length <= PIN_MAX_LENGTH &&
-		/^\d+$/.test(newPin) &&
-		newPin === confirmPin &&
-		currentPin.length >= PIN_MIN_LENGTH
+			newPin.length <= PIN_MAX_LENGTH &&
+			/^\d+$/.test(newPin) &&
+			newPin === confirmPin &&
+			currentPin.length >= PIN_MIN_LENGTH
 	);
 
 	async function saveDisplayName() {
@@ -97,7 +97,7 @@
 				{/if}
 			</Card.Title>
 			{#if data.flat.activatedAt}
-				<p class="text-sm text-muted-foreground">
+				<p class="text-muted-foreground text-sm">
 					Activé le {new Date(data.flat.activatedAt).toLocaleDateString('fr-FR')}
 				</p>
 			{/if}
@@ -113,18 +113,11 @@
 						bind:value={displayName}
 						maxlength={50}
 					/>
-					<Button
-						size="sm"
-						disabled={savingName}
-						onclick={saveDisplayName}
-						class="shrink-0"
-					>
+					<Button size="sm" disabled={savingName} onclick={saveDisplayName} class="shrink-0">
 						{savingName ? '...' : 'Enregistrer'}
 					</Button>
 				</div>
-				<p class="text-xs text-muted-foreground">
-					Ce nom sera visible par les autres résidents sur le calendrier.
-				</p>
+				<p class="text-muted-foreground text-xs">Ce nom sera visible par les autres résidents sur le calendrier.</p>
 			</div>
 		</Card.Content>
 	</Card.Root>
@@ -138,11 +131,11 @@
 			<div class="grid grid-cols-2 gap-4">
 				<div class="text-center">
 					<p class="text-2xl font-bold">{data.stats.upcomingBookings}</p>
-					<p class="text-xs text-muted-foreground">À venir</p>
+					<p class="text-muted-foreground text-xs">À venir</p>
 				</div>
 				<div class="text-center">
 					<p class="text-2xl font-bold">{data.stats.totalBookings}</p>
-					<p class="text-xs text-muted-foreground">Total</p>
+					<p class="text-muted-foreground text-xs">Total</p>
 				</div>
 			</div>
 		</Card.Content>
@@ -152,7 +145,7 @@
 	<Card.Root>
 		<Card.Header>
 			<Card.Title>Changer le PIN</Card.Title>
-			<p class="text-sm text-muted-foreground">Votre PIN sécurise l'accès à votre compte</p>
+			<p class="text-muted-foreground text-sm">Votre PIN sécurise l'accès à votre compte</p>
 		</Card.Header>
 		<Card.Content class="space-y-4">
 			<div class="space-y-2">
@@ -192,7 +185,7 @@
 					maxlength={PIN_MAX_LENGTH}
 				/>
 				{#if pinMismatch}
-					<p class="text-xs text-destructive">Les PINs ne correspondent pas</p>
+					<p class="text-destructive text-xs">Les PINs ne correspondent pas</p>
 				{/if}
 			</div>
 
@@ -205,9 +198,7 @@
 	<!-- Logout -->
 	<Card.Root>
 		<Card.Content class="py-4">
-			<Button variant="outline" class="w-full text-destructive" onclick={handleLogout}>
-				Se déconnecter
-			</Button>
+			<Button variant="outline" class="text-destructive w-full" onclick={handleLogout}>Se déconnecter</Button>
 		</Card.Content>
 	</Card.Root>
 </div>

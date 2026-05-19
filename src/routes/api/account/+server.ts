@@ -53,7 +53,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		}
 
 		if (newPin.length < PIN_MIN_LENGTH || newPin.length > PIN_MAX_LENGTH) {
-			return json({ error: `Le PIN doit contenir entre ${PIN_MIN_LENGTH} et ${PIN_MAX_LENGTH} chiffres` }, { status: 400 });
+			return json(
+				{ error: `Le PIN doit contenir entre ${PIN_MIN_LENGTH} et ${PIN_MAX_LENGTH} chiffres` },
+				{ status: 400 }
+			);
 		}
 
 		if (!/^\d+$/.test(newPin)) {

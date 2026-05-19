@@ -54,7 +54,7 @@
 	}
 
 	async function regenerateCode(flatId: number) {
-		if (!confirm('Cela va désactiver l\'appartement et générer un nouveau code. Continuer ?')) return;
+		if (!confirm("Cela va désactiver l'appartement et générer un nouveau code. Continuer ?")) return;
 
 		const res = await fetch(`/api/admin/flats/${flatId}`, {
 			method: 'PATCH',
@@ -111,7 +111,7 @@
 		</Card.Header>
 		<Card.Content class="space-y-4">
 			{#if data.spots.length === 0}
-				<p class="text-sm text-muted-foreground">Aucune place configurée. Ajoutez votre première place ci-dessous.</p>
+				<p class="text-muted-foreground text-sm">Aucune place configurée. Ajoutez votre première place ci-dessous.</p>
 			{:else}
 				<div class="space-y-2">
 					{#each data.spots as s}
@@ -119,7 +119,7 @@
 							<div>
 								<p class="font-medium">{s.name}</p>
 								{#if s.description}
-									<p class="text-sm text-muted-foreground">{s.description}</p>
+									<p class="text-muted-foreground text-sm">{s.description}</p>
 								{/if}
 							</div>
 						</div>
@@ -154,7 +154,7 @@
 							<div class="flex items-center gap-2">
 								<span class="font-medium">{f.number}</span>
 								{#if f.displayName}
-									<span class="text-sm text-muted-foreground">({f.displayName})</span>
+									<span class="text-muted-foreground text-sm">({f.displayName})</span>
 								{/if}
 								{#if f.isAdmin}
 									<Badge>Admin</Badge>
@@ -165,7 +165,7 @@
 									<Badge variant="outline">Inactif</Badge>
 								{/if}
 							</div>
-							<p class="text-xs font-mono text-muted-foreground">
+							<p class="text-muted-foreground font-mono text-xs">
 								Code : {f.activationCode}
 							</p>
 						</div>
@@ -173,12 +173,8 @@
 							<Button size="sm" variant="ghost" onclick={() => toggleAdmin(f.id, f.isAdmin)}>
 								{f.isAdmin ? 'Retirer admin' : 'Rendre admin'}
 							</Button>
-							<Button size="sm" variant="ghost" onclick={() => regenerateCode(f.id)}>
-								Réinitialiser
-							</Button>
-							<Button size="sm" variant="destructive" onclick={() => deleteFlat(f.id)}>
-								Supprimer
-							</Button>
+							<Button size="sm" variant="ghost" onclick={() => regenerateCode(f.id)}>Réinitialiser</Button>
+							<Button size="sm" variant="destructive" onclick={() => deleteFlat(f.id)}>Supprimer</Button>
 						</div>
 					</div>
 				{/each}
@@ -192,7 +188,9 @@
 					<Input placeholder="Numéro (ex. 3B)" bind:value={newFlatNumber} />
 					<Button onclick={addFlat}>Ajouter</Button>
 				</div>
-				<p class="text-xs text-muted-foreground">Un code d'activation sera généré automatiquement. Partagez-le avec le voisin.</p>
+				<p class="text-muted-foreground text-xs">
+					Un code d'activation sera généré automatiquement. Partagez-le avec le voisin.
+				</p>
 			</div>
 		</Card.Content>
 	</Card.Root>

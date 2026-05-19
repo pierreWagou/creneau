@@ -7,12 +7,12 @@
 	let { children } = $props();
 </script>
 
-<div class="relative flex min-h-svh items-center justify-center bg-muted/50 p-4">
+<div class="bg-muted/50 relative flex min-h-svh items-center justify-center p-4">
 	<Button
 		variant="ghost"
 		size="sm"
 		onclick={toggleMode}
-		class="absolute top-4 right-4 text-muted-foreground h-8 w-8 p-0"
+		class="text-muted-foreground absolute top-4 right-4 h-8 w-8 p-0"
 	>
 		{#if mode.current === 'dark'}
 			<Sun class="h-4 w-4" />

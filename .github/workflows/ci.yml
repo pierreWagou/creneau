@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  check:
+  ci:
     runs-on: ubuntu-latest
 
     steps:
@@ -23,8 +23,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check formatting
+        run: npx prettier --check .
+
+      - name: Lint
+        run: npx eslint .
+
       - name: Type check
         run: npm run check
+
+      - name: Test
+        run: npx vitest run
 
       - name: Build
         run: npm run build

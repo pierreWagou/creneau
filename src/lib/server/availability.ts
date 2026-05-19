@@ -1,4 +1,12 @@
-import { DAY_START, DAY_END, type AvailableSlot, type CalendarDayStatus, type SpotTimeline, type BookingWithFlat, getTimelineStatus } from '$lib/types';
+import {
+	DAY_START,
+	DAY_END,
+	type AvailableSlot,
+	type CalendarDayStatus,
+	type SpotTimeline,
+	type BookingWithFlat,
+	getTimelineStatus
+} from '$lib/types';
 import { padH } from '$lib/utils/time';
 import { getBookingsInRange } from './bookings';
 
@@ -18,11 +26,7 @@ const BRIDGE_TOLERANCE_MS = 1000;
  * Pure function — no DB access. Computes available slots by subtracting
  * bookings from the bookable timeline.
  */
-export function buildSpotTimeline(
-	bookings: BookingWithFlat[],
-	from: string,
-	to: string
-): SpotTimeline {
+export function buildSpotTimeline(bookings: BookingWithFlat[], from: string, to: string): SpotTimeline {
 	const timeline = buildBookableTimeline(from, to);
 	const bookingIntervals = bookings.map((b) => ({ startTime: b.startTime, endTime: b.endTime }));
 	const freeIntervals = subtractBookings(timeline, bookingIntervals);
@@ -42,11 +46,7 @@ export function buildSpotTimeline(
  * - Bookings but available slots remain → 'partial'
  * - No available slots → 'full'
  */
-export async function getCalendarStatuses(
-	from: string,
-	to: string,
-	spotId?: number
-): Promise<CalendarDayStatus[]> {
+export async function getCalendarStatuses(from: string, to: string, spotId?: number): Promise<CalendarDayStatus[]> {
 	const allBookings = await getBookingsInRange(from, to, spotId);
 
 	const statuses: CalendarDayStatus[] = [];
@@ -59,9 +59,7 @@ export async function getCalendarStatuses(
 		const dayEndStr = `${dateStr}T${padH(DAY_END)}:00:00`;
 
 		// Filter bookings that overlap this day
-		const dayBookings = allBookings.filter(
-			(b) => b.startTime < dayEndStr && b.endTime > dayStartStr
-		);
+		const dayBookings = allBookings.filter((b) => b.startTime < dayEndStr && b.endTime > dayStartStr);
 
 		const timeline = buildSpotTimeline(dayBookings, dateStr, dateStr);
 		statuses.push({ date: dateStr, status: getTimelineStatus(timeline) });

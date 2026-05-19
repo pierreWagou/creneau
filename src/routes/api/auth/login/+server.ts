@@ -13,11 +13,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			return json({ error: 'Champs obligatoires manquants' }, { status: 400 });
 		}
 
-		const existingFlat = await db
-			.select()
-			.from(flat)
-			.where(eq(flat.number, flatNumber))
-			.get();
+		const existingFlat = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();
 
 		if (!existingFlat || !existingFlat.isActive || !existingFlat.pinHash) {
 			return json({ error: "Numéro d'appartement ou PIN invalide" }, { status: 401 });

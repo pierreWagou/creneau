@@ -39,11 +39,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 		const activationCode = generateActivationCode();
 
-		const result = await db
-			.insert(flat)
-			.values({ number, activationCode })
-			.returning()
-			.get();
+		const result = await db.insert(flat).values({ number, activationCode }).returning().get();
 
 		return json({ flat: result }, { status: 201 });
 	} catch {

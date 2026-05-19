@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { RangeCalendar as RangeCalendarPrimitive } from "bits-ui";
-	import { cn, type WithoutChildrenOrChild } from "$lib/utils.js";
+	import { RangeCalendar as RangeCalendarPrimitive } from 'bits-ui';
+	import { cn, type WithoutChildrenOrChild } from '$lib/utils.js';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 
 	let {
@@ -13,7 +13,7 @@
 
 <span
 	class={cn(
-		"has-focus:border-ring border-input has-focus:ring-ring/50 relative flex rounded-md border shadow-xs has-focus:ring-[3px]",
+		'has-focus:border-ring border-input has-focus:ring-ring/50 relative flex rounded-md border shadow-xs has-focus:ring-[3px]',
 		className
 	)}
 >
@@ -23,9 +23,7 @@
 				{#each yearItems as yearItem (yearItem.value)}
 					<option
 						value={yearItem.value}
-						selected={value !== undefined
-							? yearItem.value === value
-							: yearItem.value === selectedYearItem.value}
+						selected={value !== undefined ? yearItem.value === value : yearItem.value === selectedYearItem.value}
 					>
 						{yearItem.label}
 					</option>
@@ -36,7 +34,7 @@
 				aria-hidden="true"
 			>
 				{yearItems.find((item) => item.value === value)?.label || selectedYearItem.label}
-				<ChevronDownIcon class={cn("size-4", className)} />
+				<ChevronDownIcon class={cn('size-4', className)} />
 			</span>
 		{/snippet}
 	</RangeCalendarPrimitive.YearSelect>

@@ -38,9 +38,9 @@
 </script>
 
 <Card.Root class="shadow-sm">
-	<Card.Header class="text-center pb-2">
-		<div class="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-			<Car class="h-6 w-6 text-primary" />
+	<Card.Header class="pb-2 text-center">
+		<div class="bg-primary/10 mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl">
+			<Car class="text-primary h-6 w-6" />
 		</div>
 		<Card.Title class="text-2xl font-bold tracking-tight">Créneau</Card.Title>
 		<Card.Description>Réservation parking — Metropolitan</Card.Description>
@@ -49,13 +49,7 @@
 		<form onsubmit={handleLogin} class="space-y-4">
 			<div class="space-y-2">
 				<Label for="flat">Numéro d'appartement</Label>
-				<Input
-					id="flat"
-					type="text"
-					placeholder="ex. 3B"
-					bind:value={flatNumber}
-					required
-				/>
+				<Input id="flat" type="text" placeholder="ex. 3B" bind:value={flatNumber} required />
 			</div>
 			<div class="space-y-2">
 				<Label for="pin">Code PIN</Label>
@@ -76,8 +70,11 @@
 		</form>
 	</Card.Content>
 	<Card.Footer class="flex-col gap-2">
-		<p class="text-sm text-muted-foreground">
-			Première fois ? <a href="/activate" class="underline text-primary font-medium hover:text-primary/80 transition-colors">Activer mon appartement</a>
+		<p class="text-muted-foreground text-sm">
+			Première fois ? <a
+				href="/activate"
+				class="text-primary hover:text-primary/80 font-medium underline transition-colors">Activer mon appartement</a
+			>
 		</p>
 	</Card.Footer>
 </Card.Root>

@@ -26,7 +26,7 @@
 		'#40a02b', // green
 		'#df8e1d', // yellow
 		'#7287fd', // lavender
-		'#d20f39', // red
+		'#d20f39' // red
 	];
 	const FLAT_COLORS_DARK = [
 		'#cba6f7', // mauve
@@ -36,7 +36,7 @@
 		'#a6e3a1', // green
 		'#f9e2af', // yellow
 		'#b4befe', // lavender
-		'#f38ba8', // red
+		'#f38ba8' // red
 	];
 
 	function getFlatColor(flatId: number): string {
@@ -111,7 +111,8 @@
 
 		const startDate = start instanceof Date ? start.toISOString().split('T')[0] : String(start).split('T')[0];
 		const endDate = end instanceof Date ? end.toISOString().split('T')[0] : String(end).split('T')[0];
-		const startHour = start instanceof Date ? start.getHours() : parseInt(String(start).split('T')[1]?.substring(0, 2) || '0');
+		const startHour =
+			start instanceof Date ? start.getHours() : parseInt(String(start).split('T')[1]?.substring(0, 2) || '0');
 		const endHour = end instanceof Date ? end.getHours() : parseInt(String(end).split('T')[1]?.substring(0, 2) || '24');
 
 		const params = new URLSearchParams();
@@ -163,7 +164,7 @@
 	<div class="flex items-center justify-between">
 		<h2 class="text-2xl font-bold tracking-tight">Planning Parking</h2>
 		<a href="/book">
-			<Button size="sm" class="gap-1.5 cursor-pointer">
+			<Button size="sm" class="cursor-pointer gap-1.5">
 				<CirclePlus class="h-4 w-4" />
 				Réserver
 			</Button>
@@ -171,10 +172,12 @@
 	</div>
 
 	{#if data.spots.length === 0}
-		<div class="rounded-lg border bg-card p-8 text-center">
+		<div class="bg-card rounded-lg border p-8 text-center">
 			<p class="text-muted-foreground">Aucune place de parking configurée.</p>
 			{#if data.flat.isAdmin}
-				<p class="mt-2 text-sm text-muted-foreground">Allez dans <a href="/admin" class="underline">Admin</a> pour ajouter des places.</p>
+				<p class="text-muted-foreground mt-2 text-sm">
+					Allez dans <a href="/admin" class="underline">Admin</a> pour ajouter des places.
+				</p>
 			{/if}
 		</div>
 	{:else}
@@ -268,7 +271,10 @@
 		border-radius: calc(var(--radius) - 2px);
 		font-size: 0.8rem;
 		font-weight: 500;
-		transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+		transition:
+			background-color 0.15s,
+			border-color 0.15s,
+			color 0.15s;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;

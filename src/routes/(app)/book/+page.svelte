@@ -137,9 +137,7 @@
 	// ============================================================
 
 	let multiDay = $derived(
-		calendarValue?.start && calendarValue?.end
-			? calendarValue.start.toString() !== calendarValue.end.toString()
-			: false
+		calendarValue?.start && calendarValue?.end ? calendarValue.start.toString() !== calendarValue.end.toString() : false
 	);
 	let startDateStr = $derived(calendarValue?.start ? calendarValue.start.toString() : '');
 	let endDateStr = $derived(calendarValue?.end ? calendarValue.end.toString() : '');
@@ -173,9 +171,7 @@
 
 	/** Get valid start hours for a single day */
 	function getValidStartHours(daySlots: { start: number; end: number }[]): number[] {
-		return daySlots.flatMap((s) =>
-			Array.from({ length: s.end - s.start }, (_, i) => s.start + i)
-		);
+		return daySlots.flatMap((s) => Array.from({ length: s.end - s.start }, (_, i) => s.start + i));
 	}
 
 	/** Get valid end hours given a start hour (within the same slot) */
@@ -198,7 +194,11 @@
 	}
 
 	/** Check if a preset range fits within any day slot */
-	function isPresetAvailable(daySlots: { start: number; end: number }[], presetStart: number, presetEnd: number): boolean {
+	function isPresetAvailable(
+		daySlots: { start: number; end: number }[],
+		presetStart: number,
+		presetEnd: number
+	): boolean {
 		return daySlots.some((s) => s.start <= presetStart && s.end >= presetEnd);
 	}
 
@@ -218,7 +218,9 @@
 
 	// For capsule visualization in multi-day mode
 	let multiDaySlotStartH = $derived(multiDayStartHours.length > 0 ? multiDayStartHours[0] : DAY_START);
-	let multiDaySlotEndH = $derived(multiDayEndHoursValid.length > 0 ? multiDayEndHoursValid[multiDayEndHoursValid.length - 1] : DAY_END);
+	let multiDaySlotEndH = $derived(
+		multiDayEndHoursValid.length > 0 ? multiDayEndHoursValid[multiDayEndHoursValid.length - 1] : DAY_END
+	);
 
 	// Full day preset availability
 	let fullDayAvailable = $derived(isPresetAvailable(startDaySlots, DAY_START, DAY_END));
@@ -283,7 +285,7 @@
 		if (!multiDay) {
 			// Select the largest available slot
 			if (startDaySlots.length > 0) {
-				const largest = [...startDaySlots].sort((a, b) => (b.end - b.start) - (a.end - a.start))[0];
+				const largest = [...startDaySlots].sort((a, b) => b.end - b.start - (a.end - a.start))[0];
 				startHour = largest.start;
 				endHour = largest.end;
 			}
@@ -333,7 +335,7 @@
 
 	function getEndTimeStr(): string {
 		const h = multiDay ? multiDayEndHour : endHour;
-		const date = multiDay ? (endDateStr || startDateStr) : startDateStr;
+		const date = multiDay ? endDateStr || startDateStr : startDateStr;
 		return `${date}T${padH(h)}:00:00`;
 	}
 
@@ -414,13 +416,17 @@
 	<Card.Root>
 		<Card.Header>
 			<Card.Title>Quand avez-vous besoin de la place ?</Card.Title>
-			<p class="text-sm text-muted-foreground">Sélectionnez un jour ou une plage de dates</p>
+			<p class="text-muted-foreground text-sm">Sélectionnez un jour ou une plage de dates</p>
 		</Card.Header>
 		<Card.Content class="space-y-4">
 			{#if data.spots.length > 1}
 				<div class="space-y-2">
 					<Label for="spot">Place de parking</Label>
-					<select id="spot" bind:value={selectedSpotId} class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+					<select
+						id="spot"
+						bind:value={selectedSpotId}
+						class="border-input bg-background flex h-10 w-full rounded-md border px-3 py-2 text-sm"
+					>
 						{#each data.spots as s}
 							<option value={s.id}>{s.name}</option>
 						{/each}
@@ -429,27 +435,26 @@
 			{/if}
 
 			<div class="relative flex justify-center" bind:this={calendarContainer}>
-				<RangeCalendar
-					bind:value={calendarValue}
-					locale="fr-FR"
-					weekdayFormat="short"
-					minValue={todayDate}
-				/>
+				<RangeCalendar bind:value={calendarValue} locale="fr-FR" weekdayFormat="short" minValue={todayDate} />
 			</div>
 
-			<div class="flex items-center gap-4 text-xs text-muted-foreground justify-center">
+			<div class="text-muted-foreground flex items-center justify-center gap-4 text-xs">
 				<span class="flex items-center gap-1">
-					<span class="h-3 w-3 rounded-sm bg-accent/40 border border-accent/60"></span> Partiellement réservé
+					<span class="bg-accent/40 border-accent/60 h-3 w-3 rounded-sm border"></span> Partiellement réservé
 				</span>
 				<span class="flex items-center gap-1">
-					<span class="h-3 w-3 rounded-sm bg-accent/70 border border-accent/80"></span> Complet
+					<span class="bg-accent/70 border-accent/80 h-3 w-3 rounded-sm border"></span> Complet
 				</span>
 			</div>
 
 			{#if hasDateSelection}
-				<div class="rounded-md bg-muted p-3 text-sm">
+				<div class="bg-muted rounded-md p-3 text-sm">
 					{#if multiDay}
-						<p><span class="font-medium">Du</span> {formatDate(startDateStr)} <span class="font-medium">au</span> {formatDate(endDateStr)}</p>
+						<p>
+							<span class="font-medium">Du</span>
+							{formatDate(startDateStr)} <span class="font-medium">au</span>
+							{formatDate(endDateStr)}
+						</p>
 					{:else}
 						<p><span class="font-medium">Date :</span> {formatDate(startDateStr)}</p>
 					{/if}
@@ -462,8 +467,8 @@
 	{#if hasDateSelection && loadingSlots}
 		<Card.Root>
 			<Card.Content class="py-6 text-center">
-				<div class="h-5 w-5 mx-auto animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
-				<p class="text-sm text-muted-foreground mt-2">Recherche des créneaux disponibles...</p>
+				<div class="border-primary mx-auto h-5 w-5 animate-spin rounded-full border-2 border-t-transparent"></div>
+				<p class="text-muted-foreground mt-2 text-sm">Recherche des créneaux disponibles...</p>
 			</Card.Content>
 		</Card.Root>
 	{/if}
@@ -472,11 +477,12 @@
 	{#if hasDateSelection && !loadingSlots && multiDay && !multiDayValid}
 		<Card.Root class="border-destructive/50">
 			<Card.Content class="py-4">
-				<p class="text-sm text-destructive font-medium">Réservation sur plusieurs jours impossible</p>
-				<p class="text-sm text-muted-foreground mt-1">
-					Aucun créneau continu n'est disponible sur toute la période sélectionnée. Une réservation existante bloque la continuité.
+				<p class="text-destructive text-sm font-medium">Réservation sur plusieurs jours impossible</p>
+				<p class="text-muted-foreground mt-1 text-sm">
+					Aucun créneau continu n'est disponible sur toute la période sélectionnée. Une réservation existante bloque la
+					continuité.
 				</p>
-				<p class="text-xs text-muted-foreground mt-3">
+				<p class="text-muted-foreground mt-3 text-xs">
 					Essayez de réduire la plage de dates ou réservez chaque jour séparément.
 				</p>
 			</Card.Content>
@@ -495,25 +501,29 @@
 					<div class="space-y-4">
 						<!-- Time capsule -->
 						<div class="space-y-1.5">
-							<div class="relative h-10 rounded-[10px] bg-muted border border-border/60 mx-1">
+							<div class="bg-muted border-border/60 relative mx-1 h-10 rounded-[10px] border">
 								<!-- Booked ranges -->
 								{#each startDayBookedRanges as range}
 									<div
-										class="absolute top-[4px] bottom-[4px] rounded-[6px] bg-accent/70 flex items-center justify-center overflow-hidden"
-										style="left: calc({((range.start - DAY_START) / TOTAL_HOURS) * 100}% + 4px); width: calc({((range.end - range.start) / TOTAL_HOURS) * 100}% - 8px);"
+										class="bg-accent/70 absolute top-[4px] bottom-[4px] flex items-center justify-center overflow-hidden rounded-[6px]"
+										style="left: calc({((range.start - DAY_START) / TOTAL_HOURS) *
+											100}% + 4px); width: calc({((range.end - range.start) / TOTAL_HOURS) * 100}% - 8px);"
 									>
-										<span class="text-[9px] font-medium text-accent-foreground truncate px-1">
+										<span class="text-accent-foreground truncate px-1 text-[9px] font-medium">
 											{range.flatNumber}{range.note ? ` · ${range.note}` : ''}
 										</span>
 									</div>
 								{/each}
 								<!-- User's selection -->
 								<div
-									class="absolute top-[4px] bottom-[4px] rounded-[6px] bg-primary shadow-sm transition-all duration-200"
-									style="left: calc({((startHour - DAY_START) / TOTAL_HOURS) * 100}% + 4px); width: calc({((endHour - startHour) / TOTAL_HOURS) * 100}% - 8px);"
+									class="bg-primary absolute top-[4px] bottom-[4px] rounded-[6px] shadow-sm transition-all duration-200"
+									style="left: calc({((startHour - DAY_START) / TOTAL_HOURS) * 100}% + 4px); width: calc({((endHour -
+										startHour) /
+										TOTAL_HOURS) *
+										100}% - 8px);"
 								></div>
 							</div>
-							<div class="flex justify-between text-[10px] text-muted-foreground px-3">
+							<div class="text-muted-foreground flex justify-between px-3 text-[10px]">
 								<span>0h</span>
 								<span>6h</span>
 								<span>12h</span>
@@ -522,14 +532,14 @@
 							</div>
 						</div>
 
-					<!-- Quick presets -->
-					<div class="space-y-2">
-						<span class="text-xs text-muted-foreground font-medium">Créneaux rapides</span>
-						<div class="space-y-3">
-							<Button
+						<!-- Quick presets -->
+						<div class="space-y-2">
+							<span class="text-muted-foreground text-xs font-medium">Créneaux rapides</span>
+							<div class="space-y-3">
+								<Button
 									variant={fullDayAvailable ? 'outline' : 'ghost'}
 									size="sm"
-									class="w-full text-xs {!fullDayAvailable ? 'opacity-40 line-through' : ''}"
+									class="w-full text-xs {!fullDayAvailable ? 'line-through opacity-40' : ''}"
 									disabled={!fullDayAvailable}
 									onclick={applyFullDay}
 								>
@@ -543,7 +553,7 @@
 										<Button
 											variant={available ? 'outline' : 'ghost'}
 											size="sm"
-											class="text-xs {!available ? 'opacity-40 line-through' : ''}"
+											class="text-xs {!available ? 'line-through opacity-40' : ''}"
 											disabled={!available}
 											onclick={() => applyPreset(key as TimeBlockKey)}
 										>
@@ -561,7 +571,7 @@
 								<select
 									id="start-hour"
 									bind:value={startHour}
-									class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+									class="border-input bg-background flex h-10 w-full rounded-md border px-3 py-2 text-sm"
 								>
 									{#each Array.from({ length: TOTAL_HOURS }, (_, i) => DAY_START + i) as h}
 										{@const isValid = validStartHours.includes(h)}
@@ -576,7 +586,7 @@
 								<select
 									id="end-hour"
 									bind:value={endHour}
-									class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+									class="border-input bg-background flex h-10 w-full rounded-md border px-3 py-2 text-sm"
 								>
 									{#each Array.from({ length: TOTAL_HOURS }, (_, i) => DAY_START + 1 + i) as h}
 										{#if h > startHour}
@@ -592,8 +602,10 @@
 
 						<!-- Available slots summary -->
 						{#if startDaySlots.length > 1}
-							<p class="text-xs text-muted-foreground">
-								{startDaySlots.length} créneaux disponibles : {startDaySlots.map(s => `${formatHour(s.start)}-${formatHour(s.end)}`).join(', ')}
+							<p class="text-muted-foreground text-xs">
+								{startDaySlots.length} créneaux disponibles : {startDaySlots
+									.map((s) => `${formatHour(s.start)}-${formatHour(s.end)}`)
+									.join(', ')}
 							</p>
 						{/if}
 					</div>
@@ -604,21 +616,23 @@
 						<div class="space-y-2">
 							<Label>Début — {formatDate(startDateStr)}</Label>
 							<div class="space-y-1.5">
-								<div class="relative h-8 rounded-[9px] bg-muted border border-border/60 mx-1">
+								<div class="bg-muted border-border/60 relative mx-1 h-8 rounded-[9px] border">
 									<!-- Booked part before the available slot -->
 									{#if multiDaySlotStartH > DAY_START}
 										<div
-											class="absolute top-[3px] bottom-[3px] rounded-[5px] bg-accent/70"
-											style="left: calc(0% + 3px); width: calc({((multiDaySlotStartH - DAY_START) / TOTAL_HOURS) * 100}% - 6px);"
+											class="bg-accent/70 absolute top-[3px] bottom-[3px] rounded-[5px]"
+											style="left: calc(0% + 3px); width: calc({((multiDaySlotStartH - DAY_START) / TOTAL_HOURS) *
+												100}% - 6px);"
 										></div>
 									{/if}
 									<!-- User's selection -->
 									<div
-										class="absolute top-[3px] bottom-[3px] rounded-[5px] bg-primary shadow-sm transition-all duration-200"
-										style="left: calc({((multiDayStartHour - DAY_START) / TOTAL_HOURS) * 100}% + 3px); width: calc({((DAY_END - multiDayStartHour) / TOTAL_HOURS) * 100}% - 6px);"
+										class="bg-primary absolute top-[3px] bottom-[3px] rounded-[5px] shadow-sm transition-all duration-200"
+										style="left: calc({((multiDayStartHour - DAY_START) / TOTAL_HOURS) *
+											100}% + 3px); width: calc({((DAY_END - multiDayStartHour) / TOTAL_HOURS) * 100}% - 6px);"
 									></div>
 								</div>
-								<div class="flex justify-between text-[10px] text-muted-foreground px-3">
+								<div class="text-muted-foreground flex justify-between px-3 text-[10px]">
 									<span>0h</span>
 									<span>6h</span>
 									<span>12h</span>
@@ -626,7 +640,10 @@
 									<span>24h</span>
 								</div>
 							</div>
-							<select bind:value={multiDayStartHour} class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
+							<select
+								bind:value={multiDayStartHour}
+								class="border-input bg-background flex h-9 w-full rounded-md border px-3 py-1 text-sm"
+							>
 								{#each Array.from({ length: TOTAL_HOURS }, (_, i) => DAY_START + i) as h}
 									{@const isValid = multiDayStartHours.includes(h)}
 									<option value={h} disabled={!isValid}>
@@ -635,7 +652,7 @@
 								{/each}
 							</select>
 							{#if multiDaySlotStartH > DAY_START}
-								<p class="text-xs text-muted-foreground">
+								<p class="text-muted-foreground text-xs">
 									Disponible à partir de {formatHour(multiDaySlotStartH)} — votre réservation couvrira jusqu'à {DAY_END}h.
 								</p>
 							{/if}
@@ -645,21 +662,23 @@
 						<div class="space-y-2">
 							<Label>Fin — {formatDate(endDateStr)}</Label>
 							<div class="space-y-1.5">
-								<div class="relative h-8 rounded-[9px] bg-muted border border-border/60 mx-1">
+								<div class="bg-muted border-border/60 relative mx-1 h-8 rounded-[9px] border">
 									<!-- User's selection -->
 									<div
-										class="absolute top-[3px] bottom-[3px] rounded-[5px] bg-primary shadow-sm transition-all duration-200"
-										style="left: calc(0% + 3px); width: calc({((multiDayEndHour - DAY_START) / TOTAL_HOURS) * 100}% - 6px);"
+										class="bg-primary absolute top-[3px] bottom-[3px] rounded-[5px] shadow-sm transition-all duration-200"
+										style="left: calc(0% + 3px); width: calc({((multiDayEndHour - DAY_START) / TOTAL_HOURS) *
+											100}% - 6px);"
 									></div>
 									<!-- Booked part after the available slot -->
 									{#if multiDaySlotEndH < DAY_END}
 										<div
-											class="absolute top-[3px] bottom-[3px] rounded-[5px] bg-accent/70"
-											style="left: calc({((multiDaySlotEndH - DAY_START) / TOTAL_HOURS) * 100}% + 3px); width: calc({((DAY_END - multiDaySlotEndH) / TOTAL_HOURS) * 100}% - 6px);"
+											class="bg-accent/70 absolute top-[3px] bottom-[3px] rounded-[5px]"
+											style="left: calc({((multiDaySlotEndH - DAY_START) / TOTAL_HOURS) *
+												100}% + 3px); width: calc({((DAY_END - multiDaySlotEndH) / TOTAL_HOURS) * 100}% - 6px);"
 										></div>
 									{/if}
 								</div>
-								<div class="flex justify-between text-[10px] text-muted-foreground px-3">
+								<div class="text-muted-foreground flex justify-between px-3 text-[10px]">
 									<span>0h</span>
 									<span>6h</span>
 									<span>12h</span>
@@ -667,7 +686,10 @@
 									<span>24h</span>
 								</div>
 							</div>
-							<select bind:value={multiDayEndHour} class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
+							<select
+								bind:value={multiDayEndHour}
+								class="border-input bg-background flex h-9 w-full rounded-md border px-3 py-1 text-sm"
+							>
 								{#each Array.from({ length: TOTAL_HOURS }, (_, i) => DAY_START + 1 + i) as h}
 									{@const isValid = multiDayEndHoursValid.includes(h)}
 									<option value={h} disabled={!isValid}>
@@ -676,7 +698,7 @@
 								{/each}
 							</select>
 							{#if multiDaySlotEndH < DAY_END}
-								<p class="text-xs text-muted-foreground">
+								<p class="text-muted-foreground text-xs">
 									Disponible jusqu'à {formatHour(multiDaySlotEndH)} — votre réservation couvrira depuis {DAY_START}h.
 								</p>
 							{/if}
@@ -689,7 +711,9 @@
 		<Card.Root>
 			<Card.Content class="py-6 text-center">
 				<p class="text-destructive font-medium">Aucun créneau disponible</p>
-				<p class="text-sm text-muted-foreground mt-1">Cette date est entièrement réservée. Veuillez choisir une autre date.</p>
+				<p class="text-muted-foreground mt-1 text-sm">
+					Cette date est entièrement réservée. Veuillez choisir une autre date.
+				</p>
 			</Card.Content>
 		</Card.Root>
 	{/if}
@@ -701,7 +725,7 @@
 				<Card.Title>Résumé</Card.Title>
 			</Card.Header>
 			<Card.Content class="space-y-4">
-				<div class="rounded-md bg-muted p-3 text-sm space-y-1">
+				<div class="bg-muted space-y-1 rounded-md p-3 text-sm">
 					{#if multiDay}
 						<p><span class="font-medium">Du</span> {formatDate(startDateStr)} à {formatHour(multiDayStartHour)}</p>
 						<p><span class="font-medium">Au</span> {formatDate(endDateStr)} à {formatHour(multiDayEndHour)}</p>
@@ -710,7 +734,10 @@
 						<p><span class="font-medium">Horaire :</span> {formatHour(startHour)} → {formatHour(endHour)}</p>
 					{/if}
 					{#if data.spots.length > 1}
-						<p><span class="font-medium">Place :</span> {data.spots.find((s: { id: number; name: string }) => s.id === selectedSpotId)?.name}</p>
+						<p>
+							<span class="font-medium">Place :</span>
+							{data.spots.find((s: { id: number; name: string }) => s.id === selectedSpotId)?.name}
+						</p>
 					{/if}
 				</div>
 
@@ -728,10 +755,10 @@
 </div>
 
 <style>
-	:global([data-booking-status="partial"]:not([data-range-middle]):not([data-range-start]):not([data-range-end])) {
+	:global([data-booking-status='partial']:not([data-range-middle]):not([data-range-start]):not([data-range-end])) {
 		background-color: hsl(var(--accent) / 0.4);
 	}
-	:global([data-booking-status="full"]:not([data-range-middle]):not([data-range-start]):not([data-range-end])) {
+	:global([data-booking-status='full']:not([data-range-middle]):not([data-range-start]):not([data-range-end])) {
 		background-color: hsl(var(--accent) / 0.7);
 	}
 	:global([data-booking-status]:not([data-selected]):hover) {

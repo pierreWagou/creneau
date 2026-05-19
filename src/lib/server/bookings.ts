@@ -29,22 +29,19 @@ const bookingWithFlatColumns = {
 /**
  * Check if a booking conflicts with existing bookings on the same spot
  */
-async function hasConflict(spotId: number, startTime: string, endTime: string, excludeBookingId?: number): Promise<boolean> {
+async function hasConflict(
+	spotId: number,
+	startTime: string,
+	endTime: string,
+	excludeBookingId?: number
+): Promise<boolean> {
 	const existingBookings = await db
 		.select()
 		.from(booking)
-		.where(
-			and(
-				eq(booking.spotId, spotId),
-				lt(booking.startTime, endTime),
-				gt(booking.endTime, startTime)
-			)
-		)
+		.where(and(eq(booking.spotId, spotId), lt(booking.startTime, endTime), gt(booking.endTime, startTime)))
 		.all();
 
-	const filtered = excludeBookingId
-		? existingBookings.filter((b) => b.id !== excludeBookingId)
-		: existingBookings;
+	const filtered = excludeBookingId ? existingBookings.filter((b) => b.id !== excludeBookingId) : existingBookings;
 
 	return filtered.length > 0;
 }
@@ -66,7 +63,9 @@ async function getBookingById(id: number): Promise<BookingWithFlat | null> {
 /**
  * Create a new booking after checking for conflicts
  */
-export async function createBooking(input: CreateBookingInput): Promise<{ success: true; booking: BookingWithFlat } | { success: false; error: string }> {
+export async function createBooking(
+	input: CreateBookingInput
+): Promise<{ success: true; booking: BookingWithFlat } | { success: false; error: string }> {
 	if (input.startTime >= input.endTime) {
 		return { success: false, error: "L'heure de fin doit être après l'heure de début" };
 	}
@@ -105,10 +104,7 @@ export async function getBookingsInRange(from: string, to: string, spotId?: numb
 	const rangeStart = from.includes('T') ? from : `${from}T${padH(DAY_START)}:00:00`;
 	const rangeEnd = to.includes('T') ? to : `${to}T${padH(DAY_END)}:00:00`;
 
-	const conditions = [
-		lt(booking.startTime, rangeEnd),
-		gt(booking.endTime, rangeStart)
-	];
+	const conditions = [lt(booking.startTime, rangeEnd), gt(booking.endTime, rangeStart)];
 
 	if (spotId) {
 		conditions.push(eq(booking.spotId, spotId));
@@ -137,7 +133,11 @@ export async function getBookingsByFlat(flatId: number): Promise<BookingWithFlat
 /**
  * Cancel a booking (only by owner or admin)
  */
-export async function cancelBooking(bookingId: number, flatId: number, isAdmin: boolean): Promise<{ success: boolean; error?: string; status?: number }> {
+export async function cancelBooking(
+	bookingId: number,
+	flatId: number,
+	isAdmin: boolean
+): Promise<{ success: boolean; error?: string; status?: number }> {
 	const existing = await db.select().from(booking).where(eq(booking.id, bookingId)).get();
 
 	if (!existing) {
