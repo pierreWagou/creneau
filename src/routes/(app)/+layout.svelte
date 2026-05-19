@@ -1,13 +1,11 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
 	import { toggleMode, mode } from 'mode-watcher';
 	import CalendarDays from '@lucide/svelte/icons/calendar-days';
 	import CirclePlus from '@lucide/svelte/icons/circle-plus';
 	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
 	import CircleUser from '@lucide/svelte/icons/circle-user';
-	import LogOut from '@lucide/svelte/icons/log-out';
 	import Sun from '@lucide/svelte/icons/sun';
 	import Moon from '@lucide/svelte/icons/moon';
 
@@ -19,11 +17,6 @@
 		{ href: '/my-bookings', label: 'Mes réservations', icon: ClipboardList },
 		{ href: '/account', label: 'Compte', icon: CircleUser }
 	];
-
-	async function handleLogout() {
-		await fetch('/api/auth/logout', { method: 'POST' });
-		goto('/login');
-	}
 </script>
 
 <div class="flex min-h-svh flex-col">
@@ -34,9 +27,6 @@
 				Créneau
 			</a>
 			<div class="flex items-center gap-1">
-				<a href="/account" class="text-sm font-medium text-muted-foreground mr-1 hidden sm:inline hover:text-foreground transition-colors">
-					{data.flat.displayName || data.flat.number}
-				</a>
 				{#if data.flat.isAdmin}
 					<a href="/admin">
 						<Button variant="ghost" size="sm">Admin</Button>
@@ -49,9 +39,12 @@
 						<Moon class="h-4 w-4" />
 					{/if}
 				</Button>
-				<Button variant="ghost" size="sm" onclick={handleLogout} class="text-muted-foreground h-8 w-8 p-0">
-					<LogOut class="h-4 w-4" />
-				</Button>
+				<a href="/account">
+					<Button variant="ghost" size="sm" class="gap-1.5 font-semibold text-foreground">
+						<CircleUser class="h-4 w-4" />
+						<span class="hidden sm:inline">{data.flat.displayName || data.flat.number}</span>
+					</Button>
+				</a>
 			</div>
 		</div>
 	</header>

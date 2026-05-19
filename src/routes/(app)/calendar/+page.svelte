@@ -269,6 +269,24 @@
 		font-size: 0.8rem;
 		font-weight: 500;
 		transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	/* Center the prev/next arrow icons within their buttons */
+	:global(.ec-container .ec .ec-icon) {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	:global(.ec-container .ec .ec-icon.ec-prev:after) {
+		inset-inline-start: 1px;
+	}
+
+	:global(.ec-container .ec .ec-icon.ec-next:after) {
+		inset-inline-start: -1px;
 	}
 
 	/* Add gaps between buttons within button groups */

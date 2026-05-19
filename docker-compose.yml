@@ -1,13 +1,13 @@
 services:
   creneau:
-    build: .
+    image: ghcr.io/pierrewagou/creneau:latest
     ports:
       - "3000:3000"
     volumes:
       - creneau-data:/app/data
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=/app/data/creneau.db
+      - DATABASE_URL=file:/app/data/creneau.db
     restart: unless-stopped
 
 volumes:
