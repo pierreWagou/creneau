@@ -27,7 +27,7 @@ A shared parking spot booking system for apartment buildings. Residents pick a t
 
 ```
  ┌──────────────────────────────────────────────────┐
- │                   SvelteKit App                   │
+ │                   SvelteKit App                  │
  ├────────────────────────┬─────────────────────────┤
  │      Pages (SSR)       │      API Routes         │  routes
  │  /book /calendar /admin│  /api/timeline          │
@@ -40,7 +40,7 @@ A shared parking spot booking system for apartment buildings. Residents pick a t
  │  range-calendar        │  bookings.ts            │
  │  sonner toasts         │  auth.ts / sse.ts       │
  ├────────────────────────┴─────────────────────────┤
- │              Drizzle ORM + SQLite                 │  data
+ │              Drizzle ORM + SQLite                │  data
  └──────────────────────────────────────────────────┘
 ```
 

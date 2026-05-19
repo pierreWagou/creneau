@@ -1,9 +1,9 @@
 import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
+import { and, eq } from 'drizzle-orm';
+import { createSession, hashPin, PIN_MAX_LENGTH, PIN_MIN_LENGTH, setSessionCookie } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
-import { eq, and } from 'drizzle-orm';
-import { hashPin, createSession, setSessionCookie, PIN_MIN_LENGTH, PIN_MAX_LENGTH } from '$lib/server/auth';
+import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
 	try {

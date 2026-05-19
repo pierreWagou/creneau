@@ -1,10 +1,10 @@
-import type { PageServerLoad } from './$types';
+import { addWeeks, endOfWeek, format, startOfWeek } from 'date-fns';
 import { getBookingsInRange } from '$lib/server/bookings';
 import { db } from '$lib/server/db';
 import { spot } from '$lib/server/db/schema';
-import { DAY_START, DAY_END } from '$lib/types';
+import { DAY_END, DAY_START } from '$lib/types';
 import { padH } from '$lib/utils/time';
-import { startOfWeek, endOfWeek, addWeeks, format } from 'date-fns';
+import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
 	const now = new Date();

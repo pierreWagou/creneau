@@ -1,7 +1,7 @@
-import type { PageServerLoad } from './$types';
+import { and, eq, gt } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { flat, booking } from '$lib/server/db/schema';
-import { eq, and, gt } from 'drizzle-orm';
+import { booking, flat } from '$lib/server/db/schema';
+import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const sessionFlat = locals.flat!;

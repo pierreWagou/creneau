@@ -1,11 +1,11 @@
 <script lang="ts">
+	import Car from '@lucide/svelte/icons/car';
+	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
+	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import * as Card from '$lib/components/ui/card';
-	import { toast } from 'svelte-sonner';
-	import Car from '@lucide/svelte/icons/car';
 
 	let flatNumber = $state('');
 	let pin = $state('');

@@ -1,9 +1,9 @@
+import { and, eq, gt, lt } from 'drizzle-orm';
+import type { BookingWithFlat } from '$lib/types';
+import { DAY_END, DAY_START } from '$lib/types';
+import { padH } from '$lib/utils/time';
 import { db } from './db';
 import { booking, flat } from './db/schema';
-import { eq, and, lt, gt } from 'drizzle-orm';
-import type { BookingWithFlat } from '$lib/types';
-import { DAY_START, DAY_END } from '$lib/types';
-import { padH } from '$lib/utils/time';
 
 interface CreateBookingInput {
 	spotId: number;

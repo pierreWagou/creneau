@@ -1,5 +1,5 @@
 import type { Handle } from '@sveltejs/kit';
-import { validateSession, SESSION_COOKIE_NAME } from '$lib/server/auth';
+import { SESSION_COOKIE_NAME, validateSession } from '$lib/server/auth';
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const sessionId = event.cookies.get(SESSION_COOKIE_NAME);

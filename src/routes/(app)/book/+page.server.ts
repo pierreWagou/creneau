@@ -1,8 +1,8 @@
-import type { PageServerLoad } from './$types';
+import { addMonths, endOfMonth, format, startOfMonth } from 'date-fns';
+import { getCalendarStatuses } from '$lib/server/availability';
 import { db } from '$lib/server/db';
 import { spot } from '$lib/server/db/schema';
-import { getCalendarStatuses } from '$lib/server/availability';
-import { startOfMonth, endOfMonth, addMonths, format } from 'date-fns';
+import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url }) => {
 	const prefilledDate = url.searchParams.get('date') || '';
@@ -17,14 +17,14 @@ export const load: PageServerLoad = async ({ url }) => {
 	const from = format(startOfMonth(now), 'yyyy-MM-dd');
 	const to = format(endOfMonth(addMonths(now, 2)), 'yyyy-MM-dd');
 
-	const targetSpotId = prefilledSpotId ? parseInt(prefilledSpotId) : spots[0]?.id;
+	const targetSpotId = prefilledSpotId ? parseInt(prefilledSpotId, 10) : spots[0]?.id;
 	const calendarStatuses = await getCalendarStatuses(from, to, targetSpotId);
 
 	return {
 		prefilledDate,
 		prefilledEndDate,
-		prefilledStartHour: prefilledStartHour ? parseInt(prefilledStartHour) : null,
-		prefilledEndHour: prefilledEndHour ? parseInt(prefilledEndHour) : null,
+		prefilledStartHour: prefilledStartHour ? parseInt(prefilledStartHour, 10) : null,
+		prefilledEndHour: prefilledEndHour ? parseInt(prefilledEndHour, 10) : null,
 		spots,
 		calendarStatuses,
 		initialSpotId: targetSpotId

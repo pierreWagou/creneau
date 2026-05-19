@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { buildSpotTimeline } from './availability';
+import { describe, expect, it } from 'vitest';
 import type { BookingWithFlat } from '$lib/types';
+import { buildSpotTimeline } from './availability';
 
 function makeBooking(overrides: Partial<BookingWithFlat> & { startTime: string; endTime: string }): BookingWithFlat {
 	return {

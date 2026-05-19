@@ -1,8 +1,8 @@
-import { drizzle } from 'drizzle-orm/libsql';
+import { mkdirSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { createClient } from '@libsql/client';
+import { drizzle } from 'drizzle-orm/libsql';
 import * as schema from './schema';
-import { resolve, dirname } from 'path';
-import { mkdirSync } from 'fs';
 
 const DB_PATH = process.env.DATABASE_URL || `file:${resolve('data/creneau.db')}`;
 

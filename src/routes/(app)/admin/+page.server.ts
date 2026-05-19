@@ -1,7 +1,7 @@
 import { redirect } from '@sveltejs/kit';
-import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
 import { flat, spot } from '$lib/server/db/schema';
+import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.flat?.isAdmin) {

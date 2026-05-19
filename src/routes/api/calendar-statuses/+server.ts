@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
 import { getCalendarStatuses } from '$lib/server/availability';
+import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
 	if (!locals.flat) {
@@ -15,8 +15,8 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		return json({ error: 'Paramètres from/to requis' }, { status: 400 });
 	}
 
-	const parsedSpotId = spotId ? parseInt(spotId) : undefined;
-	if (spotId && (parsedSpotId === undefined || isNaN(parsedSpotId))) {
+	const parsedSpotId = spotId ? parseInt(spotId, 10) : undefined;
+	if (spotId && (parsedSpotId === undefined || Number.isNaN(parsedSpotId))) {
 		return json({ error: 'Paramètre spotId invalide' }, { status: 400 });
 	}
 

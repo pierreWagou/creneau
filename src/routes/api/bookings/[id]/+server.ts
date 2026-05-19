@@ -1,15 +1,15 @@
 import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
 import { cancelBooking } from '$lib/server/bookings';
 import { sseManager } from '$lib/server/sse';
+import type { RequestHandler } from './$types';
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
 	if (!locals.flat) {
 		return json({ error: 'Non autorisé' }, { status: 401 });
 	}
 
-	const bookingId = parseInt(params.id);
-	if (isNaN(bookingId)) {
+	const bookingId = parseInt(params.id, 10);
+	if (Number.isNaN(bookingId)) {
 		return json({ error: 'Identifiant de réservation invalide' }, { status: 400 });
 	}
 

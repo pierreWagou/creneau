@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { toast } from 'svelte-sonner';
-	import * as Card from '$lib/components/ui/card';
+	import { goto } from '$app/navigation';
+	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { Badge } from '$lib/components/ui/badge';
 	import { Separator } from '$lib/components/ui/separator';
-	import { PIN_MIN_LENGTH, PIN_MAX_LENGTH, DISPLAY_NAME_MAX_LENGTH } from '$lib/constants';
+	import { DISPLAY_NAME_MAX_LENGTH, PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '$lib/constants';
 
 	let { data } = $props();
 

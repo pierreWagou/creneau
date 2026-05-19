@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-	import { Button } from '$lib/components/ui/button';
-	import { toggleMode, mode } from 'mode-watcher';
 	import CalendarDays from '@lucide/svelte/icons/calendar-days';
 	import CirclePlus from '@lucide/svelte/icons/circle-plus';
-	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
 	import CircleUser from '@lucide/svelte/icons/circle-user';
-	import Sun from '@lucide/svelte/icons/sun';
+	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
 	import Moon from '@lucide/svelte/icons/moon';
+	import Sun from '@lucide/svelte/icons/sun';
+	import { mode, toggleMode } from 'mode-watcher';
+	import { page } from '$app/stores';
+	import { Button } from '$lib/components/ui/button';
 
 	let { children, data } = $props();
 

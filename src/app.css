@@ -1,10 +1,10 @@
-@import 'tailwindcss';
-@import 'tw-animate-css';
+@import "tailwindcss";
+@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-	--font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+	--font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
 	--color-background: hsl(var(--background));
 	--color-foreground: hsl(var(--foreground));
 	--color-muted: hsl(var(--muted));

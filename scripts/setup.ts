@@ -1,9 +1,9 @@
+import { resolve } from 'node:path';
 import { createClient } from '@libsql/client';
 import { drizzle } from 'drizzle-orm/libsql';
 import { migrate } from 'drizzle-orm/libsql/migrator';
-import { resolve } from 'path';
-import * as schema from '../src/lib/server/db/schema';
 import { generateActivationCode } from '../src/lib/server/auth';
+import * as schema from '../src/lib/server/db/schema';
 
 const DB_PATH = process.env.DATABASE_URL || `file:${resolve('data/creneau.db')}`;
 

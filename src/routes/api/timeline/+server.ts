@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
 import { buildSpotTimeline } from '$lib/server/availability';
 import { getBookingsInRange } from '$lib/server/bookings';
+import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
 	if (!locals.flat) {
@@ -16,8 +16,8 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		return json({ error: 'Paramètres from/to/spotId requis' }, { status: 400 });
 	}
 
-	const parsedSpotId = parseInt(spotId);
-	if (isNaN(parsedSpotId)) {
+	const parsedSpotId = parseInt(spotId, 10);
+	if (Number.isNaN(parsedSpotId)) {
 		return json({ error: 'Paramètre spotId invalide' }, { status: 400 });
 	}
 

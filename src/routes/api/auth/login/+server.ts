@@ -1,9 +1,9 @@
 import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
+import { eq } from 'drizzle-orm';
+import { createSession, setSessionCookie, verifyPin } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
-import { verifyPin, createSession, setSessionCookie } from '$lib/server/auth';
+import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
 	try {
@@ -15,7 +15,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 		const existingFlat = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();
 
-		if (!existingFlat || !existingFlat.isActive || !existingFlat.pinHash) {
+		if (!existingFlat?.isActive || !existingFlat.pinHash) {
 			return json({ error: "Numéro d'appartement ou PIN invalide" }, { status: 401 });
 		}
 

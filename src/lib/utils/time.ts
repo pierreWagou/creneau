@@ -17,7 +17,7 @@ export function padH(h: number): string {
  * Extract hour from an ISO datetime string (e.g., "2026-05-06T14:00:00" → 14)
  */
 export function getHourFromISO(iso: string): number {
-	return parseInt(iso.split('T')[1]?.substring(0, 2) || '0');
+	return parseInt(iso.split('T')[1]?.substring(0, 2) || '0', 10);
 }
 
 /**

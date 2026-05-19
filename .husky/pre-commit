@@ -1,2 +1,2 @@
-npx lint-staged
+npx biome ci --changed --since=HEAD --no-errors-on-unmatched
 npm run check

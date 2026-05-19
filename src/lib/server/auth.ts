@@ -1,17 +1,17 @@
+import { randomBytes, randomUUID } from 'node:crypto';
 import { hash, verify } from '@node-rs/argon2';
-import { db } from './db';
-import { session, flat } from './db/schema';
-import { eq, and, gt } from 'drizzle-orm';
-import { randomUUID, randomBytes } from 'crypto';
 import type { Cookies } from '@sveltejs/kit';
+import { and, eq, gt } from 'drizzle-orm';
+import { PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '$lib/constants';
 import type { SessionFlat } from '$lib/types';
-import { PIN_MIN_LENGTH, PIN_MAX_LENGTH } from '$lib/constants';
+import { db } from './db';
+import { flat, session } from './db/schema';
 
 const SESSION_DURATION_DAYS = 30;
 
 export const SESSION_COOKIE_NAME = 'session';
 export const SESSION_MAX_AGE = SESSION_DURATION_DAYS * 24 * 60 * 60; // seconds
-export { PIN_MIN_LENGTH, PIN_MAX_LENGTH };
+export { PIN_MAX_LENGTH, PIN_MIN_LENGTH };
 
 /** Set the session cookie with standard options */
 export function setSessionCookie(cookies: Cookies, sessionId: string): void {

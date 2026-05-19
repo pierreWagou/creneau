@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { Calendar, DayGrid, Interaction, List, TimeGrid } from '@event-calendar/core';
+	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { Calendar, TimeGrid, DayGrid, List, Interaction } from '@event-calendar/core';
 	import '@event-calendar/core/index.css';
-	import { Button } from '$lib/components/ui/button';
-	import { mode } from 'mode-watcher';
 	import CirclePlus from '@lucide/svelte/icons/circle-plus';
-	import { DAY_START, DAY_END, type BookingWithFlat } from '$lib/types';
+	import { mode } from 'mode-watcher';
+	import { Button } from '$lib/components/ui/button';
+	import { type BookingWithFlat, DAY_END, DAY_START } from '$lib/types';
 	import { padH } from '$lib/utils/time';
 
 	let { data } = $props();
@@ -112,8 +112,8 @@
 		const startDate = start instanceof Date ? start.toISOString().split('T')[0] : String(start).split('T')[0];
 		const endDate = end instanceof Date ? end.toISOString().split('T')[0] : String(end).split('T')[0];
 		const startHour =
-			start instanceof Date ? start.getHours() : parseInt(String(start).split('T')[1]?.substring(0, 2) || '0');
-		const endHour = end instanceof Date ? end.getHours() : parseInt(String(end).split('T')[1]?.substring(0, 2) || '24');
+			start instanceof Date ? start.getHours() : parseInt(String(start).split('T')[1]?.substring(0, 2) || '0', 10);
+		const endHour = end instanceof Date ? end.getHours() : parseInt(String(end).split('T')[1]?.substring(0, 2) || '24', 10);
 
 		const params = new URLSearchParams();
 		params.set('date', startDate);
@@ -249,7 +249,7 @@
 		border-radius: calc(var(--radius) - 2px);
 		font-size: 0.75rem;
 		font-weight: 500;
-		border: none !important;
+		border: none;
 	}
 
 	:global(.ec-container .ec .ec-toolbar) {

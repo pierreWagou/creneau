@@ -1,10 +1,10 @@
 import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
+import { eq } from 'drizzle-orm';
+import { DISPLAY_NAME_MAX_LENGTH } from '$lib/constants';
+import { hashPin, PIN_MAX_LENGTH, PIN_MIN_LENGTH, verifyPin } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
-import { hashPin, verifyPin, PIN_MIN_LENGTH, PIN_MAX_LENGTH } from '$lib/server/auth';
-import { DISPLAY_NAME_MAX_LENGTH } from '$lib/constants';
+import type { RequestHandler } from './$types';
 
 /**
  * PATCH /api/account — Update display name
@@ -67,7 +67,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 		// Fetch current pin hash
 		const user = await db.select().from(flat).where(eq(flat.id, locals.flat.id)).get();
-		if (!user || !user.pinHash) {
+		if (!user?.pinHash) {
 			return json({ error: 'Utilisateur introuvable' }, { status: 404 });
 		}
 

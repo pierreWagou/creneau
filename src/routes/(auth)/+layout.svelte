@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button';
-	import { toggleMode, mode } from 'mode-watcher';
-	import Sun from '@lucide/svelte/icons/sun';
 	import Moon from '@lucide/svelte/icons/moon';
+	import Sun from '@lucide/svelte/icons/sun';
+	import { mode, toggleMode } from 'mode-watcher';
+	import { Button } from '$lib/components/ui/button';
 
 	let { children } = $props();
 </script>

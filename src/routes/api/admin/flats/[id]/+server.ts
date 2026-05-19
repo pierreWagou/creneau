@@ -1,17 +1,17 @@
 import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import { db } from '$lib/server/db';
-import { flat } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { generateActivationCode } from '$lib/server/auth';
+import { db } from '$lib/server/db';
+import { flat } from '$lib/server/db/schema';
+import type { RequestHandler } from './$types';
 
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	if (!locals.flat?.isAdmin) {
 		return json({ error: 'Accès interdit' }, { status: 403 });
 	}
 
-	const flatId = parseInt(params.id);
-	if (isNaN(flatId)) {
+	const flatId = parseInt(params.id, 10);
+	if (Number.isNaN(flatId)) {
 		return json({ error: 'Identifiant invalide' }, { status: 400 });
 	}
 
@@ -47,8 +47,8 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 		return json({ error: 'Accès interdit' }, { status: 403 });
 	}
 
-	const flatId = parseInt(params.id);
-	if (isNaN(flatId)) {
+	const flatId = parseInt(params.id, 10);
+	if (Number.isNaN(flatId)) {
 		return json({ error: 'Identifiant invalide' }, { status: 400 });
 	}
 

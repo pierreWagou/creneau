@@ -1,5 +1,5 @@
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
+import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 export const flat = sqliteTable('flat', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
@@ -10,18 +10,14 @@ export const flat = sqliteTable('flat', {
 	isAdmin: integer('is_admin', { mode: 'boolean' }).notNull().default(false),
 	isActive: integer('is_active', { mode: 'boolean' }).notNull().default(false),
 	activatedAt: text('activated_at'),
-	createdAt: text('created_at')
-		.notNull()
-		.default(sql`(datetime('now'))`)
+	createdAt: text('created_at').notNull().default(sql`(datetime('now'))`)
 });
 
 export const spot = sqliteTable('spot', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
 	name: text('name').notNull(),
 	description: text('description'),
-	createdAt: text('created_at')
-		.notNull()
-		.default(sql`(datetime('now'))`)
+	createdAt: text('created_at').notNull().default(sql`(datetime('now'))`)
 });
 
 export const booking = sqliteTable('booking', {
@@ -35,9 +31,7 @@ export const booking = sqliteTable('booking', {
 	startTime: text('start_time').notNull(),
 	endTime: text('end_time').notNull(),
 	note: text('note'),
-	createdAt: text('created_at')
-		.notNull()
-		.default(sql`(datetime('now'))`)
+	createdAt: text('created_at').notNull().default(sql`(datetime('now'))`)
 });
 
 export const session = sqliteTable('session', {
@@ -46,7 +40,5 @@ export const session = sqliteTable('session', {
 		.notNull()
 		.references(() => flat.id, { onDelete: 'cascade' }),
 	expiresAt: text('expires_at').notNull(),
-	createdAt: text('created_at')
-		.notNull()
-		.default(sql`(datetime('now'))`)
+	createdAt: text('created_at').notNull().default(sql`(datetime('now'))`)
 });

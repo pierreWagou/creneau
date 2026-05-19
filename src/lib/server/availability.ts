@@ -1,11 +1,11 @@
 import {
-	DAY_START,
-	DAY_END,
 	type AvailableSlot,
-	type CalendarDayStatus,
-	type SpotTimeline,
 	type BookingWithFlat,
-	getTimelineStatus
+	type CalendarDayStatus,
+	DAY_END,
+	DAY_START,
+	getTimelineStatus,
+	type SpotTimeline
 } from '$lib/types';
 import { padH } from '$lib/utils/time';
 import { getBookingsInRange } from './bookings';
@@ -50,8 +50,8 @@ export async function getCalendarStatuses(from: string, to: string, spotId?: num
 	const allBookings = await getBookingsInRange(from, to, spotId);
 
 	const statuses: CalendarDayStatus[] = [];
-	const current = new Date(from + 'T12:00:00');
-	const end = new Date(to + 'T12:00:00');
+	const current = new Date(`${from}T12:00:00`);
+	const end = new Date(`${to}T12:00:00`);
 
 	while (current <= end) {
 		const dateStr = current.toISOString().split('T')[0];
@@ -78,8 +78,8 @@ export async function getCalendarStatuses(from: string, to: string, spotId?: num
  */
 function buildBookableTimeline(from: string, to: string): { start: string; end: string }[] {
 	const intervals: { start: string; end: string }[] = [];
-	const current = new Date(from + 'T12:00:00');
-	const end = new Date(to + 'T12:00:00');
+	const current = new Date(`${from}T12:00:00`);
+	const end = new Date(`${to}T12:00:00`);
 
 	while (current <= end) {
 		const dateStr = current.toISOString().split('T')[0];
@@ -160,8 +160,8 @@ function areConsecutiveDays(prevEnd: string, currStart: string): boolean {
 	if (prevEndTime !== `${padH(DAY_END)}:00:00`) return false;
 	if (currStartTime !== `${padH(DAY_START)}:00:00`) return false;
 
-	const prevDate = new Date(prevEnd.split('T')[0] + 'T12:00:00');
-	const currDate = new Date(currStart.split('T')[0] + 'T12:00:00');
+	const prevDate = new Date(`${prevEnd.split('T')[0]}T12:00:00`);
+	const currDate = new Date(`${currStart.split('T')[0]}T12:00:00`);
 	const diffMs = currDate.getTime() - prevDate.getTime();
 
 	return Math.abs(diffMs - MS_PER_DAY) < BRIDGE_TOLERANCE_MS;

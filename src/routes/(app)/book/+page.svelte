@@ -1,15 +1,15 @@
 <script lang="ts">
+	import { type DateValue, getLocalTimeZone, parseDate, today } from '@internationalized/date';
+	import { onDestroy, onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
-	import { onMount, onDestroy } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
+	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import * as Card from '$lib/components/ui/card';
 	import { RangeCalendar } from '$lib/components/ui/range-calendar';
-	import { toast } from 'svelte-sonner';
-	import { today, getLocalTimeZone, parseDate, type DateValue } from '@internationalized/date';
-	import { TIME_BLOCKS, type TimeBlockKey, padH, getHourFromISO, formatDateISO } from '$lib/utils/time';
-	import { DAY_START, DAY_END, type AvailableSlot, type CalendarDayStatus, type BookingWithFlat } from '$lib/types';
+	import { type AvailableSlot, type BookingWithFlat, type CalendarDayStatus, DAY_END, DAY_START } from '$lib/types';
+	import { formatDateISO, getHourFromISO, padH, TIME_BLOCKS, type TimeBlockKey } from '$lib/utils/time';
 
 	let { data } = $props();
 
@@ -315,8 +315,8 @@
 
 	function applyPreset(blockKey: TimeBlockKey) {
 		const block = TIME_BLOCKS[blockKey];
-		startHour = parseInt(block.start.split(':')[0]);
-		endHour = parseInt(block.end.split(':')[0]);
+		startHour = parseInt(block.start.split(':')[0], 10);
+		endHour = parseInt(block.end.split(':')[0], 10);
 	}
 
 	function applyFullDay() {
@@ -374,7 +374,7 @@
 	// ============================================================
 
 	function formatDate(dateStr: string): string {
-		const d = new Date(dateStr + 'T12:00:00');
+		const d = new Date(`${dateStr}T12:00:00`);
 		return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long' });
 	}
 
@@ -395,8 +395,8 @@
 		calendarValue;
 
 		requestAnimationFrame(() => {
-			const cells = calendarContainer!.querySelectorAll('[data-bits-day]');
-			cells.forEach((cell) => {
+			const cells = calendarContainer?.querySelectorAll('[data-bits-day]');
+			cells?.forEach((cell) => {
 				const dateAttr = cell.getAttribute('data-value');
 				if (!dateAttr) return;
 				(cell as HTMLElement).removeAttribute('data-booking-status');
@@ -762,11 +762,11 @@
 		background-color: hsl(var(--accent) / 0.7);
 	}
 	:global([data-booking-status]:not([data-selected]):hover) {
-		background-color: hsl(var(--primary) / 0.15) !important;
+		background-color: hsl(var(--primary) / 0.15);
 	}
 	:global([data-booking-status][data-range-start]),
 	:global([data-booking-status][data-range-end]) {
-		background-color: hsl(var(--primary)) !important;
-		color: hsl(var(--primary-foreground)) !important;
+		background-color: hsl(var(--primary));
+		color: hsl(var(--primary-foreground));
 	}
 </style>

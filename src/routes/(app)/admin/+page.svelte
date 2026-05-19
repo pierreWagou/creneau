@@ -1,12 +1,12 @@
 <script lang="ts">
+	import { toast } from 'svelte-sonner';
 	import { invalidateAll } from '$app/navigation';
+	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import * as Card from '$lib/components/ui/card';
-	import { Badge } from '$lib/components/ui/badge';
 	import { Separator } from '$lib/components/ui/separator';
-	import { toast } from 'svelte-sonner';
 
 	let { data } = $props();
 

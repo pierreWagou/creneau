@@ -1,0 +1,75 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.4.15/schema.json",
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true,
+		"defaultBranch": "main"
+	},
+	"files": {
+		"includes": [
+			"**",
+			"!**/build",
+			"!**/.svelte-kit",
+			"!**/node_modules",
+			"!**/drizzle",
+			"!**/data",
+			"!**/src/lib/components/ui",
+			"!**/src/event-calendar.d.ts"
+		]
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab",
+		"indentWidth": 2,
+		"lineWidth": 120,
+		"lineEnding": "lf"
+	},
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "single",
+			"trailingCommas": "none"
+		}
+	},
+	"css": {
+		"parser": {
+			"tailwindDirectives": true
+		}
+	},
+	"html": {
+		"experimentalFullSupportEnabled": true,
+		"formatter": {
+			"indentScriptAndStyle": false
+		}
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true,
+			"correctness": {
+				"noUnusedVariables": "info",
+				"noUnusedImports": "error",
+				"noUnusedFunctionParameters": "off",
+				"useParseIntRadix": "off"
+			},
+			"style": {
+				"useConst": "error",
+				"noNonNullAssertion": "off"
+			},
+			"suspicious": {
+				"noExplicitAny": "off",
+				"noConsole": "off",
+				"noVar": "error"
+			},
+			"nursery": {
+				"useSortedClasses": {
+					"level": "info",
+					"fix": "unsafe",
+					"options": {
+						"functions": ["cn", "clsx", "cva"]
+					}
+				}
+			}
+		}
+	}
+}

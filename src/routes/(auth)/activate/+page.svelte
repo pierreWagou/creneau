@@ -1,11 +1,11 @@
 <script lang="ts">
+	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
+	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import * as Card from '$lib/components/ui/card';
-	import { toast } from 'svelte-sonner';
-	import { PIN_MIN_LENGTH, PIN_MAX_LENGTH } from '$lib/constants';
+	import { PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '$lib/constants';
 
 	let flatNumber = $state('');
 	let activationCode = $state('');
