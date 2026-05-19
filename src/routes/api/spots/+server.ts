@@ -31,7 +31,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			.get();
 
 		return json({ spot: result }, { status: 201 });
-	} catch {
-		return json({ error: 'Requête invalide' }, { status: 400 });
+	} catch (e) {
+		console.error('[POST /api/spots]', e);
+		return json({ error: 'Erreur interne' }, { status: 500 });
 	}
 };

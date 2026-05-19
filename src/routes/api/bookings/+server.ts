@@ -29,7 +29,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 		sseManager.broadcast('booking_created', result.booking);
 		return json({ booking: result.booking }, { status: 201 });
-	} catch {
-		return json({ error: 'Requête invalide' }, { status: 400 });
+	} catch (e) {
+		console.error('[POST /api/bookings]', e);
+		return json({ error: 'Erreur interne' }, { status: 500 });
 	}
 };

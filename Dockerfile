@@ -4,8 +4,6 @@ COPY package*.json ./
 RUN npm ci
 COPY . .
 RUN npm run build
-# Compile the setup script to JS for production use
-RUN npx tsx --compile scripts/setup.ts > /dev/null 2>&1 || true
 
 FROM node:22-slim
 WORKDIR /app

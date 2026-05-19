@@ -150,12 +150,6 @@
 			timeGridWeek: 'Semaine',
 			dayGridMonth: 'Mois',
 			timeGridDay: 'Jour'
-		},
-		eventClick: (info: any) => {
-			const booking = info.event.extendedProps?.booking;
-			if (booking) {
-				// Ouvrir un dialogue de détails ici
-			}
 		}
 	});
 </script>

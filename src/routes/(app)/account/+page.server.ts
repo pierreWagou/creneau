@@ -9,6 +9,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 	// Fetch full flat info
 	const flatInfo = await db.select().from(flat).where(eq(flat.id, sessionFlat.id)).get();
 
+	if (!flatInfo) {
+		throw new Error('Flat not found');
+	}
+
 	// Count total bookings
 	const allBookings = await db.select({ id: booking.id }).from(booking).where(eq(booking.flatId, sessionFlat.id)).all();
 
@@ -22,10 +26,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	return {
 		flat: {
-			number: flatInfo!.number,
-			displayName: flatInfo!.displayName,
-			isAdmin: flatInfo!.isAdmin,
-			activatedAt: flatInfo!.activatedAt
+			number: flatInfo.number,
+			displayName: flatInfo.displayName,
+			isAdmin: flatInfo.isAdmin,
+			activatedAt: flatInfo.activatedAt
 		},
 		stats: {
 			totalBookings: allBookings.length,

@@ -83,9 +83,6 @@
 							<p class="text-muted-foreground text-sm">
 								jusqu'au {formatDateTime(booking.endTime)}
 							</p>
-							{#if booking.note}
-								<p class="text-muted-foreground text-sm italic">{booking.note}</p>
-							{/if}
 						</div>
 						<Button variant="destructive" size="sm" onclick={() => cancelBooking(booking.id)}>Annuler</Button>
 					</Card.Content>

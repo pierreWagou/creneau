@@ -1,6 +1,6 @@
 <div align="center">
 
-![header](https://capsule-render.vercel.app/api?type=waving&height=220&color=0:89b4fa,50:89dceb,100:a6e3a1&text=cr%C3%A9neau&fontSize=60&fontColor=11111b&desc=shared%20parking%2C%20zero%20friction&descSize=18&descAlignY=62&descAlign=50&fontAlignY=38&animation=fadeIn&fontAlign=50)
+![header](https://capsule-render.vercel.app/api?type=waving&height=220&color=0:89b4fa,50:89dceb,100:a6e3a1&text=cr%C3%A9neau&fontSize=60&fontColor=11111b&desc=shared%20parking%2C%20zero%20drift&descSize=18&descAlignY=62&descAlign=50&fontAlignY=38&animation=fadeIn&fontAlign=50)
 
 ![SvelteKit](https://img.shields.io/badge/SvelteKit-FF3E00?logo=svelte&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-003B57?logo=sqlite&logoColor=white)
@@ -30,7 +30,8 @@ A shared parking spot booking system for apartment buildings. Residents pick a t
  │                   SvelteKit App                   │
  ├────────────────────────┬─────────────────────────┤
  │      Pages (SSR)       │      API Routes         │  routes
- │  /book /calendar /admin│  /api/availability      │
+ │  /book /calendar /admin│  /api/timeline          │
+ │  /my-bookings /account │  /api/calendar-statuses │
  │                        │  /api/bookings          │
  │                        │  /api/events (SSE)      │
  ├────────────────────────┼─────────────────────────┤
@@ -51,17 +52,18 @@ src/
 │   ├── types.ts              # DAY_START/DAY_END constants, shared types
 │   ├── utils/time.ts         # Time block presets (matin, après-midi, soirée)
 │   ├── server/
-│   │   ├── availability.ts   # getAvailableSlots(), getCalendarStatuses()
+│   │   ├── availability.ts   # buildSpotTimeline(), getCalendarStatuses()
 │   │   ├── bookings.ts       # CRUD + conflict detection
 │   │   ├── auth.ts           # PIN hashing, session management
 │   │   ├── sse.ts            # Server-Sent Events broadcaster
-│   │   └── db/schema.ts      # Drizzle schema (flat, slot, booking, session)
+│   │   └── db/schema.ts      # Drizzle schema (flat, spot, booking, session)
 │   └── components/ui/        # shadcn-svelte components
 ├── routes/
 │   ├── (app)/book/           # Booking page (date + time selection)
 │   ├── (app)/calendar/       # Interactive week/day calendar view
 │   ├── (app)/my-bookings/    # User's booking list
-│   ├── (app)/admin/          # Admin: manage flats + slots
+│   ├── (app)/account/        # Account settings (display name, PIN change)
+│   ├── (app)/admin/          # Admin: manage flats + spots
 │   ├── (auth)/login/         # PIN login
 │   ├── (auth)/activate/      # First-time activation
 │   └── api/                  # REST endpoints + SSE
@@ -110,7 +112,7 @@ Data is persisted in a named volume (`creneau-data`).
 
 **Availability computation** — the server computes `AvailableSlot[]` (ISO datetime ranges) by building a bookable timeline for the requested date range, subtracting existing bookings, and merging consecutive free days across overnight gaps.
 
-**Calendar coloring** — a separate lightweight query sums booked minutes per day to produce `free`/`partial`/`full` status for the calendar grid.
+**Calendar coloring** — builds a `SpotTimeline` per day and classifies each as `free` (no bookings), `partial` (some available slots remain), or `full` (no available slots) for the calendar grid.
 
 **Multi-day bookings** — a booking spans multiple days as one continuous slot. The overnight gap (end-of-day → start-of-next-day) is bridged implicitly. The system finds a single `AvailableSlot` that covers the entire range.
 

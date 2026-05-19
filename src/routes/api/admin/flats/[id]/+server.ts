@@ -36,8 +36,9 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
 		const updated = await db.select().from(flat).where(eq(flat.id, flatId)).get();
 		return json({ flat: updated });
-	} catch {
-		return json({ error: 'Requête invalide' }, { status: 400 });
+	} catch (e) {
+		console.error('[PATCH /api/admin/flats/:id]', e);
+		return json({ error: 'Erreur interne' }, { status: 500 });
 	}
 };
 

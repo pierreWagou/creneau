@@ -2,16 +2,16 @@ import { hash, verify } from '@node-rs/argon2';
 import { db } from './db';
 import { session, flat } from './db/schema';
 import { eq, and, gt } from 'drizzle-orm';
-import { randomUUID } from 'crypto';
+import { randomUUID, randomBytes } from 'crypto';
 import type { Cookies } from '@sveltejs/kit';
 import type { SessionFlat } from '$lib/types';
+import { PIN_MIN_LENGTH, PIN_MAX_LENGTH } from '$lib/constants';
 
 const SESSION_DURATION_DAYS = 30;
 
 export const SESSION_COOKIE_NAME = 'session';
 export const SESSION_MAX_AGE = SESSION_DURATION_DAYS * 24 * 60 * 60; // seconds
-export const PIN_MIN_LENGTH = 4;
-export const PIN_MAX_LENGTH = 6;
+export { PIN_MIN_LENGTH, PIN_MAX_LENGTH };
 
 /** Set the session cookie with standard options */
 export function setSessionCookie(cookies: Cookies, sessionId: string): void {
@@ -35,9 +35,10 @@ export async function verifyPin(pin: string, hashedPin: string): Promise<boolean
 export function generateActivationCode(): string {
 	// 4-character alphanumeric code (uppercase, no ambiguous chars like O/0, I/1)
 	const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+	const bytes = randomBytes(4);
 	let code = '';
 	for (let i = 0; i < 4; i++) {
-		code += chars[Math.floor(Math.random() * chars.length)];
+		code += chars[bytes[i] % chars.length];
 	}
 	return code;
 }

@@ -3,6 +3,7 @@ import { drizzle } from 'drizzle-orm/libsql';
 import { migrate } from 'drizzle-orm/libsql/migrator';
 import { resolve } from 'path';
 import * as schema from '../src/lib/server/db/schema';
+import { generateActivationCode } from '../src/lib/server/auth';
 
 const DB_PATH = process.env.DATABASE_URL || `file:${resolve('data/creneau.db')}`;
 
@@ -47,12 +48,3 @@ if (existingFlats.length === 0) {
 }
 
 console.log('Done.');
-
-function generateActivationCode(): string {
-	const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-	let code = '';
-	for (let i = 0; i < 4; i++) {
-		code += chars[Math.floor(Math.random() * chars.length)];
-	}
-	return code;
-}

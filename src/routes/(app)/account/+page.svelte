@@ -7,9 +7,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Separator } from '$lib/components/ui/separator';
-
-	const PIN_MIN_LENGTH = 4;
-	const PIN_MAX_LENGTH = 6;
+	import { PIN_MIN_LENGTH, PIN_MAX_LENGTH, DISPLAY_NAME_MAX_LENGTH } from '$lib/constants';
 
 	let { data } = $props();
 
@@ -111,7 +109,7 @@
 						type="text"
 						placeholder="ex. Famille Dupont"
 						bind:value={displayName}
-						maxlength={50}
+						maxlength={DISPLAY_NAME_MAX_LENGTH}
 					/>
 					<Button size="sm" disabled={savingName} onclick={saveDisplayName} class="shrink-0">
 						{savingName ? '...' : 'Enregistrer'}

@@ -20,6 +20,11 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		return json({ error: 'Paramètre spotId invalide' }, { status: 400 });
 	}
 
-	const statuses = await getCalendarStatuses(from, to, parsedSpotId);
-	return json({ statuses });
+	try {
+		const statuses = await getCalendarStatuses(from, to, parsedSpotId);
+		return json({ statuses });
+	} catch (e) {
+		console.error('[GET /api/calendar-statuses]', e);
+		return json({ error: 'Erreur interne' }, { status: 500 });
+	}
 };

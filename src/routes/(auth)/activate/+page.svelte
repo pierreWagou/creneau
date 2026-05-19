@@ -5,6 +5,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import * as Card from '$lib/components/ui/card';
 	import { toast } from 'svelte-sonner';
+	import { PIN_MIN_LENGTH, PIN_MAX_LENGTH } from '$lib/constants';
 
 	let flatNumber = $state('');
 	let activationCode = $state('');
@@ -21,8 +22,8 @@
 			return;
 		}
 
-		if (pin.length < 4 || pin.length > 6) {
-			toast.error('Le PIN doit contenir 4 à 6 chiffres');
+		if (pin.length < PIN_MIN_LENGTH || pin.length > PIN_MAX_LENGTH) {
+			toast.error(`Le PIN doit contenir ${PIN_MIN_LENGTH} à ${PIN_MAX_LENGTH} chiffres`);
 			return;
 		}
 

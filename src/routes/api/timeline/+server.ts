@@ -21,8 +21,12 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		return json({ error: 'Paramètre spotId invalide' }, { status: 400 });
 	}
 
-	const bookings = await getBookingsInRange(from, to, parsedSpotId);
-	const timeline = buildSpotTimeline(bookings, from, to);
-
-	return json(timeline);
+	try {
+		const bookings = await getBookingsInRange(from, to, parsedSpotId);
+		const timeline = buildSpotTimeline(bookings, from, to);
+		return json(timeline);
+	} catch (e) {
+		console.error('[GET /api/timeline]', e);
+		return json({ error: 'Erreur interne' }, { status: 500 });
+	}
 };

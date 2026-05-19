@@ -42,7 +42,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		const result = await db.insert(flat).values({ number, activationCode }).returning().get();
 
 		return json({ flat: result }, { status: 201 });
-	} catch {
-		return json({ error: 'Requête invalide' }, { status: 400 });
+	} catch (e) {
+		console.error('[POST /api/admin/flats]', e);
+		return json({ error: 'Erreur interne' }, { status: 500 });
 	}
 };

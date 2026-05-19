@@ -9,16 +9,16 @@ Creneau is a shared parking spot booking app for apartment buildings. See the pr
 
 ## Tech stack
 
-| Layer     | Technology                                |
-| --------- | ----------------------------------------- |
-| Framework | SvelteKit (Svelte 5 with runes)           |
-| Language  | TypeScript                                |
-| Database  | SQLite via better-sqlite3 + Drizzle ORM   |
-| UI        | Tailwind CSS v4 + shadcn-svelte (bits-ui) |
-| Calendar  | @event-calendar/core                      |
-| Auth      | Session-based, argon2 PIN hashing         |
-| Real-time | Server-Sent Events (SSE)                  |
-| Dates     | date-fns + @internationalized/date        |
+| Layer     | Technology                                 |
+| --------- | ------------------------------------------ |
+| Framework | SvelteKit (Svelte 5 with runes)            |
+| Language  | TypeScript                                 |
+| Database  | SQLite via @libsql/client + Drizzle ORM    |
+| UI        | Tailwind CSS v4 + shadcn-svelte (bits-ui)  |
+| Calendar  | @event-calendar/core                       |
+| Auth      | Session-based, @node-rs/argon2 PIN hashing |
+| Real-time | Server-Sent Events (SSE)                   |
+| Dates     | date-fns + @internationalized/date         |
 
 ## Key files
 
@@ -46,6 +46,9 @@ Creneau is a shared parking spot booking app for apartment buildings. See the pr
 | `src/routes/api/auth/activate/+server.ts`     | `POST` activate a flat with activation code                                                                                                  |
 | `src/routes/api/auth/logout/+server.ts`       | `POST` logout (clear session)                                                                                                                |
 | `src/routes/api/events/+server.ts`            | SSE stream endpoint                                                                                                                          |
+| `src/routes/(app)/account/+page.svelte`       | Account settings (display name, PIN change, stats)                                                                                           |
+| `src/routes/api/account/+server.ts`           | `PATCH` update display name, `POST` change PIN                                                                                               |
+| `src/lib/constants.ts`                        | Shared constants (PIN lengths, display name max length, calendar lookahead)                                                                  |
 
 ## Availability computation — how it works
 
@@ -165,7 +168,7 @@ Edit `DAY_START` / `DAY_END` in `src/lib/types.ts`. Everything else adjusts auto
 ### Adding a new API endpoint
 
 1. Create `src/routes/api/<name>/+server.ts`
-2. Check `locals.user` for auth
+2. Check `locals.flat` for auth
 3. If it modifies bookings, call `sseManager.broadcast('booking_created' | 'booking_cancelled', data)`
 
 ### Running migrations

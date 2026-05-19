@@ -4,6 +4,7 @@ import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { hashPin, verifyPin, PIN_MIN_LENGTH, PIN_MAX_LENGTH } from '$lib/server/auth';
+import { DISPLAY_NAME_MAX_LENGTH } from '$lib/constants';
 
 /**
  * PATCH /api/account — Update display name
@@ -19,8 +20,8 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
 
 		if ('displayName' in body) {
 			const name = body.displayName?.trim() || null;
-			if (name && name.length > 50) {
-				return json({ error: 'Le nom ne peut pas dépasser 50 caractères' }, { status: 400 });
+			if (name && name.length > DISPLAY_NAME_MAX_LENGTH) {
+				return json({ error: `Le nom ne peut pas dépasser ${DISPLAY_NAME_MAX_LENGTH} caractères` }, { status: 400 });
 			}
 			allowedFields.displayName = name;
 		}
@@ -32,8 +33,9 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
 		await db.update(flat).set(allowedFields).where(eq(flat.id, locals.flat.id));
 
 		return json({ success: true });
-	} catch {
-		return json({ error: 'Requête invalide' }, { status: 400 });
+	} catch (e) {
+		console.error('[PATCH /api/account]', e);
+		return json({ error: 'Erreur interne' }, { status: 500 });
 	}
 };
 
@@ -80,7 +82,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		await db.update(flat).set({ pinHash: newHash }).where(eq(flat.id, locals.flat.id));
 
 		return json({ success: true });
-	} catch {
-		return json({ error: 'Requête invalide' }, { status: 400 });
+	} catch (e) {
+		console.error('[POST /api/account]', e);
+		return json({ error: 'Erreur interne' }, { status: 500 });
 	}
 };

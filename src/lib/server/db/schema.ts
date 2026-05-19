@@ -28,10 +28,10 @@ export const booking = sqliteTable('booking', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
 	spotId: integer('spot_id')
 		.notNull()
-		.references(() => spot.id),
+		.references(() => spot.id, { onDelete: 'cascade' }),
 	flatId: integer('flat_id')
 		.notNull()
-		.references(() => flat.id),
+		.references(() => flat.id, { onDelete: 'cascade' }),
 	startTime: text('start_time').notNull(),
 	endTime: text('end_time').notNull(),
 	note: text('note'),
@@ -44,7 +44,7 @@ export const session = sqliteTable('session', {
 	id: text('id').primaryKey(),
 	flatId: integer('flat_id')
 		.notNull()
-		.references(() => flat.id),
+		.references(() => flat.id, { onDelete: 'cascade' }),
 	expiresAt: text('expires_at').notNull(),
 	createdAt: text('created_at')
 		.notNull()
