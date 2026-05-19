@@ -3,7 +3,7 @@ import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { hashPin, createSession, SESSION_COOKIE_NAME, SESSION_MAX_AGE, PIN_MIN_LENGTH, PIN_MAX_LENGTH } from '$lib/server/auth';
+import { hashPin, createSession, setSessionCookie, PIN_MIN_LENGTH, PIN_MAX_LENGTH } from '$lib/server/auth';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
 	try {
@@ -43,14 +43,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			.where(eq(flat.id, existingFlat.id));
 
 		const sessionId = await createSession(existingFlat.id);
-
-		cookies.set(SESSION_COOKIE_NAME, sessionId, {
-			path: '/',
-			httpOnly: true,
-			secure: true,
-			sameSite: 'lax',
-			maxAge: SESSION_MAX_AGE
-		});
+		setSessionCookie(cookies, sessionId);
 
 		return json({
 			success: true,

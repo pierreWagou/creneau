@@ -3,6 +3,7 @@ import { db } from './db';
 import { session, flat } from './db/schema';
 import { eq, and, gt } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
+import type { Cookies } from '@sveltejs/kit';
 
 const SESSION_DURATION_DAYS = 30;
 
@@ -10,6 +11,17 @@ export const SESSION_COOKIE_NAME = 'session';
 export const SESSION_MAX_AGE = SESSION_DURATION_DAYS * 24 * 60 * 60; // seconds
 export const PIN_MIN_LENGTH = 4;
 export const PIN_MAX_LENGTH = 6;
+
+/** Set the session cookie with standard options */
+export function setSessionCookie(cookies: Cookies, sessionId: string): void {
+	cookies.set(SESSION_COOKIE_NAME, sessionId, {
+		path: '/',
+		httpOnly: true,
+		secure: true,
+		sameSite: 'lax',
+		maxAge: SESSION_MAX_AGE
+	});
+}
 
 export async function hashPin(pin: string): Promise<string> {
 	return await hash(pin);

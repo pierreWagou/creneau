@@ -28,10 +28,6 @@ class SSEManager {
 			}
 		}
 	}
-
-	get clientCount(): number {
-		return this.clients.size;
-	}
 }
 
 // Singleton instance

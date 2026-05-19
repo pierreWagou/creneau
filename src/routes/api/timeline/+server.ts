@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getAvailableSlots } from '$lib/server/availability';
+import { buildSpotTimeline } from '$lib/server/availability';
+import { getBookingsInRange } from '$lib/server/bookings';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
 	if (!locals.user) {
@@ -20,6 +21,8 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		return json({ error: 'Paramètre spotId invalide' }, { status: 400 });
 	}
 
-	const slots = await getAvailableSlots(from, to, parsedSpotId);
-	return json({ slots });
+	const bookings = await getBookingsInRange(from, to, parsedSpotId);
+	const timeline = buildSpotTimeline(bookings, from, to);
+
+	return json(timeline);
 };

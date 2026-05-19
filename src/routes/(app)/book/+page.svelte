@@ -5,7 +5,6 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import * as Card from '$lib/components/ui/card';
-	import { Badge } from '$lib/components/ui/badge';
 	import { RangeCalendar } from '$lib/components/ui/range-calendar';
 	import { toast } from 'svelte-sonner';
 	import { today, getLocalTimeZone, parseDate, type DateValue } from '@internationalized/date';
@@ -34,7 +33,6 @@
 	let multiDayStartHour = $state(data.prefilledStartHour ?? DAY_START);
 	let multiDayEndHour = $state(data.prefilledEndHour ?? DAY_END);
 	let note = $state('');
-	let selectedLabel = $state<string | null>(null);
 	let loading = $state(false);
 	let loadingSlots = $state(false);
 
@@ -54,11 +52,11 @@
 		eventSource = new EventSource('/api/events');
 		eventSource.addEventListener('booking_created', () => {
 			refreshCalendarStatuses();
-			if (hasDateSelection) fetchAvailableSlots();
+			if (hasDateSelection) fetchTimeline();
 		});
 		eventSource.addEventListener('booking_cancelled', () => {
 			refreshCalendarStatuses();
-			if (hasDateSelection) fetchAvailableSlots();
+			if (hasDateSelection) fetchTimeline();
 		});
 	});
 
@@ -87,7 +85,7 @@
 		}
 	}
 
-	async function fetchAvailableSlots() {
+	async function fetchTimeline() {
 		if (!startDateStr) return;
 		const from = startDateStr;
 		const to = multiDay ? endDateStr : startDateStr;
@@ -95,16 +93,10 @@
 
 		try {
 			loadingSlots = true;
-			const [availRes, bookingsRes] = await Promise.all([
-				fetch(`/api/availability?from=${from}&to=${to}&spotId=${selectedSpotId}`),
-				fetch(`/api/bookings?from=${from}&to=${to}&spotId=${selectedSpotId}`)
-			]);
-			if (availRes.ok) {
-				const result = await availRes.json();
-				availableSlots = result.slots;
-			}
-			if (bookingsRes.ok) {
-				const result = await bookingsRes.json();
+			const res = await fetch(`/api/timeline?from=${from}&to=${to}&spotId=${selectedSpotId}`);
+			if (res.ok) {
+				const result = await res.json();
+				availableSlots = result.available;
 				dayBookings = result.bookings;
 			}
 		} catch {
@@ -126,7 +118,7 @@
 		}
 		isFirstSpotRun = false;
 		refreshCalendarStatuses();
-		if (hasDateSelection) fetchAvailableSlots();
+		if (hasDateSelection) fetchTimeline();
 	});
 
 	// Fetch available slots when date selection changes
@@ -134,7 +126,7 @@
 		if (startDateStr) {
 			// Also track endDateStr for multi-day
 			endDateStr;
-			fetchAvailableSlots();
+			fetchTimeline();
 		} else {
 			availableSlots = [];
 		}
@@ -270,9 +262,6 @@
 	$effect(() => {
 		if (!hasDateSelection || !hasAvailableTime) return;
 
-		// Reset label when date changes (user will re-select a preset if desired)
-		selectedLabel = null;
-
 		// If both hours were prefilled (from drag-select), skip entirely on first load
 		if (skipAutoSelect) {
 			skipAutoSelect = false;
@@ -326,13 +315,11 @@
 		const block = TIME_BLOCKS[blockKey];
 		startHour = parseInt(block.start.split(':')[0]);
 		endHour = parseInt(block.end.split(':')[0]);
-		selectedLabel = blockKey;
 	}
 
 	function applyFullDay() {
 		startHour = DAY_START;
 		endHour = DAY_END;
-		selectedLabel = null;
 	}
 
 	// ============================================================

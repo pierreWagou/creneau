@@ -6,7 +6,8 @@
 	import { Button } from '$lib/components/ui/button';
 	import { mode } from 'mode-watcher';
 	import CirclePlus from '@lucide/svelte/icons/circle-plus';
-	import type { BookingWithFlat } from '$lib/types';
+	import { DAY_START, DAY_END, type BookingWithFlat } from '$lib/types';
+	import { padH } from '$lib/utils/time';
 
 	let { data } = $props();
 
@@ -134,8 +135,8 @@
 			end: isMobile ? 'dayGridMonth,timeGridDay' : 'dayGridMonth,timeGridWeek,timeGridDay'
 		},
 		locale: 'fr',
-		slotMinTime: '00:00:00',
-		slotMaxTime: '24:00:00',
+		slotMinTime: `${padH(DAY_START)}:00:00`,
+		slotMaxTime: `${padH(DAY_END)}:00:00`,
 		slotDuration: '01:00:00',
 		firstDay: 1,
 		nowIndicator: true,

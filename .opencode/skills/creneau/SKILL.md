@@ -24,20 +24,20 @@ Creneau is a shared parking spot booking app for apartment buildings. See the pr
 
 | File | Purpose |
 |------|---------|
-| `src/lib/types.ts` | `DAY_START`/`DAY_END` constants, `AvailableSlot`, `CalendarDayStatus`, `BookingWithFlat` types |
-| `src/lib/server/availability.ts` | `getAvailableSlots()` — core algorithm, `getCalendarStatuses()` — calendar coloring |
-| `src/lib/server/bookings.ts` | CRUD, `hasConflict()` overlap detection, `cancelBooking()` |
+| `src/lib/types.ts` | `DAY_START`/`DAY_END` constants, `AvailableSlot`, `CalendarDayStatus`, `BookingWithFlat`, `SpotTimeline` types, `getTimelineStatus()` helper |
+| `src/lib/server/availability.ts` | `buildSpotTimeline()` — pure computation (no DB), `getCalendarStatuses()` — calendar coloring |
+| `src/lib/server/bookings.ts` | CRUD: `createBooking()`, `getBookingsInRange()`, `getBookingsByFlat()`, `cancelBooking()` |
 | `src/lib/server/sse.ts` | SSE broadcaster singleton |
-| `src/lib/server/auth.ts` | PIN hashing, session create/validate, shared constants (`SESSION_COOKIE_NAME`, `SESSION_MAX_AGE`, `PIN_MIN_LENGTH`, `PIN_MAX_LENGTH`) |
+| `src/lib/server/auth.ts` | PIN hashing, session create/validate, `setSessionCookie()`, shared constants |
 | `src/lib/server/db/schema.ts` | Drizzle schema: flat, spot, booking, session |
 | `src/lib/utils/time.ts` | `TIME_BLOCKS`, `padH()`, `getHourFromISO()`, `formatDateISO()` |
 | `src/lib/utils.ts` | `cn()` utility (clsx + tailwind-merge) |
 | `src/routes/(app)/book/+page.svelte` | Booking page (main UX) |
 | `src/routes/(app)/calendar/+page.svelte` | Calendar view (@event-calendar) |
 | `src/routes/(app)/my-bookings/+page.svelte` | User's booking list with SSE updates |
-| `src/routes/api/availability/+server.ts` | `GET` → returns `AvailableSlot[]` for date range + slot |
+| `src/routes/api/timeline/+server.ts` | `GET` → returns `SpotTimeline` (bookings + available slots) for date range + spot |
 | `src/routes/api/calendar-statuses/+server.ts` | `GET` → returns `CalendarDayStatus[]` for calendar coloring |
-| `src/routes/api/bookings/+server.ts` | `GET`/`POST` bookings, broadcasts SSE |
+| `src/routes/api/bookings/+server.ts` | `POST` create booking, broadcasts SSE |
 | `src/routes/api/bookings/[id]/+server.ts` | `DELETE` cancel a booking |
 | `src/routes/api/spots/+server.ts` | `GET`/`POST` parking spots (admin for POST) |
 | `src/routes/api/admin/flats/+server.ts` | `GET`/`POST` flats (admin only) |
@@ -49,23 +49,39 @@ Creneau is a shared parking spot booking app for apartment buildings. See the pr
 
 ## Availability computation — how it works
 
-The core function `getAvailableSlots(from, to, slotId)` in `src/lib/server/availability.ts`:
+The core function `buildSpotTimeline(bookings, from, to)` in `src/lib/server/availability.ts` is a **pure function** (no DB access). It takes pre-fetched bookings and a date range, returns a `SpotTimeline`:
 
+```typescript
+interface SpotTimeline {
+  bookings: BookingWithFlat[];  // who booked what
+  available: AvailableSlot[];   // free time ranges
+}
+```
+
+**Steps:**
 1. **Builds a bookable timeline** — one `[DAY_START:00, DAY_END:00]` interval per day in the range
-2. **Subtracts existing bookings** — splits intervals at booking boundaries
+2. **Subtracts bookings** — splits intervals at booking boundaries
 3. **Merges consecutive days** — consecutive free days (ending at DAY_END, starting at DAY_START next day) merge into one continuous `AvailableSlot`
-4. **Returns `AvailableSlot[]`** — ISO datetime pairs representing contiguous free time
 
 An `AvailableSlot` can span multiple days. With DAY_START=0 and DAY_END=24, consecutive free days are always merged (no gap between them).
 
-### Two independent concerns
+### Day status classification
 
-| Concern | Endpoint | Data | Used for |
-|---------|----------|------|----------|
-| Calendar coloring | `GET /api/calendar-statuses` | `CalendarDayStatus[]` (date + free/partial/full) | Color-coding calendar cells |
-| Booking form | `GET /api/availability` | `AvailableSlot[]` (ISO datetime ranges) | Hour selection, multi-day validation |
+`getTimelineStatus(timeline)` in `src/lib/types.ts`:
+- `timeline.bookings.length === 0` → `'free'`
+- `timeline.available.length === 0` → `'full'`
+- else → `'partial'`
 
-Calendar statuses are loaded on page load (3 months). Available slots are fetched on-demand when the user selects a date.
+### Two concerns, one model
+
+| Concern | Endpoint | Returns | Used for |
+|---------|----------|---------|----------|
+| Calendar coloring | `GET /api/calendar-statuses` | `CalendarDayStatus[]` | Color-coding date picker cells |
+| Booking form | `GET /api/timeline` | `SpotTimeline` (bookings + available) | Hour selection, capsule display, multi-day validation |
+
+Both use `buildSpotTimeline` internally. Calendar statuses call it per-day to classify. The timeline endpoint returns the full object to the client.
+
+Calendar statuses are loaded on page load (3 months). The timeline is fetched on-demand when the user selects a date.
 
 ### Multi-day booking logic
 

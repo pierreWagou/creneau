@@ -3,7 +3,7 @@ import { booking, flat } from './db/schema';
 import { eq, and, lt, gt } from 'drizzle-orm';
 import type { BookingWithFlat } from '$lib/types';
 
-export interface CreateBookingInput {
+interface CreateBookingInput {
 	spotId: number;
 	flatId: number;
 	startTime: string;
@@ -11,10 +11,23 @@ export interface CreateBookingInput {
 	note?: string | null;
 }
 
+/** Shared select columns for BookingWithFlat queries */
+const bookingWithFlatColumns = {
+	id: booking.id,
+	spotId: booking.spotId,
+	flatId: booking.flatId,
+	startTime: booking.startTime,
+	endTime: booking.endTime,
+	note: booking.note,
+	createdAt: booking.createdAt,
+	flatNumber: flat.number,
+	flatDisplayName: flat.displayName
+} as const;
+
 /**
  * Check if a booking conflicts with existing bookings on the same spot
  */
-export async function hasConflict(spotId: number, startTime: string, endTime: string, excludeBookingId?: number): Promise<boolean> {
+async function hasConflict(spotId: number, startTime: string, endTime: string, excludeBookingId?: number): Promise<boolean> {
 	const existingBookings = await db
 		.select()
 		.from(booking)
@@ -32,6 +45,20 @@ export async function hasConflict(spotId: number, startTime: string, endTime: st
 		: existingBookings;
 
 	return filtered.length > 0;
+}
+
+/**
+ * Get a booking by ID with flat information
+ */
+async function getBookingById(id: number): Promise<BookingWithFlat | null> {
+	const result = await db
+		.select(bookingWithFlatColumns)
+		.from(booking)
+		.innerJoin(flat, eq(booking.flatId, flat.id))
+		.where(eq(booking.id, id))
+		.get();
+
+	return result ?? null;
 }
 
 /**
@@ -68,31 +95,7 @@ export async function createBooking(input: CreateBookingInput): Promise<{ succes
 }
 
 /**
- * Get a booking by ID with flat information
- */
-export async function getBookingById(id: number): Promise<BookingWithFlat | null> {
-	const result = await db
-		.select({
-			id: booking.id,
-			spotId: booking.spotId,
-			flatId: booking.flatId,
-			startTime: booking.startTime,
-			endTime: booking.endTime,
-			note: booking.note,
-			createdAt: booking.createdAt,
-			flatNumber: flat.number,
-			flatDisplayName: flat.displayName
-		})
-		.from(booking)
-		.innerJoin(flat, eq(booking.flatId, flat.id))
-		.where(eq(booking.id, id))
-		.get();
-
-	return result ?? null;
-}
-
-/**
- * Get bookings in a date range (for calendar display)
+ * Get bookings in a date range (for timeline/calendar)
  */
 export async function getBookingsInRange(from: string, to: string, spotId?: number): Promise<BookingWithFlat[]> {
 	const conditions = [
@@ -105,17 +108,7 @@ export async function getBookingsInRange(from: string, to: string, spotId?: numb
 	}
 
 	return await db
-		.select({
-			id: booking.id,
-			spotId: booking.spotId,
-			flatId: booking.flatId,
-			startTime: booking.startTime,
-			endTime: booking.endTime,
-			note: booking.note,
-			createdAt: booking.createdAt,
-			flatNumber: flat.number,
-			flatDisplayName: flat.displayName
-		})
+		.select(bookingWithFlatColumns)
 		.from(booking)
 		.innerJoin(flat, eq(booking.flatId, flat.id))
 		.where(and(...conditions))
@@ -127,17 +120,7 @@ export async function getBookingsInRange(from: string, to: string, spotId?: numb
  */
 export async function getBookingsByFlat(flatId: number): Promise<BookingWithFlat[]> {
 	return await db
-		.select({
-			id: booking.id,
-			spotId: booking.spotId,
-			flatId: booking.flatId,
-			startTime: booking.startTime,
-			endTime: booking.endTime,
-			note: booking.note,
-			createdAt: booking.createdAt,
-			flatNumber: flat.number,
-			flatDisplayName: flat.displayName
-		})
+		.select(bookingWithFlatColumns)
 		.from(booking)
 		.innerJoin(flat, eq(booking.flatId, flat.id))
 		.where(eq(booking.flatId, flatId))

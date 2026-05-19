@@ -8,9 +8,6 @@ export const DAY_START = 0;
 /** End of bookable day (hour) */
 export const DAY_END = 24;
 
-/** Total bookable minutes in a day */
-export const DAY_TOTAL_MINUTES = (DAY_END - DAY_START) * 60;
-
 // ============================================================
 // Types
 // ============================================================
@@ -42,4 +39,17 @@ export interface BookingWithFlat {
 	createdAt: string;
 	flatNumber: string;
 	flatDisplayName: string | null;
+}
+
+/** Full timeline of a spot over a date range */
+export interface SpotTimeline {
+	bookings: BookingWithFlat[];
+	available: AvailableSlot[];
+}
+
+/** Derive the day status from a SpotTimeline */
+export function getTimelineStatus(timeline: SpotTimeline): 'free' | 'partial' | 'full' {
+	if (timeline.bookings.length === 0) return 'free';
+	if (timeline.available.length === 0) return 'full';
+	return 'partial';
 }

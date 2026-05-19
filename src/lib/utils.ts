@@ -10,5 +10,3 @@ export type WithElementRef<T, U extends HTMLElement = HTMLElement> = T & {
 };
 
 export type WithoutChildrenOrChild<T> = Omit<T, 'children' | 'child'>;
-
-export type WithoutChild<T> = Omit<T, 'child'>;
