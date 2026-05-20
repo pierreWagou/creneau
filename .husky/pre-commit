@@ -1,2 +1,2 @@
-npx biome ci --changed --since=HEAD --no-errors-on-unmatched
+npx biome ci .
 npm run check
