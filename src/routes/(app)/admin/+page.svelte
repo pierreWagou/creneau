@@ -317,7 +317,9 @@
 				<p class="text-muted-foreground text-sm">Scannez pour activer le compte parking.</p>
 			</div>
 			<div class="flex justify-center py-6">
-				<QrCode value={getActivationLink(qrFlat)} size={256} />
+				<div class="rounded-lg bg-white p-4">
+					<QrCode value={getActivationLink(qrFlat)} size={256} />
+				</div>
 			</div>
 		</div>
 	</div>

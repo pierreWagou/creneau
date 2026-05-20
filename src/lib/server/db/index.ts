@@ -1,6 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { createClient } from '@libsql/client';
+import { lt } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/libsql';
 import { migrate } from 'drizzle-orm/libsql/migrator';
 import * as schema from './schema';
@@ -23,3 +24,6 @@ export const db = drizzle(client, { schema });
 
 // Run migrations on startup (idempotent — only applies pending migrations)
 await migrate(db, { migrationsFolder: resolve('drizzle') });
+
+// Clean up expired sessions on startup
+await db.delete(schema.session).where(lt(schema.session.expiresAt, new Date().toISOString()));
