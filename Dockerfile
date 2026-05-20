@@ -10,16 +10,12 @@ WORKDIR /app
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/drizzle ./drizzle
-COPY --from=builder /app/scripts ./scripts
-COPY --from=builder /app/src/lib/server/db/schema.ts ./src/lib/server/db/schema.ts
-COPY entrypoint.sh ./
-RUN npm ci --omit=dev && npm install tsx
+RUN npm ci --omit=dev
 RUN mkdir -p /app/data
-RUN chmod +x entrypoint.sh
 
 EXPOSE 3000
 VOLUME /app/data
 ENV NODE_ENV=production
 ENV DATABASE_URL=file:/app/data/creneau.db
 
-ENTRYPOINT ["./entrypoint.sh"]
+CMD ["node", "build"]

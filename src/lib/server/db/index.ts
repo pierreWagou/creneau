@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { createClient } from '@libsql/client';
 import { drizzle } from 'drizzle-orm/libsql';
+import { migrate } from 'drizzle-orm/libsql/migrator';
 import * as schema from './schema';
 
 const DB_PATH = process.env.DATABASE_URL || `file:${resolve('data/creneau.db')}`;
@@ -19,3 +20,6 @@ client.execute('PRAGMA journal_mode = WAL');
 client.execute('PRAGMA foreign_keys = ON');
 
 export const db = drizzle(client, { schema });
+
+// Run migrations on startup (idempotent — only applies pending migrations)
+await migrate(db, { migrationsFolder: resolve('drizzle') });

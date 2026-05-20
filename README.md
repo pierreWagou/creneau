@@ -68,7 +68,7 @@ src/
 │   ├── (auth)/activate/      # First-time activation
 │   └── api/                  # REST endpoints + SSE
 ├── drizzle/                  # SQL migrations
-└── scripts/setup.ts          # DB migration + seed
+└── scripts/seed.ts           # Initial data seeding (run once)
 ```
 
 ## Getting Started
@@ -82,11 +82,11 @@ src/
 
 ```bash
 npm install
-npm run db:setup        # Creates SQLite DB, runs migrations, seeds admin flat
+npm run db:seed         # Creates SQLite DB, runs migrations, seeds admin flat
 npm run dev             # Starts dev server at http://localhost:5173
 ```
 
-On first run, `db:setup` prints an activation code. Go to `/activate` and use flat number `1A` with that code to create the admin account.
+On first run, `db:seed` prints an activation code. Go to `/activate` and use flat number `1A` with that code to create the admin account.
 
 ### Docker
 
@@ -110,7 +110,7 @@ Data is persisted in a named volume (`creneau-data`).
 | Preview prod       | `npm run preview`     |
 | Generate migration | `npm run db:generate` |
 | Run migrations     | `npm run db:migrate`  |
-| Setup DB + seed    | `npm run db:setup`    |
+| Seed DB            | `npm run db:seed`     |
 
 ### Key concepts
 
@@ -127,7 +127,7 @@ Data is persisted in a named volume (`creneau-data`).
 | Action     | Command                |
 | ---------- | ---------------------- |
 | Install    | `npm install`          |
-| Setup DB   | `npm run db:setup`     |
+| Seed DB    | `npm run db:seed`      |
 | Dev        | `npm run dev`          |
 | Build      | `npm run build`        |
 | Type check | `npm run check`        |
