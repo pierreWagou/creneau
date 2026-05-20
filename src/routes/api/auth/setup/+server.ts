@@ -3,23 +3,17 @@ import { PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '$lib/constants';
 import { createSession, hashPin, setSessionCookie } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
-import { consumeSetupToken, validateSetupToken } from '$lib/server/setup-token';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
 	try {
-		const { flatNumber, displayName, pin, token } = await request.json();
-
-		// Validate setup token
-		if (!token || !validateSetupToken(token)) {
-			return json({ error: 'Token de configuration invalide ou expiré' }, { status: 403 });
-		}
-
 		// Ensure no flats exist (first-time setup only)
 		const existingFlats = await db.select().from(flat).all();
 		if (existingFlats.length > 0) {
 			return json({ error: "L'application est déjà configurée" }, { status: 409 });
 		}
+
+		const { flatNumber, displayName, pin } = await request.json();
 
 		// Validate input
 		if (!flatNumber || !pin) {
@@ -48,9 +42,6 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			})
 			.returning()
 			.get();
-
-		// Consume the setup token (single use)
-		consumeSetupToken();
 
 		// Create session and set cookie
 		const sessionId = await createSession(result.id);
