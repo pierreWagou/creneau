@@ -34,7 +34,7 @@ await db.insert(schema.flat).values({
 });
 
 await db.insert(schema.spot).values({
-	name: '36',
+	number: '36',
 	description: "Place handicapé — partagée entre résidents (aucune personne à mobilité réduite dans l'immeuble)"
 });
 

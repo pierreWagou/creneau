@@ -10,7 +10,7 @@ export const load: PageServerLoad = async ({ url }) => {
 	const prefilledEndDate = url.searchParams.get('endDate') || '';
 	const prefilledStartHour = url.searchParams.get('startHour') || '';
 	const prefilledEndHour = url.searchParams.get('endHour') || '';
-	const prefilledSpotId = url.searchParams.get('spotId');
+	const prefilledSpot = url.searchParams.get('spot');
 	const spots = await db.select().from(spot).all();
 
 	// Load calendar statuses for the lookahead period (for cell coloring)
@@ -18,8 +18,8 @@ export const load: PageServerLoad = async ({ url }) => {
 	const from = format(startOfMonth(now), 'yyyy-MM-dd');
 	const to = format(endOfMonth(addMonths(now, CALENDAR_LOOKAHEAD_MONTHS - 1)), 'yyyy-MM-dd');
 
-	const targetSpotId = prefilledSpotId ? parseInt(prefilledSpotId, 10) : spots[0]?.id;
-	const calendarStatuses = await getCalendarStatuses(from, to, targetSpotId);
+	const targetSpot = prefilledSpot || spots[0]?.number;
+	const calendarStatuses = await getCalendarStatuses(from, to, targetSpot);
 
 	return {
 		prefilledDate,
@@ -28,6 +28,6 @@ export const load: PageServerLoad = async ({ url }) => {
 		prefilledEndHour: prefilledEndHour ? parseInt(prefilledEndHour, 10) : null,
 		spots,
 		calendarStatuses,
-		initialSpotId: targetSpotId
+		initialSpot: targetSpot
 	};
 };

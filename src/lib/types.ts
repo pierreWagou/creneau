@@ -14,7 +14,6 @@ export const DAY_END = 24;
 
 /** Flat info carried in the session (subset of the full flat record) */
 export interface SessionFlat {
-	id: number;
 	number: string;
 	displayName: string | null;
 	isAdmin: boolean;
@@ -39,13 +38,12 @@ export interface CalendarDayStatus {
 /** Booking data joined with flat info */
 export interface BookingWithFlat {
 	id: number;
-	spotId: number;
-	flatId: number;
+	spotNumber: string;
+	flatNumber: string;
 	startTime: string;
 	endTime: string;
 	note: string | null;
 	createdAt: string;
-	flatNumber: string;
 	flatDisplayName: string | null;
 }
 

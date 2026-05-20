@@ -39,21 +39,25 @@
 		'#f38ba8' // red
 	];
 
-	function getFlatColor(flatId: number): string {
+	function getFlatColor(flatNumber: string): string {
 		const colors = isDark ? FLAT_COLORS_DARK : FLAT_COLORS_LIGHT;
-		return colors[flatId % colors.length];
+		let hash = 0;
+		for (let i = 0; i < flatNumber.length; i++) {
+			hash = flatNumber.charCodeAt(i) + ((hash << 5) - hash);
+		}
+		return colors[Math.abs(hash) % colors.length];
 	}
 
 	// Convert bookings to calendar events
 	function bookingsToEvents(bookings: BookingWithFlat[]) {
 		return bookings.map((b) => {
-			const isOwn = b.flatId === data.flat.id;
+			const isOwn = b.flatNumber === data.flat.number;
 			return {
 				id: String(b.id),
 				start: b.startTime,
 				end: b.endTime,
 				title: `${b.flatNumber}${b.note ? ` · ${b.note}` : ''}`,
-				backgroundColor: isOwn ? (isDark ? '#89b4fa' : '#1e66f5') : getFlatColor(b.flatId),
+				backgroundColor: isOwn ? (isDark ? '#89b4fa' : '#1e66f5') : getFlatColor(b.flatNumber),
 				textColor: isDark ? '#1e1e2e' : '#eff1f5',
 				extendedProps: { booking: b }
 			};

@@ -10,7 +10,6 @@ export const GET: RequestHandler = async ({ locals }) => {
 
 	const flats = await db
 		.select({
-			id: flat.id,
 			number: flat.number,
 			displayName: flat.displayName,
 			activationCode: flat.activationCode,

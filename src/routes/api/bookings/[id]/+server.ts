@@ -14,7 +14,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 	}
 
 	try {
-		const result = await cancelBooking(bookingId, locals.flat.id, locals.flat.isAdmin);
+		const result = await cancelBooking(bookingId, locals.flat.number, locals.flat.isAdmin);
 
 		if (!result.success) {
 			return json({ error: result.error }, { status: result.status ?? 400 });

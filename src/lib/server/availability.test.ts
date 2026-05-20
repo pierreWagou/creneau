@@ -5,11 +5,10 @@ import { buildSpotTimeline } from './availability';
 function makeBooking(overrides: Partial<BookingWithFlat> & { startTime: string; endTime: string }): BookingWithFlat {
 	return {
 		id: 1,
-		spotId: 1,
-		flatId: 1,
+		spotNumber: '36',
+		flatNumber: 'B23',
 		note: null,
 		createdAt: '2026-01-01T00:00:00',
-		flatNumber: 'B23',
 		flatDisplayName: null,
 		...overrides
 	};

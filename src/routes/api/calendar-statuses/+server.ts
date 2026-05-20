@@ -9,19 +9,14 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
 	const from = url.searchParams.get('from');
 	const to = url.searchParams.get('to');
-	const spotId = url.searchParams.get('spotId');
+	const spot = url.searchParams.get('spot');
 
 	if (!from || !to) {
 		return json({ error: 'Paramètres from/to requis' }, { status: 400 });
 	}
 
-	const parsedSpotId = spotId ? parseInt(spotId, 10) : undefined;
-	if (spotId && (parsedSpotId === undefined || Number.isNaN(parsedSpotId))) {
-		return json({ error: 'Paramètre spotId invalide' }, { status: 400 });
-	}
-
 	try {
-		const statuses = await getCalendarStatuses(from, to, parsedSpotId);
+		const statuses = await getCalendarStatuses(from, to, spot || undefined);
 		return json({ statuses });
 	} catch (e) {
 		console.error('[GET /api/calendar-statuses]', e);

@@ -9,10 +9,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 		return json({ error: 'Accès interdit' }, { status: 403 });
 	}
 
-	const flatId = parseInt(params.id, 10);
-	if (Number.isNaN(flatId)) {
-		return json({ error: 'Identifiant invalide' }, { status: 400 });
-	}
+	const flatNumber = params.number;
 
 	try {
 		const updates = await request.json();
@@ -24,12 +21,12 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 			return json({ error: 'Aucun champ valide à mettre à jour' }, { status: 400 });
 		}
 
-		await db.update(flat).set(allowedFields).where(eq(flat.id, flatId));
+		await db.update(flat).set(allowedFields).where(eq(flat.number, flatNumber));
 
-		const updated = await db.select().from(flat).where(eq(flat.id, flatId)).get();
+		const updated = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();
 		return json({ flat: updated });
 	} catch (e) {
-		console.error('[PATCH /api/admin/flats/:id]', e);
+		console.error('[PATCH /api/admin/flats/:number]', e);
 		return json({ error: 'Erreur interne' }, { status: 500 });
 	}
 };
@@ -39,15 +36,12 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 		return json({ error: 'Accès interdit' }, { status: 403 });
 	}
 
-	const flatId = parseInt(params.id, 10);
-	if (Number.isNaN(flatId)) {
-		return json({ error: 'Identifiant invalide' }, { status: 400 });
-	}
+	const flatNumber = params.number;
 
-	if (flatId === locals.flat.id) {
+	if (flatNumber === locals.flat.number) {
 		return json({ error: 'Impossible de supprimer votre propre appartement' }, { status: 400 });
 	}
 
-	await db.delete(flat).where(eq(flat.id, flatId));
+	await db.delete(flat).where(eq(flat.number, flatNumber));
 	return json({ success: true });
 };

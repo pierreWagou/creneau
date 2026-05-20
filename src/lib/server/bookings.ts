@@ -6,8 +6,8 @@ import { db } from './db';
 import { booking, flat } from './db/schema';
 
 interface CreateBookingInput {
-	spotId: number;
-	flatId: number;
+	spotNumber: string;
+	flatNumber: string;
 	startTime: string;
 	endTime: string;
 	note?: string | null;
@@ -16,13 +16,12 @@ interface CreateBookingInput {
 /** Shared select columns for BookingWithFlat queries */
 const bookingWithFlatColumns = {
 	id: booking.id,
-	spotId: booking.spotId,
-	flatId: booking.flatId,
+	spotNumber: booking.spotNumber,
+	flatNumber: booking.flatNumber,
 	startTime: booking.startTime,
 	endTime: booking.endTime,
 	note: booking.note,
 	createdAt: booking.createdAt,
-	flatNumber: flat.number,
 	flatDisplayName: flat.displayName
 } as const;
 
@@ -30,7 +29,7 @@ const bookingWithFlatColumns = {
  * Check if a booking conflicts with existing bookings on the same spot
  */
 async function hasConflict(
-	spotId: number,
+	spotNumber: string,
 	startTime: string,
 	endTime: string,
 	excludeBookingId?: number
@@ -38,7 +37,7 @@ async function hasConflict(
 	const existingBookings = await db
 		.select()
 		.from(booking)
-		.where(and(eq(booking.spotId, spotId), lt(booking.startTime, endTime), gt(booking.endTime, startTime)))
+		.where(and(eq(booking.spotNumber, spotNumber), lt(booking.startTime, endTime), gt(booking.endTime, startTime)))
 		.all();
 
 	const filtered = excludeBookingId ? existingBookings.filter((b) => b.id !== excludeBookingId) : existingBookings;
@@ -53,7 +52,7 @@ async function getBookingById(id: number): Promise<BookingWithFlat | null> {
 	const result = await db
 		.select(bookingWithFlatColumns)
 		.from(booking)
-		.innerJoin(flat, eq(booking.flatId, flat.id))
+		.innerJoin(flat, eq(booking.flatNumber, flat.number))
 		.where(eq(booking.id, id))
 		.get();
 
@@ -70,7 +69,7 @@ export async function createBooking(
 		return { success: false, error: "L'heure de fin doit être après l'heure de début" };
 	}
 
-	const conflict = await hasConflict(input.spotId, input.startTime, input.endTime);
+	const conflict = await hasConflict(input.spotNumber, input.startTime, input.endTime);
 	if (conflict) {
 		return { success: false, error: 'Ce créneau est déjà réservé' };
 	}
@@ -78,8 +77,8 @@ export async function createBooking(
 	const result = await db
 		.insert(booking)
 		.values({
-			spotId: input.spotId,
-			flatId: input.flatId,
+			spotNumber: input.spotNumber,
+			flatNumber: input.flatNumber,
 			startTime: input.startTime,
 			endTime: input.endTime,
 			note: input.note ?? null
@@ -98,7 +97,7 @@ export async function createBooking(
 /**
  * Get bookings in a date range (for timeline/calendar)
  */
-export async function getBookingsInRange(from: string, to: string, spotId?: number): Promise<BookingWithFlat[]> {
+export async function getBookingsInRange(from: string, to: string, spotNumber?: string): Promise<BookingWithFlat[]> {
 	// Expand bare date strings to full datetime boundaries so that
 	// lexicographic comparison against stored ISO datetimes is correct.
 	const rangeStart = from.includes('T') ? from : `${from}T${padH(DAY_START)}:00:00`;
@@ -106,14 +105,14 @@ export async function getBookingsInRange(from: string, to: string, spotId?: numb
 
 	const conditions = [lt(booking.startTime, rangeEnd), gt(booking.endTime, rangeStart)];
 
-	if (spotId) {
-		conditions.push(eq(booking.spotId, spotId));
+	if (spotNumber) {
+		conditions.push(eq(booking.spotNumber, spotNumber));
 	}
 
 	return await db
 		.select(bookingWithFlatColumns)
 		.from(booking)
-		.innerJoin(flat, eq(booking.flatId, flat.id))
+		.innerJoin(flat, eq(booking.flatNumber, flat.number))
 		.where(and(...conditions))
 		.all();
 }
@@ -121,12 +120,12 @@ export async function getBookingsInRange(from: string, to: string, spotId?: numb
 /**
  * Get bookings for a specific flat
  */
-export async function getBookingsByFlat(flatId: number): Promise<BookingWithFlat[]> {
+export async function getBookingsByFlat(flatNumber: string): Promise<BookingWithFlat[]> {
 	return await db
 		.select(bookingWithFlatColumns)
 		.from(booking)
-		.innerJoin(flat, eq(booking.flatId, flat.id))
-		.where(eq(booking.flatId, flatId))
+		.innerJoin(flat, eq(booking.flatNumber, flat.number))
+		.where(eq(booking.flatNumber, flatNumber))
 		.all();
 }
 
@@ -135,7 +134,7 @@ export async function getBookingsByFlat(flatId: number): Promise<BookingWithFlat
  */
 export async function cancelBooking(
 	bookingId: number,
-	flatId: number,
+	flatNumber: string,
 	isAdmin: boolean
 ): Promise<{ success: boolean; error?: string; status?: number }> {
 	const existing = await db.select().from(booking).where(eq(booking.id, bookingId)).get();
@@ -144,7 +143,7 @@ export async function cancelBooking(
 		return { success: false, error: 'Réservation introuvable', status: 404 };
 	}
 
-	if (existing.flatId !== flatId && !isAdmin) {
+	if (existing.flatNumber !== flatNumber && !isAdmin) {
 		return { success: false, error: "Vous n'êtes pas autorisé à annuler cette réservation", status: 403 };
 	}
 

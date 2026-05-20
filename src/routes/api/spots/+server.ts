@@ -18,15 +18,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	try {
-		const { name, description } = await request.json();
+		const { number, description } = await request.json();
 
-		if (!name) {
-			return json({ error: 'Nom de la place requis' }, { status: 400 });
+		if (!number) {
+			return json({ error: 'Numéro de la place requis' }, { status: 400 });
 		}
 
 		const result = await db
 			.insert(spot)
-			.values({ name, description: description || null })
+			.values({ number: number.trim(), description: description || null })
 			.returning()
 			.get();
 

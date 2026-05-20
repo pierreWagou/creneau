@@ -43,11 +43,11 @@ export function generateActivationCode(): string {
 	return code;
 }
 
-export async function createSession(flatId: number): Promise<string> {
+export async function createSession(flatNumber: string): Promise<string> {
 	const id = randomUUID();
 	const expiresAt = new Date(Date.now() + SESSION_DURATION_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
-	await db.insert(session).values({ id, flatId, expiresAt });
+	await db.insert(session).values({ id, flatNumber, expiresAt });
 	return id;
 }
 
@@ -60,7 +60,7 @@ export async function validateSession(sessionId: string): Promise<{ sessionId: s
 			flat: flat
 		})
 		.from(session)
-		.innerJoin(flat, eq(session.flatId, flat.id))
+		.innerJoin(flat, eq(session.flatNumber, flat.number))
 		.where(and(eq(session.id, sessionId), gt(session.expiresAt, now)))
 		.get();
 
@@ -69,7 +69,6 @@ export async function validateSession(sessionId: string): Promise<{ sessionId: s
 	return {
 		sessionId: result.session.id,
 		flat: {
-			id: result.flat.id,
 			number: result.flat.number,
 			displayName: result.flat.displayName,
 			isAdmin: result.flat.isAdmin

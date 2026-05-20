@@ -10,7 +10,6 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	const flats = await db
 		.select({
-			id: flat.id,
 			number: flat.number,
 			activationCode: flat.activationCode,
 			activationCodeExpiresAt: flat.activationCodeExpiresAt,

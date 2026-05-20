@@ -75,7 +75,7 @@
 		const res = await fetch('/api/spots', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ name: newSpotName.trim(), description: newSpotDescription.trim() || null })
+			body: JSON.stringify({ number: newSpotName.trim(), description: newSpotDescription.trim() || null })
 		});
 
 		if (res.ok) {
@@ -89,8 +89,8 @@
 		}
 	}
 
-	async function generateActivation(flatId: number) {
-		const res = await fetch(`/api/admin/flats/${flatId}/activation`, { method: 'POST' });
+	async function generateActivation(flatNumber: string) {
+		const res = await fetch(`/api/admin/flats/${encodeURIComponent(flatNumber)}/activation`, { method: 'POST' });
 
 		if (res.ok) {
 			toast.success("Code d'activation généré (valable 24h)");
@@ -101,8 +101,8 @@
 		}
 	}
 
-	async function revokeActivation(flatId: number) {
-		const res = await fetch(`/api/admin/flats/${flatId}/activation`, { method: 'DELETE' });
+	async function revokeActivation(flatNumber: string) {
+		const res = await fetch(`/api/admin/flats/${encodeURIComponent(flatNumber)}/activation`, { method: 'DELETE' });
 
 		if (res.ok) {
 			toast.success("Code d'activation révoqué");
@@ -113,10 +113,10 @@
 		}
 	}
 
-	async function resetFlat(flatId: number) {
+	async function resetFlat(flatNumber: string) {
 		if (!confirm('Cela va déconnecter le résident et supprimer son code PIN. Continuer ?')) return;
 
-		const res = await fetch(`/api/admin/flats/${flatId}/reset`, {
+		const res = await fetch(`/api/admin/flats/${encodeURIComponent(flatNumber)}/reset`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ confirm: true })
@@ -131,8 +131,8 @@
 		}
 	}
 
-	async function toggleAdmin(flatId: number, currentIsAdmin: boolean) {
-		const res = await fetch(`/api/admin/flats/${flatId}`, {
+	async function toggleAdmin(flatNumber: string, currentIsAdmin: boolean) {
+		const res = await fetch(`/api/admin/flats/${encodeURIComponent(flatNumber)}`, {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ isAdmin: !currentIsAdmin })
@@ -146,10 +146,10 @@
 		}
 	}
 
-	async function deleteFlat(flatId: number) {
+	async function deleteFlat(flatNumber: string) {
 		if (!confirm('Supprimer cet appartement ? Cette action est irréversible.')) return;
 
-		const res = await fetch(`/api/admin/flats/${flatId}`, { method: 'DELETE' });
+		const res = await fetch(`/api/admin/flats/${encodeURIComponent(flatNumber)}`, { method: 'DELETE' });
 
 		if (res.ok) {
 			toast.success('Appartement supprimé');
@@ -178,7 +178,7 @@
 					{#each data.spots as s}
 						<div class="flex items-center justify-between rounded-md border p-3">
 							<div>
-								<p class="font-medium">{s.name}</p>
+								<p class="font-medium">{s.number}</p>
 								{#if s.description}
 									<p class="text-muted-foreground text-sm">{s.description}</p>
 								{/if}
@@ -240,24 +240,24 @@
 							</div>
 							<div class="flex items-center gap-1">
 								{#if state === 'active'}
-									<Button size="sm" variant="ghost" onclick={() => toggleAdmin(f.id, f.isAdmin)}>
+									<Button size="sm" variant="ghost" onclick={() => toggleAdmin(f.number, f.isAdmin)}>
 										{f.isAdmin ? 'Retirer admin' : 'Rendre admin'}
 									</Button>
-									<Button size="sm" variant="ghost" onclick={() => resetFlat(f.id)}>Réinitialiser</Button>
+									<Button size="sm" variant="ghost" onclick={() => resetFlat(f.number)}>Réinitialiser</Button>
 								{:else if state === 'pending'}
 									<Button size="sm" variant="ghost" onclick={() => copyLink(f)}>
 										<ClipboardCopy class="mr-1 h-3.5 w-3.5" />
 										Copier le lien
 									</Button>
-									<Button size="sm" variant="ghost" onclick={() => revokeActivation(f.id)}>Annuler</Button>
-									<Button size="sm" variant="ghost" onclick={() => generateActivation(f.id)}>Régénérer</Button>
+									<Button size="sm" variant="ghost" onclick={() => revokeActivation(f.number)}>Annuler</Button>
+									<Button size="sm" variant="ghost" onclick={() => generateActivation(f.number)}>Régénérer</Button>
 								{:else if state === 'expired'}
-									<Button size="sm" variant="ghost" onclick={() => generateActivation(f.id)}>Régénérer</Button>
-									<Button size="sm" variant="ghost" onclick={() => revokeActivation(f.id)}>Annuler</Button>
+									<Button size="sm" variant="ghost" onclick={() => generateActivation(f.number)}>Régénérer</Button>
+									<Button size="sm" variant="ghost" onclick={() => revokeActivation(f.number)}>Annuler</Button>
 								{:else}
-									<Button size="sm" variant="ghost" onclick={() => generateActivation(f.id)}>Générer un lien</Button>
+									<Button size="sm" variant="ghost" onclick={() => generateActivation(f.number)}>Générer un lien</Button>
 								{/if}
-								<Button size="sm" variant="destructive" onclick={() => deleteFlat(f.id)}>Supprimer</Button>
+								<Button size="sm" variant="destructive" onclick={() => deleteFlat(f.number)}>Supprimer</Button>
 							</div>
 						</div>
 					</div>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { format, isPast, parseISO } from 'date-fns';
+	import { differenceInHours, format, isPast, isSameDay, isSameMonth, parseISO } from 'date-fns';
 	import { fr } from 'date-fns/locale';
 	import { onDestroy, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
@@ -39,8 +39,33 @@
 		}
 	}
 
-	function formatDateTime(iso: string): string {
-		return format(parseISO(iso), 'EEE d MMM - HH:mm', { locale: fr });
+	function formatMainLine(start: string, end: string): string {
+		const startDate = parseISO(start);
+		const endDate = parseISO(end);
+
+		if (isSameDay(startDate, endDate)) {
+			// "lundi 5 mai, 14h00 → 18h00"
+			return `${format(startDate, "EEEE d MMMM, HH'h'mm", { locale: fr })} → ${format(endDate, "HH'h'mm")}`;
+		}
+
+		if (isSameMonth(startDate, endDate)) {
+			// "lun. 5, 14h00 → mer. 7 mai, 10h00"
+			return `${format(startDate, "EEE d, HH'h'mm", { locale: fr })} → ${format(endDate, "EEE d MMMM, HH'h'mm", { locale: fr })}`;
+		}
+
+		// "lun. 30 avril, 14h00 → mer. 2 mai, 10h00"
+		return `${format(startDate, "EEE d MMMM, HH'h'mm", { locale: fr })} → ${format(endDate, "EEE d MMMM, HH'h'mm", { locale: fr })}`;
+	}
+
+	function formatDuration(start: string, end: string): string {
+		const hours = differenceInHours(parseISO(end), parseISO(start));
+		if (hours < 24) return `${hours}h`;
+		const days = Math.ceil(hours / 24);
+		return `${days} jour${days > 1 ? 's' : ''}`;
+	}
+
+	function formatCreatedAt(iso: string): string {
+		return `Réservé le ${format(parseISO(iso), 'd MMMM', { locale: fr })}`;
 	}
 
 	// Séparer en à venir et passées
@@ -72,19 +97,19 @@
 			<h3 class="text-lg font-semibold">À venir</h3>
 			{#each upcoming as booking}
 				<Card.Root>
-					<Card.Content class="flex items-center justify-between p-4">
-						<div class="space-y-1">
-							<div class="flex items-center gap-2">
-								<p class="font-medium">{formatDateTime(booking.startTime)}</p>
-								{#if booking.note}
-									<Badge variant="secondary">{booking.note}</Badge>
-								{/if}
+					<Card.Content class="p-4">
+						<div class="flex items-start justify-between gap-3">
+							<div class="min-w-0 space-y-1">
+								<p class="font-medium capitalize">{formatMainLine(booking.startTime, booking.endTime)}</p>
+								<p class="text-muted-foreground text-sm">
+									{formatCreatedAt(booking.createdAt)}{#if booking.note} · {booking.note}{/if}
+								</p>
 							</div>
-							<p class="text-muted-foreground text-sm">
-								jusqu'au {formatDateTime(booking.endTime)}
-							</p>
+							<div class="flex shrink-0 items-center gap-2">
+								<Badge variant="outline">{formatDuration(booking.startTime, booking.endTime)}</Badge>
+								<Button variant="destructive" size="sm" onclick={() => cancelBooking(booking.id)}>Annuler</Button>
+							</div>
 						</div>
-						<Button variant="destructive" size="sm" onclick={() => cancelBooking(booking.id)}>Annuler</Button>
 					</Card.Content>
 				</Card.Root>
 			{/each}
@@ -97,16 +122,14 @@
 			{#each past as booking}
 				<Card.Root class="opacity-60">
 					<Card.Content class="p-4">
-						<div class="space-y-1">
-							<div class="flex items-center gap-2">
-								<p class="font-medium">{formatDateTime(booking.startTime)}</p>
-								{#if booking.note}
-									<Badge variant="outline">{booking.note}</Badge>
-								{/if}
+						<div class="flex items-start justify-between gap-3">
+							<div class="min-w-0 space-y-1">
+								<p class="font-medium capitalize">{formatMainLine(booking.startTime, booking.endTime)}</p>
+								<p class="text-muted-foreground text-sm">
+									{formatCreatedAt(booking.createdAt)}{#if booking.note} · {booking.note}{/if}
+								</p>
 							</div>
-							<p class="text-muted-foreground text-sm">
-								jusqu'au {formatDateTime(booking.endTime)}
-							</p>
+							<Badge variant="outline">{formatDuration(booking.startTime, booking.endTime)}</Badge>
 						</div>
 					</Card.Content>
 				</Card.Root>

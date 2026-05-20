@@ -7,21 +7,25 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const sessionFlat = locals.flat!;
 
 	// Fetch full flat info
-	const flatInfo = await db.select().from(flat).where(eq(flat.id, sessionFlat.id)).get();
+	const flatInfo = await db.select().from(flat).where(eq(flat.number, sessionFlat.number)).get();
 
 	if (!flatInfo) {
 		throw new Error('Flat not found');
 	}
 
 	// Count total bookings
-	const allBookings = await db.select({ id: booking.id }).from(booking).where(eq(booking.flatId, sessionFlat.id)).all();
+	const allBookings = await db
+		.select({ id: booking.id })
+		.from(booking)
+		.where(eq(booking.flatNumber, sessionFlat.number))
+		.all();
 
 	// Count upcoming bookings (endTime > now)
 	const now = new Date().toISOString();
 	const upcomingBookings = await db
 		.select({ id: booking.id })
 		.from(booking)
-		.where(and(eq(booking.flatId, sessionFlat.id), gt(booking.endTime, now)))
+		.where(and(eq(booking.flatNumber, sessionFlat.number), gt(booking.endTime, now)))
 		.all();
 
 	return {

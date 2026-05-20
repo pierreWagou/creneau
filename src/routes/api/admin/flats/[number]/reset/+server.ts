@@ -13,13 +13,10 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		return json({ error: 'Accès interdit' }, { status: 403 });
 	}
 
-	const flatId = parseInt(params.id, 10);
-	if (Number.isNaN(flatId)) {
-		return json({ error: 'Identifiant invalide' }, { status: 400 });
-	}
+	const flatNumber = params.number;
 
 	// Prevent admin from resetting their own account
-	if (flatId === locals.flat.id) {
+	if (flatNumber === locals.flat.number) {
 		return json({ error: 'Impossible de réinitialiser votre propre compte' }, { status: 400 });
 	}
 
@@ -32,7 +29,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		return json({ error: 'Confirmation requise' }, { status: 400 });
 	}
 
-	const existing = await db.select().from(flat).where(eq(flat.id, flatId)).get();
+	const existing = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();
 	if (!existing) {
 		return json({ error: 'Appartement introuvable' }, { status: 404 });
 	}
@@ -52,11 +49,11 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 			displayName: null,
 			activatedAt: null
 		})
-		.where(eq(flat.id, flatId));
+		.where(eq(flat.number, flatNumber));
 
 	// Delete all sessions for this flat
-	await db.delete(session).where(eq(session.flatId, flatId));
+	await db.delete(session).where(eq(session.flatNumber, flatNumber));
 
-	const updated = await db.select().from(flat).where(eq(flat.id, flatId)).get();
+	const updated = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();
 	return json({ flat: updated });
 };

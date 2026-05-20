@@ -23,9 +23,28 @@
 	<!-- En-tête -->
 	<header class="bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-0 z-40 border-b backdrop-blur">
 		<div class="flex h-14 items-center justify-between px-4">
-			<a href="/calendar" class="text-primary text-lg font-bold tracking-tight transition-opacity hover:opacity-80">
-				Créneau
-			</a>
+			<div class="flex items-center gap-6">
+				<a href="/calendar" class="text-primary text-lg font-bold tracking-tight transition-opacity hover:opacity-80">
+					Créneau
+				</a>
+
+				<!-- Navigation desktop -->
+				<nav class="hidden items-center gap-1 md:flex">
+					{#each navItems.slice(0, 3) as item}
+						<a
+							href={item.href}
+							class="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors {$page
+								.url.pathname === item.href
+								? 'bg-primary/10 text-primary'
+								: 'text-muted-foreground hover:text-foreground'}"
+						>
+							<item.icon class="h-4 w-4" />
+							<span>{item.label}</span>
+						</a>
+					{/each}
+				</nav>
+			</div>
+
 			<div class="flex items-center gap-1">
 				{#if data.flat.isAdmin}
 					<a href="/admin">

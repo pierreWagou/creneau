@@ -9,15 +9,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	try {
-		const { spotId, startTime, endTime, note } = await request.json();
+		const { spot, startTime, endTime, note } = await request.json();
 
-		if (!spotId || !startTime || !endTime) {
+		if (!spot || !startTime || !endTime) {
 			return json({ error: 'Champs requis manquants' }, { status: 400 });
 		}
 
 		const result = await createBooking({
-			spotId,
-			flatId: locals.flat.id,
+			spotNumber: spot,
+			flatNumber: locals.flat.number,
 			startTime,
 			endTime,
 			note: note || null

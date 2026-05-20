@@ -44,7 +44,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			.get();
 
 		// Create session and set cookie
-		const sessionId = await createSession(result.id);
+		const sessionId = await createSession(result.number);
 		setSessionCookie(cookies, sessionId);
 
 		return json({

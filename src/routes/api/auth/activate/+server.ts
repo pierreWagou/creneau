@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { createSession, hashPin, PIN_MAX_LENGTH, PIN_MIN_LENGTH, setSessionCookie } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
@@ -21,13 +21,9 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			return json({ error: 'Le PIN ne doit contenir que des chiffres' }, { status: 400 });
 		}
 
-		const existingFlat = await db
-			.select()
-			.from(flat)
-			.where(and(eq(flat.number, flatNumber), eq(flat.activationCode, activationCode)))
-			.get();
+		const existingFlat = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();
 
-		if (!existingFlat) {
+		if (!existingFlat || existingFlat.activationCode !== activationCode) {
 			return json({ error: "Numéro d'appartement ou code d'activation invalide" }, { status: 401 });
 		}
 
@@ -54,9 +50,9 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 				activationCode: null,
 				activationCodeExpiresAt: null
 			})
-			.where(eq(flat.id, existingFlat.id));
+			.where(eq(flat.number, existingFlat.number));
 
-		const sessionId = await createSession(existingFlat.id);
+		const sessionId = await createSession(existingFlat.number);
 		setSessionCookie(cookies, sessionId);
 
 		return json({

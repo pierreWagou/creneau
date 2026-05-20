@@ -20,7 +20,7 @@
 	const TOTAL_HOURS = DAY_END - DAY_START;
 
 	// Form state
-	let selectedSpotId = $state(data.initialSpotId ?? data.spots[0]?.id ?? 0);
+	let selectedSpot = $state(data.initialSpot ?? data.spots[0]?.number ?? '');
 	let calendarValue = $state<{ start: DateValue; end: DateValue } | undefined>(
 		data.prefilledDate
 			? {
@@ -76,7 +76,7 @@
 		const to = formatDateISO(toDate);
 
 		try {
-			const res = await fetch(`/api/calendar-statuses?from=${from}&to=${to}&spotId=${selectedSpotId}`);
+			const res = await fetch(`/api/calendar-statuses?from=${from}&to=${to}&spot=${selectedSpot}`);
 			if (res.ok) {
 				const result = await res.json();
 				calendarStatuses = result.statuses;
@@ -94,7 +94,7 @@
 
 		try {
 			loadingSlots = true;
-			const res = await fetch(`/api/timeline?from=${from}&to=${to}&spotId=${selectedSpotId}`);
+			const res = await fetch(`/api/timeline?from=${from}&to=${to}&spot=${selectedSpot}`);
 			if (res.ok) {
 				const result = await res.json();
 				availableSlots = result.available;
@@ -109,10 +109,10 @@
 	}
 
 	// Re-fetch calendar statuses when spot changes
-	let initialSpotId = data.initialSpotId;
 	let isFirstSpotRun = true;
+	let initialSpotId = data.initialSpot;
 	$effect(() => {
-		const currentSpotId = selectedSpotId;
+		const currentSpotId = selectedSpot;
 		if (isFirstSpotRun && currentSpotId === initialSpotId) {
 			isFirstSpotRun = false;
 			return;
@@ -349,7 +349,7 @@
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					spotId: selectedSpotId,
+					spot: selectedSpot,
 					startTime: getStartTimeStr(),
 					endTime: getEndTimeStr(),
 					note: note || null
@@ -425,11 +425,11 @@
 					<Label for="spot">Place de parking</Label>
 					<select
 						id="spot"
-						bind:value={selectedSpotId}
+						bind:value={selectedSpot}
 						class="border-input bg-background flex h-10 w-full rounded-md border px-3 py-2 text-sm"
 					>
 						{#each data.spots as s}
-							<option value={s.id}>{s.name}</option>
+							<option value={s.number}>{s.number}</option>
 						{/each}
 					</select>
 				</div>
@@ -737,7 +737,7 @@
 					{#if data.spots.length > 1}
 						<p>
 							<span class="font-medium">Place :</span>
-							{data.spots.find((s: { id: number; name: string }) => s.id === selectedSpotId)?.name}
+							{data.spots.find((s: { number: string }) => s.number === selectedSpot)?.number}
 						</p>
 					{/if}
 				</div>

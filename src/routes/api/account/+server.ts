@@ -30,7 +30,7 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
 			return json({ error: 'Aucun champ valide à mettre à jour' }, { status: 400 });
 		}
 
-		await db.update(flat).set(allowedFields).where(eq(flat.id, locals.flat.id));
+		await db.update(flat).set(allowedFields).where(eq(flat.number, locals.flat.number));
 
 		return json({ success: true });
 	} catch (e) {
@@ -66,7 +66,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		}
 
 		// Fetch current pin hash
-		const user = await db.select().from(flat).where(eq(flat.id, locals.flat.id)).get();
+		const user = await db.select().from(flat).where(eq(flat.number, locals.flat.number)).get();
 		if (!user?.pinHash) {
 			return json({ error: 'Utilisateur introuvable' }, { status: 404 });
 		}
@@ -79,7 +79,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 		// Hash and save new PIN
 		const newHash = await hashPin(newPin);
-		await db.update(flat).set({ pinHash: newHash }).where(eq(flat.id, locals.flat.id));
+		await db.update(flat).set({ pinHash: newHash }).where(eq(flat.number, locals.flat.number));
 
 		return json({ success: true });
 	} catch (e) {

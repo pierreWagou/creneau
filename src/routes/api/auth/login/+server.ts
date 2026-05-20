@@ -24,7 +24,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			return json({ error: "Numéro d'appartement ou PIN invalide" }, { status: 401 });
 		}
 
-		const sessionId = await createSession(existingFlat.id);
+		const sessionId = await createSession(existingFlat.number);
 		setSessionCookie(cookies, sessionId);
 
 		return json({

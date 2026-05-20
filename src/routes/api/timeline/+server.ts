@@ -10,19 +10,14 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
 	const from = url.searchParams.get('from');
 	const to = url.searchParams.get('to');
-	const spotId = url.searchParams.get('spotId');
+	const spot = url.searchParams.get('spot');
 
-	if (!from || !to || !spotId) {
-		return json({ error: 'Paramètres from/to/spotId requis' }, { status: 400 });
-	}
-
-	const parsedSpotId = parseInt(spotId, 10);
-	if (Number.isNaN(parsedSpotId)) {
-		return json({ error: 'Paramètre spotId invalide' }, { status: 400 });
+	if (!from || !to || !spot) {
+		return json({ error: 'Paramètres from/to/spot requis' }, { status: 400 });
 	}
 
 	try {
-		const bookings = await getBookingsInRange(from, to, parsedSpotId);
+		const bookings = await getBookingsInRange(from, to, spot);
 		const timeline = buildSpotTimeline(bookings, from, to);
 		return json(timeline);
 	} catch (e) {

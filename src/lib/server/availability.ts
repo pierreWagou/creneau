@@ -46,8 +46,8 @@ export function buildSpotTimeline(bookings: BookingWithFlat[], from: string, to:
  * - Bookings but available slots remain → 'partial'
  * - No available slots → 'full'
  */
-export async function getCalendarStatuses(from: string, to: string, spotId?: number): Promise<CalendarDayStatus[]> {
-	const allBookings = await getBookingsInRange(from, to, spotId);
+export async function getCalendarStatuses(from: string, to: string, spotNumber?: string): Promise<CalendarDayStatus[]> {
+	const allBookings = await getBookingsInRange(from, to, spotNumber);
 
 	const statuses: CalendarDayStatus[] = [];
 	const current = new Date(`${from}T12:00:00`);
