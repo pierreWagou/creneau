@@ -13,6 +13,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			id: flat.id,
 			number: flat.number,
 			activationCode: flat.activationCode,
+			activationCodeExpiresAt: flat.activationCodeExpiresAt,
 			displayName: flat.displayName,
 			isAdmin: flat.isAdmin,
 			isActive: flat.isActive,

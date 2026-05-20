@@ -1,5 +1,4 @@
 import { json } from '@sveltejs/kit';
-import { generateActivationCode } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
 import type { RequestHandler } from './$types';
@@ -15,6 +14,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 			number: flat.number,
 			displayName: flat.displayName,
 			activationCode: flat.activationCode,
+			activationCodeExpiresAt: flat.activationCodeExpiresAt,
 			isAdmin: flat.isAdmin,
 			isActive: flat.isActive,
 			activatedAt: flat.activatedAt
@@ -37,9 +37,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			return json({ error: "Numéro d'appartement requis" }, { status: 400 });
 		}
 
-		const activationCode = generateActivationCode();
-
-		const result = await db.insert(flat).values({ number, activationCode }).returning().get();
+		// Create flat in "Inactif" state — no activation code yet
+		const result = await db.insert(flat).values({ number: number.trim() }).returning().get();
 
 		return json({ flat: result }, { status: 201 });
 	} catch (e) {

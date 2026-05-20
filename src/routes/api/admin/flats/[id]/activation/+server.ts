@@ -1,0 +1,71 @@
+import { json } from '@sveltejs/kit';
+import { eq } from 'drizzle-orm';
+import { generateActivationCode } from '$lib/server/auth';
+import { db } from '$lib/server/db';
+import { flat } from '$lib/server/db/schema';
+import type { RequestHandler } from './$types';
+
+const ACTIVATION_CODE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+/**
+ * POST — Generate an activation code (Inactif → En attente)
+ */
+export const POST: RequestHandler = async ({ params, locals }) => {
+	if (!locals.flat?.isAdmin) {
+		return json({ error: 'Accès interdit' }, { status: 403 });
+	}
+
+	const flatId = parseInt(params.id, 10);
+	if (Number.isNaN(flatId)) {
+		return json({ error: 'Identifiant invalide' }, { status: 400 });
+	}
+
+	const existing = await db.select().from(flat).where(eq(flat.id, flatId)).get();
+	if (!existing) {
+		return json({ error: 'Appartement introuvable' }, { status: 404 });
+	}
+
+	if (existing.isActive) {
+		return json({ error: 'Cet appartement est déjà activé' }, { status: 409 });
+	}
+
+	const activationCode = generateActivationCode();
+	const expiresAt = new Date(Date.now() + ACTIVATION_CODE_TTL_MS).toISOString();
+
+	await db.update(flat).set({ activationCode, activationCodeExpiresAt: expiresAt }).where(eq(flat.id, flatId));
+
+	const updated = await db.select().from(flat).where(eq(flat.id, flatId)).get();
+	return json({ flat: updated });
+};
+
+/**
+ * DELETE — Revoke an activation code (En attente → Inactif)
+ */
+export const DELETE: RequestHandler = async ({ params, locals }) => {
+	if (!locals.flat?.isAdmin) {
+		return json({ error: 'Accès interdit' }, { status: 403 });
+	}
+
+	const flatId = parseInt(params.id, 10);
+	if (Number.isNaN(flatId)) {
+		return json({ error: 'Identifiant invalide' }, { status: 400 });
+	}
+
+	const existing = await db.select().from(flat).where(eq(flat.id, flatId)).get();
+	if (!existing) {
+		return json({ error: 'Appartement introuvable' }, { status: 404 });
+	}
+
+	if (existing.isActive) {
+		return json({ error: 'Cet appartement est déjà activé' }, { status: 409 });
+	}
+
+	if (!existing.activationCode) {
+		return json({ error: "Aucun code d'activation à révoquer" }, { status: 400 });
+	}
+
+	await db.update(flat).set({ activationCode: null, activationCodeExpiresAt: null }).where(eq(flat.id, flatId));
+
+	const updated = await db.select().from(flat).where(eq(flat.id, flatId)).get();
+	return json({ flat: updated });
+};

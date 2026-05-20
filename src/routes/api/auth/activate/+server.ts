@@ -17,6 +17,10 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			return json({ error: `Le PIN doit contenir ${PIN_MIN_LENGTH} à ${PIN_MAX_LENGTH} chiffres` }, { status: 400 });
 		}
 
+		if (!/^\d+$/.test(pin)) {
+			return json({ error: 'Le PIN ne doit contenir que des chiffres' }, { status: 400 });
+		}
+
 		const existingFlat = await db
 			.select()
 			.from(flat)
@@ -31,6 +35,14 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			return json({ error: 'Cet appartement a déjà été activé' }, { status: 409 });
 		}
 
+		// Check activation code expiry
+		if (existingFlat.activationCodeExpiresAt) {
+			const expiresAt = new Date(existingFlat.activationCodeExpiresAt).getTime();
+			if (Date.now() > expiresAt) {
+				return json({ error: "Code d'activation expiré. Contactez votre administrateur." }, { status: 410 });
+			}
+		}
+
 		const pinHash = await hashPin(pin);
 		await db
 			.update(flat)
@@ -38,7 +50,9 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 				displayName: displayName || null,
 				pinHash,
 				isActive: true,
-				activatedAt: new Date().toISOString()
+				activatedAt: new Date().toISOString(),
+				activationCode: null,
+				activationCodeExpiresAt: null
 			})
 			.where(eq(flat.id, existingFlat.id));
 

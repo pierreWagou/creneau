@@ -4,7 +4,8 @@ import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 export const flat = sqliteTable('flat', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
 	number: text('number').notNull().unique(),
-	activationCode: text('activation_code').notNull(),
+	activationCode: text('activation_code'),
+	activationCodeExpiresAt: text('activation_code_expires_at'),
 	displayName: text('display_name'),
 	pinHash: text('pin_hash'),
 	isAdmin: integer('is_admin', { mode: 'boolean' }).notNull().default(false),

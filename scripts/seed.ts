@@ -2,7 +2,6 @@ import { resolve } from 'node:path';
 import { createClient } from '@libsql/client';
 import { drizzle } from 'drizzle-orm/libsql';
 import { migrate } from 'drizzle-orm/libsql/migrator';
-import { generateActivationCode } from '../src/lib/server/auth';
 import * as schema from '../src/lib/server/db/schema';
 
 const DB_PATH = process.env.DATABASE_URL || `file:${resolve('data/creneau.db')}`;
@@ -23,15 +22,15 @@ if (existingFlats.length > 0) {
 	process.exit(0);
 }
 
-// Seed initial data
+// Seed initial data (dev only — production uses the setup wizard)
 console.log('Seeding initial data...');
-
-const activationCode = generateActivationCode();
 
 await db.insert(schema.flat).values({
 	number: 'B23',
-	activationCode,
-	isAdmin: true
+	isAdmin: true,
+	isActive: true,
+	pinHash: 'dev-only-no-auth',
+	activatedAt: new Date().toISOString()
 });
 
 await db.insert(schema.spot).values({
@@ -40,10 +39,9 @@ await db.insert(schema.spot).values({
 });
 
 console.log('');
-console.log('=== Initial Setup Complete ===');
+console.log('=== Dev Seed Complete ===');
 console.log('');
-console.log('Admin flat: B23');
-console.log(`Activation code: ${activationCode}`);
+console.log('Admin flat: B23 (already active, no PIN verification in dev)');
 console.log('');
-console.log('Go to /activate and use these credentials to set up your admin account.');
+console.log('For production, use the setup wizard instead.');
 console.log('');

@@ -7,8 +7,10 @@
 	import { Label } from '$lib/components/ui/label';
 	import { PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '$lib/constants';
 
-	let flatNumber = $state('');
-	let activationCode = $state('');
+	let { data } = $props();
+
+	let flatNumber = $state(data.prefill.flat);
+	let activationCode = $state(data.prefill.code);
 	let displayName = $state('');
 	let pin = $state('');
 	let pinConfirm = $state('');

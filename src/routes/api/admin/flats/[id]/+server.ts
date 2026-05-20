@@ -1,6 +1,5 @@
 import { json } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
-import { generateActivationCode } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
 import type { RequestHandler } from './$types';
@@ -20,13 +19,6 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 		const allowedFields: Record<string, unknown> = {};
 
 		if ('isAdmin' in updates) allowedFields.isAdmin = updates.isAdmin;
-		if ('regenerateCode' in updates && updates.regenerateCode) {
-			allowedFields.activationCode = generateActivationCode();
-			allowedFields.isActive = false;
-			allowedFields.pinHash = null;
-			allowedFields.displayName = null;
-			allowedFields.activatedAt = null;
-		}
 
 		if (Object.keys(allowedFields).length === 0) {
 			return json({ error: 'Aucun champ valide à mettre à jour' }, { status: 400 });
