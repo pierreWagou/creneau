@@ -59,6 +59,10 @@
 			refreshCalendarStatuses();
 			if (hasDateSelection) fetchTimeline();
 		});
+		eventSource.addEventListener('booking_updated', () => {
+			refreshCalendarStatuses();
+			if (hasDateSelection) fetchTimeline();
+		});
 	});
 
 	onDestroy(() => {

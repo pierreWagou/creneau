@@ -150,3 +150,43 @@ export async function cancelBooking(
 	await db.delete(booking).where(eq(booking.id, bookingId));
 	return { success: true };
 }
+
+/**
+ * Update a booking's time range (only by owner)
+ */
+export async function updateBooking(
+	bookingId: number,
+	flatNumber: string,
+	updates: { startTime: string; endTime: string }
+): Promise<{ success: true; booking: BookingWithFlat } | { success: false; error: string; status: number }> {
+	const existing = await db.select().from(booking).where(eq(booking.id, bookingId)).get();
+
+	if (!existing) {
+		return { success: false, error: 'Réservation introuvable', status: 404 };
+	}
+
+	if (existing.flatNumber !== flatNumber) {
+		return { success: false, error: "Vous n'êtes pas autorisé à modifier cette réservation", status: 403 };
+	}
+
+	if (updates.startTime >= updates.endTime) {
+		return { success: false, error: "L'heure de fin doit être après l'heure de début", status: 400 };
+	}
+
+	const conflict = await hasConflict(existing.spotNumber, updates.startTime, updates.endTime, bookingId);
+	if (conflict) {
+		return { success: false, error: 'Ce créneau est déjà réservé', status: 409 };
+	}
+
+	await db
+		.update(booking)
+		.set({ startTime: updates.startTime, endTime: updates.endTime })
+		.where(eq(booking.id, bookingId));
+
+	const updated = await getBookingById(bookingId);
+	if (!updated) {
+		return { success: false, error: 'Impossible de récupérer la réservation', status: 500 };
+	}
+
+	return { success: true, booking: updated };
+}

@@ -73,6 +73,7 @@
 				start: b.startTime,
 				end: b.endTime,
 				title: '',
+				editable: isOwn,
 				backgroundColor: isOwn ? (isDark ? '#89b4fa' : '#1e66f5') : getFlatColor(b.flatNumber),
 				textColor: isDark ? '#1e1e2e' : '#eff1f5',
 				extendedProps: { booking: b }
@@ -197,6 +198,106 @@
 		}
 	}
 
+	// --- Drag & Resize ---
+	function toISOLocal(d: Date): string {
+		const year = d.getFullYear();
+		const month = String(d.getMonth() + 1).padStart(2, '0');
+		const day = String(d.getDate()).padStart(2, '0');
+		const hours = String(d.getHours()).padStart(2, '0');
+		const minutes = String(d.getMinutes()).padStart(2, '0');
+		return `${year}-${month}-${day}T${hours}:${minutes}:00`;
+	}
+
+	async function handleEventDrop(info: any) {
+		// Only allow drag in time grid views (not month view)
+		if (info.view.type === 'dayGridMonth') {
+			info.revert();
+			return;
+		}
+
+		const booking = info.event.extendedProps.booking as BookingWithFlat;
+		const newStart = toISOLocal(info.event.start);
+		const newEnd = toISOLocal(info.event.end);
+		const oldStart = booking.startTime;
+		const oldEnd = booking.endTime;
+
+		const res = await fetch(`/api/bookings/${booking.id}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ startTime: newStart, endTime: newEnd })
+		});
+
+		if (res.ok) {
+			const { booking: updated } = await res.json();
+			bookings = bookings.map((b) => (b.id === updated.id ? updated : b));
+			toast.success('Réservation modifiée', {
+				action: {
+					label: 'Annuler',
+					onClick: () => undoMove(booking.id, oldStart, oldEnd)
+				},
+				duration: 5000
+			});
+		} else {
+			info.revert();
+			const result = await res.json();
+			toast.error(result.error || 'Impossible de déplacer la réservation');
+		}
+	}
+
+	async function handleEventResize(info: any) {
+		// Only allow resize in time grid views (not month view)
+		if (info.view.type === 'dayGridMonth') {
+			info.revert();
+			return;
+		}
+
+		const booking = info.event.extendedProps.booking as BookingWithFlat;
+		const newStart = toISOLocal(info.event.start);
+		const newEnd = toISOLocal(info.event.end);
+		const oldStart = booking.startTime;
+		const oldEnd = booking.endTime;
+
+		const res = await fetch(`/api/bookings/${booking.id}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ startTime: newStart, endTime: newEnd })
+		});
+
+		if (res.ok) {
+			const { booking: updated } = await res.json();
+			bookings = bookings.map((b) => (b.id === updated.id ? updated : b));
+			toast.success('Réservation modifiée', {
+				action: {
+					label: 'Annuler',
+					onClick: () => undoMove(booking.id, oldStart, oldEnd)
+				},
+				duration: 5000
+			});
+		} else {
+			info.revert();
+			const result = await res.json();
+			toast.error(result.error || 'Impossible de redimensionner la réservation');
+		}
+	}
+
+	async function undoMove(bookingId: number, startTime: string, endTime: string) {
+		const res = await fetch(`/api/bookings/${bookingId}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ startTime, endTime })
+		});
+
+		if (res.ok) {
+			const { booking: updated } = await res.json();
+			bookings = bookings.map((b) => (b.id === updated.id ? updated : b));
+			toast.success('Modification annulée');
+		} else {
+			const result = await res.json();
+			toast.error(result.error || "Le créneau original n'est plus disponible");
+			invalidateAll();
+		}
+	}
+
 	// --- Lifecycle ---
 	onMount(() => {
 		checkMobile();
@@ -214,6 +315,12 @@
 			bookings = bookings.filter((b) => b.id !== id);
 			// Close popover if the cancelled booking is the one being viewed
 			if (popoverBooking?.id === id) closePopover();
+		});
+		eventSource.addEventListener('booking_updated', (e) => {
+			const updated = JSON.parse(e.data) as BookingWithFlat;
+			bookings = bookings.map((b) => (b.id === updated.id ? updated : b));
+			// Update popover if the updated booking is the one being viewed
+			if (popoverBooking?.id === updated.id) popoverBooking = updated;
 		});
 	});
 
@@ -277,12 +384,15 @@
 		slotDuration: '01:00:00',
 		firstDay: 1,
 		nowIndicator: true,
+		editable: true,
 		selectable: true,
 		select: handleSelect,
 		dateClick: handleDateClick,
 		eventClick: handleEventClick,
 		eventMouseEnter: handleEventMouseEnter,
 		eventMouseLeave: handleEventMouseLeave,
+		eventDrop: handleEventDrop,
+		eventResize: handleEventResize,
 		eventContent: (info: any) => ({
 			html: `<span style="display:flex;align-items:center;justify-content:center;height:100%;font-size:0.7rem;font-weight:600">${info.event.extendedProps.booking.flatNumber}</span>`
 		}),

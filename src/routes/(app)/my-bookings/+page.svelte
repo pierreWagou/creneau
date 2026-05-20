@@ -16,6 +16,7 @@
 		eventSource = new EventSource('/api/events');
 		eventSource.addEventListener('booking_cancelled', () => invalidateAll());
 		eventSource.addEventListener('booking_created', () => invalidateAll());
+		eventSource.addEventListener('booking_updated', () => invalidateAll());
 	});
 
 	onDestroy(() => {
