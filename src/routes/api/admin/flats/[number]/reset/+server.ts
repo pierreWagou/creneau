@@ -9,7 +9,10 @@ import type { RequestHandler } from './$types';
  * Clears PIN, activation code, sessions. Requires confirmation.
  */
 export const POST: RequestHandler = async ({ params, request, locals }) => {
-	if (!locals.flat?.isAdmin) {
+	if (!locals.flat) {
+		return json({ error: 'Non autorisé' }, { status: 401 });
+	}
+	if (!locals.flat.isAdmin) {
 		return json({ error: 'Accès interdit' }, { status: 403 });
 	}
 

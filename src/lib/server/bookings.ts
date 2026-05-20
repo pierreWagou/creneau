@@ -64,14 +64,14 @@ async function getBookingById(id: number): Promise<BookingWithFlat | null> {
  */
 export async function createBooking(
 	input: CreateBookingInput
-): Promise<{ success: true; booking: BookingWithFlat } | { success: false; error: string }> {
+): Promise<{ success: true; booking: BookingWithFlat } | { success: false; error: string; status: number }> {
 	if (input.startTime >= input.endTime) {
-		return { success: false, error: "L'heure de fin doit être après l'heure de début" };
+		return { success: false, error: "L'heure de fin doit être après l'heure de début", status: 400 };
 	}
 
 	const conflict = await hasConflict(input.spotNumber, input.startTime, input.endTime);
 	if (conflict) {
-		return { success: false, error: 'Ce créneau est déjà réservé' };
+		return { success: false, error: 'Ce créneau est déjà réservé', status: 409 };
 	}
 
 	const result = await db
@@ -88,7 +88,7 @@ export async function createBooking(
 
 	const bookingWithFlat = await getBookingById(result.id);
 	if (!bookingWithFlat) {
-		return { success: false, error: 'Impossible de récupérer la réservation' };
+		return { success: false, error: 'Impossible de récupérer la réservation', status: 500 };
 	}
 
 	return { success: true, booking: bookingWithFlat };

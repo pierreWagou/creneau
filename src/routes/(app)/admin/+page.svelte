@@ -1,7 +1,9 @@
 <script lang="ts">
 	import ClipboardCopy from '@lucide/svelte/icons/clipboard-copy';
+	import QrCodeIcon from '@lucide/svelte/icons/qr-code';
 	import { toast } from 'svelte-sonner';
 	import { invalidateAll } from '$app/navigation';
+	import QrCode from '$lib/components/qr-code.svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
@@ -12,8 +14,10 @@
 	let { data } = $props();
 
 	let newFlatNumber = $state('');
-	let newSpotName = $state('');
+	let newSpotNumber = $state('');
 	let newSpotDescription = $state('');
+	let qrFlat = $state<(typeof data.flats)[0] | null>(null);
+	let qrDialogOpen = $state(false);
 
 	type FlatState = 'inactive' | 'pending' | 'expired' | 'active';
 
@@ -50,6 +54,11 @@
 		}
 	}
 
+	function showQrCode(f: (typeof data.flats)[0]) {
+		qrFlat = f;
+		qrDialogOpen = true;
+	}
+
 	async function addFlat() {
 		if (!newFlatNumber.trim()) return;
 
@@ -70,17 +79,17 @@
 	}
 
 	async function addSpot() {
-		if (!newSpotName.trim()) return;
+		if (!newSpotNumber.trim()) return;
 
 		const res = await fetch('/api/spots', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ number: newSpotName.trim(), description: newSpotDescription.trim() || null })
+			body: JSON.stringify({ number: newSpotNumber.trim(), description: newSpotDescription.trim() || null })
 		});
 
 		if (res.ok) {
-			toast.success(`Place "${newSpotName}" ajoutée`);
-			newSpotName = '';
+			toast.success(`Place "${newSpotNumber}" ajoutée`);
+			newSpotNumber = '';
 			newSpotDescription = '';
 			invalidateAll();
 		} else {
@@ -193,7 +202,7 @@
 			<div class="space-y-2">
 				<Label>Ajouter une place</Label>
 				<div class="flex gap-2">
-					<Input placeholder="Nom (ex. Place 7)" bind:value={newSpotName} />
+					<Input placeholder="Numéro (ex. 36)" bind:value={newSpotNumber} />
 					<Input placeholder="Description (optionnel)" bind:value={newSpotDescription} />
 					<Button onclick={addSpot}>Ajouter</Button>
 				</div>
@@ -237,6 +246,11 @@
 										{getExpiryLabel(f.activationCodeExpiresAt)}
 									</p>
 								{/if}
+								{#if (state === 'pending' || state === 'expired') && f.activationCode}
+									<p class="text-xs">
+										Code : <span class="font-mono font-medium">{f.activationCode}</span>
+									</p>
+								{/if}
 							</div>
 							<div class="flex items-center gap-1">
 								{#if state === 'active'}
@@ -248,6 +262,10 @@
 									<Button size="sm" variant="ghost" onclick={() => copyLink(f)}>
 										<ClipboardCopy class="mr-1 h-3.5 w-3.5" />
 										Copier le lien
+									</Button>
+									<Button size="sm" variant="ghost" onclick={() => showQrCode(f)}>
+										<QrCodeIcon class="mr-1 h-3.5 w-3.5" />
+										QR Code
 									</Button>
 									<Button size="sm" variant="ghost" onclick={() => revokeActivation(f.number)}>Annuler</Button>
 									<Button size="sm" variant="ghost" onclick={() => generateActivation(f.number)}>Régénérer</Button>
@@ -269,7 +287,7 @@
 			<div class="space-y-2">
 				<Label>Ajouter un appartement</Label>
 				<div class="flex gap-2">
-					<Input placeholder="Numéro (ex. 3B)" bind:value={newFlatNumber} />
+					<Input placeholder="Numéro (ex. B12)" bind:value={newFlatNumber} />
 					<Button onclick={addFlat}>Ajouter</Button>
 				</div>
 				<p class="text-muted-foreground text-xs">
@@ -279,3 +297,28 @@
 		</Card.Content>
 	</Card.Root>
 </div>
+
+<!-- QR Code Dialog -->
+{#if qrDialogOpen && qrFlat}
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+		onclick={() => { qrDialogOpen = false; qrFlat = null; }}
+		onkeydown={(e) => { if (e.key === 'Escape') { qrDialogOpen = false; qrFlat = null; } }}
+	>
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div
+			class="bg-background w-full max-w-sm rounded-lg border p-6 shadow-lg"
+			onclick={(e) => e.stopPropagation()}
+			onkeydown={(e) => e.stopPropagation()}
+		>
+			<div class="space-y-1 text-center">
+				<h3 class="text-lg font-semibold">Appartement {qrFlat.number}</h3>
+				<p class="text-muted-foreground text-sm">Scannez pour activer le compte parking.</p>
+			</div>
+			<div class="flex justify-center py-6">
+				<QrCode value={getActivationLink(qrFlat)} size={256} />
+			</div>
+		</div>
+	</div>
+{/if}

@@ -4,28 +4,39 @@ import { flat } from '$lib/server/db/schema';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals }) => {
-	if (!locals.flat?.isAdmin) {
+	if (!locals.flat) {
+		return json({ error: 'Non autorisé' }, { status: 401 });
+	}
+	if (!locals.flat.isAdmin) {
 		return json({ error: 'Accès interdit' }, { status: 403 });
 	}
 
-	const flats = await db
-		.select({
-			number: flat.number,
-			displayName: flat.displayName,
-			activationCode: flat.activationCode,
-			activationCodeExpiresAt: flat.activationCodeExpiresAt,
-			isAdmin: flat.isAdmin,
-			isActive: flat.isActive,
-			activatedAt: flat.activatedAt
-		})
-		.from(flat)
-		.all();
+	try {
+		const flats = await db
+			.select({
+				number: flat.number,
+				displayName: flat.displayName,
+				activationCode: flat.activationCode,
+				activationCodeExpiresAt: flat.activationCodeExpiresAt,
+				isAdmin: flat.isAdmin,
+				isActive: flat.isActive,
+				activatedAt: flat.activatedAt
+			})
+			.from(flat)
+			.all();
 
-	return json({ flats });
+		return json({ flats });
+	} catch (e) {
+		console.error('[GET /api/admin/flats]', e);
+		return json({ error: 'Erreur interne' }, { status: 500 });
+	}
 };
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	if (!locals.flat?.isAdmin) {
+	if (!locals.flat) {
+		return json({ error: 'Non autorisé' }, { status: 401 });
+	}
+	if (!locals.flat.isAdmin) {
 		return json({ error: 'Accès interdit' }, { status: 403 });
 	}
 

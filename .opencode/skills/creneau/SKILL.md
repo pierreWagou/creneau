@@ -22,33 +22,37 @@ Creneau is a shared parking spot booking app for apartment buildings. See the pr
 
 ## Key files
 
-| File                                          | Purpose                                                                                                                                      |
-| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/lib/types.ts`                            | `DAY_START`/`DAY_END` constants, `AvailableSlot`, `CalendarDayStatus`, `BookingWithFlat`, `SpotTimeline` types, `getTimelineStatus()` helper |
-| `src/lib/server/availability.ts`              | `buildSpotTimeline()` — pure computation (no DB), `getCalendarStatuses()` — calendar coloring                                                |
-| `src/lib/server/bookings.ts`                  | CRUD: `createBooking()`, `getBookingsInRange()`, `getBookingsByFlat()`, `cancelBooking()`                                                    |
-| `src/lib/server/sse.ts`                       | SSE broadcaster singleton                                                                                                                    |
-| `src/lib/server/auth.ts`                      | PIN hashing, session create/validate, `setSessionCookie()`                                                                                   |
-| `src/lib/server/db/schema.ts`                 | Drizzle schema: flat, spot, booking, session                                                                                                 |
-| `src/lib/utils/time.ts`                       | `TIME_BLOCKS`, `padH()`, `getHourFromISO()`, `formatDateISO()`                                                                               |
-| `src/lib/utils.ts`                            | `cn()` utility (clsx + tailwind-merge)                                                                                                       |
-| `src/routes/(app)/book/+page.svelte`          | Booking page (main UX)                                                                                                                       |
-| `src/routes/(app)/calendar/+page.svelte`      | Calendar view (@event-calendar)                                                                                                              |
-| `src/routes/(app)/my-bookings/+page.svelte`   | User's booking list with SSE updates                                                                                                         |
-| `src/routes/api/timeline/+server.ts`          | `GET` → returns `SpotTimeline` (bookings + available slots) for date range + spot                                                            |
-| `src/routes/api/calendar-statuses/+server.ts` | `GET` → returns `CalendarDayStatus[]` for calendar coloring                                                                                  |
-| `src/routes/api/bookings/+server.ts`          | `POST` create booking, broadcasts SSE                                                                                                        |
-| `src/routes/api/bookings/[id]/+server.ts`     | `DELETE` cancel a booking                                                                                                                    |
-| `src/routes/api/spots/+server.ts`             | `GET`/`POST` parking spots (admin for POST)                                                                                                  |
-| `src/routes/api/admin/flats/+server.ts`       | `GET`/`POST` flats (admin only)                                                                                                              |
-| `src/routes/api/admin/flats/[id]/+server.ts`  | `PATCH`/`DELETE` specific flat (admin only)                                                                                                  |
-| `src/routes/api/auth/login/+server.ts`        | `POST` login with flat number + PIN                                                                                                          |
-| `src/routes/api/auth/activate/+server.ts`     | `POST` activate a flat with activation code                                                                                                  |
-| `src/routes/api/auth/logout/+server.ts`       | `POST` logout (clear session)                                                                                                                |
-| `src/routes/api/events/+server.ts`            | SSE stream endpoint                                                                                                                          |
-| `src/routes/(app)/account/+page.svelte`       | Account settings (display name, PIN change, stats)                                                                                           |
-| `src/routes/api/account/+server.ts`           | `PATCH` update display name, `POST` change PIN                                                                                               |
-| `src/lib/constants.ts`                        | Shared constants (PIN lengths, display name max length, calendar lookahead)                                                                  |
+| File                                                    | Purpose                                                                                                                                      |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib/types.ts`                                      | `DAY_START`/`DAY_END` constants, `AvailableSlot`, `CalendarDayStatus`, `BookingWithFlat`, `SpotTimeline` types, `getTimelineStatus()` helper |
+| `src/lib/server/availability.ts`                        | `buildSpotTimeline()` — pure computation (no DB), `getCalendarStatuses()` — calendar coloring                                                |
+| `src/lib/server/bookings.ts`                            | CRUD: `createBooking()`, `getBookingsInRange()`, `getBookingsByFlat()`, `cancelBooking()`                                                    |
+| `src/lib/server/sse.ts`                                 | SSE broadcaster singleton                                                                                                                    |
+| `src/lib/server/auth.ts`                                | PIN hashing, session create/validate, `setSessionCookie()`                                                                                   |
+| `src/lib/server/db/schema.ts`                           | Drizzle schema: flat, spot, booking, session                                                                                                 |
+| `src/lib/utils/time.ts`                                 | `TIME_BLOCKS`, `padH()`, `getHourFromISO()`, `formatDateISO()`                                                                               |
+| `src/lib/utils.ts`                                      | `cn()` utility (clsx + tailwind-merge)                                                                                                       |
+| `src/routes/(app)/book/+page.svelte`                    | Booking page (main UX)                                                                                                                       |
+| `src/routes/(app)/calendar/+page.svelte`                | Calendar view (@event-calendar) with event popover                                                                                           |
+| `src/routes/(app)/my-bookings/+page.svelte`             | User's booking list with SSE updates                                                                                                         |
+| `src/routes/api/timeline/+server.ts`                    | `GET` → returns `SpotTimeline` (bookings + available slots) for date range + spot                                                            |
+| `src/routes/api/calendar-statuses/+server.ts`           | `GET` → returns `CalendarDayStatus[]` for calendar coloring                                                                                  |
+| `src/routes/api/bookings/+server.ts`                    | `POST` create booking, broadcasts SSE                                                                                                        |
+| `src/routes/api/bookings/[id]/+server.ts`               | `DELETE` cancel a booking                                                                                                                    |
+| `src/routes/api/spots/+server.ts`                       | `GET`/`POST` parking spots (admin for POST)                                                                                                  |
+| `src/routes/api/admin/flats/+server.ts`                 | `GET`/`POST` flats (admin only)                                                                                                              |
+| `src/routes/api/admin/flats/[number]/+server.ts`        | `PATCH`/`DELETE` specific flat (admin only)                                                                                                  |
+| `src/routes/api/admin/flats/[number]/activation/+server.ts` | `POST` generate / `DELETE` revoke activation code                                                                                        |
+| `src/routes/api/admin/flats/[number]/reset/+server.ts`  | `POST` reset an active flat (deactivate, clear PIN/sessions)                                                                                 |
+| `src/routes/api/auth/login/+server.ts`                  | `POST` login with flat number + PIN                                                                                                          |
+| `src/routes/api/auth/activate/+server.ts`               | `POST` activate a flat with activation code                                                                                                  |
+| `src/routes/api/auth/setup/+server.ts`                  | `POST` first-time admin setup (only works when no flats exist)                                                                               |
+| `src/routes/api/auth/logout/+server.ts`                 | `POST` logout (clear session)                                                                                                                |
+| `src/routes/api/events/+server.ts`                      | SSE stream endpoint                                                                                                                          |
+| `src/routes/(auth)/setup/+page.svelte`                  | First-time setup wizard (creates admin account)                                                                                              |
+| `src/routes/(app)/account/+page.svelte`                 | Account settings (display name, PIN change, stats)                                                                                           |
+| `src/routes/api/account/+server.ts`                     | `PATCH` update display name, `POST` change PIN                                                                                               |
+| `src/lib/constants.ts`                                  | Shared constants (PIN lengths, display name max length, calendar lookahead, activation code TTL)                                             |
 
 ## Availability computation — how it works
 
@@ -129,20 +133,30 @@ onDestroy(() => {
 
 ### Pre-filling from URL params
 
-The booking page accepts URL params: `?date=`, `?endDate=`, `?startHour=`, `?endHour=`, `?spotId=`. These are passed from the calendar view when a user clicks/selects a time range.
+The booking page accepts URL params: `?date=`, `?endDate=`, `?startHour=`, `?endHour=`, `?spot=`. These are passed from the calendar view when a user clicks/selects a time range.
 
 ## Database schema
 
-Four tables (SQLite, WAL mode):
+Four tables (SQLite, WAL mode). All use **natural keys** (no artificial IDs for spot/flat):
 
-| Table     | Key fields                                                                   |
-| --------- | ---------------------------------------------------------------------------- |
-| `flat`    | id, number (unique), activationCode, displayName, pinHash, isAdmin, isActive |
-| `spot`    | id, name, description                                                        |
-| `booking` | id, spotId (FK), flatId (FK), startTime, endTime, note                       |
-| `session` | id (UUID), flatId (FK), expiresAt                                            |
+| Table     | Key fields                                                                                                  |
+| --------- | ----------------------------------------------------------------------------------------------------------- |
+| `flat`    | number (PK), activationCode, activationCodeExpiresAt, displayName, pinHash, isAdmin, isActive, activatedAt  |
+| `spot`    | number (PK), description                                                                                    |
+| `booking` | id (autoincrement PK), spotNumber (FK→spot), flatNumber (FK→flat), startTime, endTime, note                 |
+| `session` | id (UUID PK), flatNumber (FK→flat), expiresAt                                                               |
 
 Bookings store full ISO datetime strings (e.g., `"2026-05-06T14:00:00"`).
+
+## Flat lifecycle
+
+| State       | French      | `isActive` | `activationCode`       | Description                                     |
+| ----------- | ----------- | ---------- | ---------------------- | ----------------------------------------------- |
+| Inactive    | Inactif     | `false`    | `null`                 | Flat exists but no activation code generated    |
+| Pending     | En attente  | `false`    | Has value (4 chars)    | Code generated, waiting for resident to activate |
+| Active      | Actif       | `true`     | `null`                 | Resident has activated and set their PIN         |
+
+Transitions: Inactive → Pending (admin generates code) → Active (resident activates) → Inactive (admin resets)
 
 ## Constants
 
@@ -162,16 +176,17 @@ export const PIN_MIN_LENGTH = 4;
 export const PIN_MAX_LENGTH = 6;
 export const DISPLAY_NAME_MAX_LENGTH = 50;
 export const CALENDAR_LOOKAHEAD_MONTHS = 3;
+export const ACTIVATION_CODE_TTL_MS = 24 * 60 * 60 * 1000;
 ```
 
 ## CI/CD, Testing & Hooks
 
 - **Tooling**: Biome (format + lint in one tool), Vitest (tests), Husky (git hooks)
 - **CI** (`.github/workflows/ci.yml`): `biome ci` → `svelte-check` → `vitest run` → `vite build`
-- **CD** (`.github/workflows/deploy.yml`): Builds Docker image on CI success, pushes to `ghcr.io`
-- **Pre-commit** (`.husky/pre-commit`): Runs `biome ci --changed --since=HEAD` + `npm run check`
+- **CD** (`.github/workflows/cd.yml`): Builds Docker image on CI success, pushes to `ghcr.io`
+- **Pre-commit** (`.husky/pre-commit`): Runs `npx biome check --write .` → `git add -u` → `npm run check`
 - **Tests**: Vitest, config in `vite.config.ts`, test files colocated (`*.test.ts`)
-- **ON DELETE CASCADE**: All FKs (`booking.spotId`, `booking.flatId`, `session.flatId`) cascade on delete
+- **ON DELETE CASCADE**: All FKs (`booking.spotNumber`, `booking.flatNumber`, `session.flatNumber`) cascade on delete
 
 ## Common tasks
 
@@ -186,7 +201,7 @@ Edit `DAY_START` / `DAY_END` in `src/lib/types.ts`. Everything else adjusts auto
 ### Adding a new API endpoint
 
 1. Create `src/routes/api/<name>/+server.ts`
-2. Check `locals.flat` for auth
+2. Check `locals.flat` for auth (return 401 if not authenticated, 403 if not admin for admin-only endpoints)
 3. If it modifies bookings, call `sseManager.broadcast('booking_created' | 'booking_cancelled', data)`
 
 ### Running migrations
@@ -198,8 +213,10 @@ npm run db:migrate     # Apply to local DB
 
 ## Gotchas
 
-- **Timezone safety**: Always use `'T12:00:00'` (not `'T00:00:00'`) when creating `Date` objects for day iteration, then using `toISOString().split('T')[0]`. Midnight in local time can shift the date backwards in UTC.
-- **Pre-existing type errors**: The shadcn-svelte calendar component (`src/lib/components/ui/calendar/calendar.svelte`) has 2 TS errors from `bits-ui` type complexity. These are harmless and can be ignored.
+- **Timezone safety**: Always use `'T12:00:00'` (not `'T00:00:00'`) when creating `Date` objects for day iteration. `formatDateISO()` in `$lib/utils/time.ts` applies the noon trick internally.
+- **Pre-existing type errors**: The shadcn-svelte range-calendar component (`src/lib/components/ui/range-calendar/range-calendar.svelte`) may have TS errors from `bits-ui` type complexity. These are harmless and can be ignored.
 - **Shared utilities**: `padH()`, `getHourFromISO()`, `formatDateISO()` live in `$lib/utils/time.ts`. Always import from there — do NOT create local duplicates.
 - **API error messages**: All user-facing errors are in French. Keep this consistent.
 - **Presets (Matin, Après-midi, Soirée)**: These are UX shortcuts that auto-select hour ranges. They do NOT persist any field — just set startHour/endHour.
+- **Natural keys**: `spot` and `flat` tables use `number` (text) as primary key. No artificial integer IDs. Booking references them via `spotNumber`/`flatNumber` text FKs.
+- **Setup wizard**: On first boot (zero flats in DB), the app shows `/setup` where the first admin account is created. No seed script needed.

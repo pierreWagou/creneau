@@ -63,7 +63,7 @@
 		<form onsubmit={handleActivate} class="space-y-4">
 			<div class="space-y-2">
 				<Label for="flat">Numéro d'appartement</Label>
-				<Input id="flat" type="text" placeholder="ex. 3B" bind:value={flatNumber} required />
+				<Input id="flat" type="text" placeholder="ex. B12" bind:value={flatNumber} required />
 			</div>
 			<div class="space-y-2">
 				<Label for="code">Code d'activation</Label>

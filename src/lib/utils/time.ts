@@ -21,8 +21,9 @@ export function getHourFromISO(iso: string): number {
 }
 
 /**
- * Format a Date to YYYY-MM-DD string (timezone-safe, uses noon trick)
+ * Format a Date to YYYY-MM-DD string (timezone-safe — normalizes to noon UTC to avoid date shift)
  */
 export function formatDateISO(d: Date): string {
-	return d.toISOString().split('T')[0];
+	const noon = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12);
+	return noon.toISOString().split('T')[0];
 }

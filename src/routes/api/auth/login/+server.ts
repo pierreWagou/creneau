@@ -35,7 +35,11 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 				isAdmin: existingFlat.isAdmin
 			}
 		});
-	} catch {
-		return json({ error: 'Requête invalide' }, { status: 400 });
+	} catch (e) {
+		if (e instanceof SyntaxError) {
+			return json({ error: 'Requête invalide' }, { status: 400 });
+		}
+		console.error('[POST /api/auth/login]', e);
+		return json({ error: 'Erreur interne' }, { status: 500 });
 	}
 };

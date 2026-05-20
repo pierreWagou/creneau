@@ -16,7 +16,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		}
 
 		const result = await createBooking({
-			spotNumber: spot,
+			spotNumber: spot.trim(),
 			flatNumber: locals.flat.number,
 			startTime,
 			endTime,
@@ -24,7 +24,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		});
 
 		if (!result.success) {
-			return json({ error: result.error }, { status: 409 });
+			return json({ error: result.error }, { status: result.status });
 		}
 
 		sseManager.broadcast('booking_created', result.booking);

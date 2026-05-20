@@ -1,13 +1,17 @@
 <script lang="ts">
 	import { Calendar, DayGrid, Interaction, List, TimeGrid } from '@event-calendar/core';
-	import { onDestroy, onMount } from 'svelte';
-	import { goto } from '$app/navigation';
-	import '@event-calendar/core/index.css';
+	import { computePosition, flip, offset, shift } from '@floating-ui/dom';
 	import CirclePlus from '@lucide/svelte/icons/circle-plus';
+	import { differenceInHours, format, isSameDay, parseISO } from 'date-fns';
+	import { fr } from 'date-fns/locale';
 	import { mode } from 'mode-watcher';
+	import { onDestroy, onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
 	import { type BookingWithFlat, DAY_END, DAY_START } from '$lib/types';
 	import { padH } from '$lib/utils/time';
+	import '@event-calendar/core/index.css';
 
 	let { data } = $props();
 
@@ -16,6 +20,18 @@
 
 	// Track dark mode for the calendar container class
 	let isDark = $derived(mode.current === 'dark');
+
+	// --- Popover state ---
+	let popoverBooking = $state<BookingWithFlat | null>(null);
+	let popoverEl = $state<HTMLDivElement | null>(null);
+	let popoverAnchorEl: HTMLElement | null = null;
+	let confirmingCancel = $state(false);
+
+	// --- Tooltip state ---
+	let tooltipBooking = $state<BookingWithFlat | null>(null);
+	let tooltipEl = $state<HTMLDivElement | null>(null);
+	let tooltipAnchorEl: HTMLElement | null = null;
+	let tooltipTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	// Catppuccin colors for different apartments (no blue/orange — reserved for primary/accent)
 	const FLAT_COLORS_LIGHT = [
@@ -56,7 +72,7 @@
 				id: String(b.id),
 				start: b.startTime,
 				end: b.endTime,
-				title: `${b.flatNumber}${b.note ? ` · ${b.note}` : ''}`,
+				title: '',
 				backgroundColor: isOwn ? (isDark ? '#89b4fa' : '#1e66f5') : getFlatColor(b.flatNumber),
 				textColor: isDark ? '#1e1e2e' : '#eff1f5',
 				extendedProps: { booking: b }
@@ -71,9 +87,121 @@
 		isMobile = window.innerWidth < 768;
 	}
 
+	// --- Formatting helpers ---
+	function formatPopoverTime(start: string, end: string): string {
+		const s = parseISO(start);
+		const e = parseISO(end);
+		if (isSameDay(s, e)) {
+			return `${format(s, "HH'h'mm")} → ${format(e, "HH'h'mm")}`;
+		}
+		return `${format(s, "EEE d, HH'h'mm", { locale: fr })} → ${format(e, "EEE d, HH'h'mm", { locale: fr })}`;
+	}
+
+	function formatPopoverDuration(start: string, end: string): string {
+		const hours = differenceInHours(parseISO(end), parseISO(start));
+		if (hours < 24) return `${hours}h`;
+		const days = Math.ceil(hours / 24);
+		return `${days} jour${days > 1 ? 's' : ''}`;
+	}
+
+	function formatTooltipLine(booking: BookingWithFlat): string {
+		const name = booking.flatDisplayName
+			? `${booking.flatNumber} — ${booking.flatDisplayName}`
+			: booking.flatNumber;
+		const s = parseISO(booking.startTime);
+		const e = parseISO(booking.endTime);
+		return `${name} · ${format(s, "HH'h'mm")}–${format(e, "HH'h'mm")}`;
+	}
+
+	// --- Popover positioning ---
+	async function positionPopover() {
+		if (!popoverEl || !popoverAnchorEl) return;
+		const { x, y } = await computePosition(popoverAnchorEl, popoverEl, {
+			placement: 'top',
+			middleware: [offset(8), flip(), shift({ padding: 8 })]
+		});
+		popoverEl.style.left = `${x}px`;
+		popoverEl.style.top = `${y}px`;
+	}
+
+	async function positionTooltip() {
+		if (!tooltipEl || !tooltipAnchorEl) return;
+		const { x, y } = await computePosition(tooltipAnchorEl, tooltipEl, {
+			placement: 'top',
+			middleware: [offset(6), flip(), shift({ padding: 8 })]
+		});
+		tooltipEl.style.left = `${x}px`;
+		tooltipEl.style.top = `${y}px`;
+	}
+
+	// --- Event handlers ---
+	function handleEventClick(info: any) {
+		info.jsEvent.preventDefault();
+		info.jsEvent.stopPropagation();
+
+		// Close tooltip if open
+		tooltipBooking = null;
+		if (tooltipTimeout) clearTimeout(tooltipTimeout);
+
+		const booking = info.event.extendedProps.booking as BookingWithFlat;
+		popoverAnchorEl = info.el;
+		popoverBooking = booking;
+		confirmingCancel = false;
+
+		// Position after render
+		requestAnimationFrame(() => positionPopover());
+	}
+
+	function handleEventMouseEnter(info: any) {
+		// Don't show tooltip if popover is open
+		if (popoverBooking) return;
+
+		const booking = info.event.extendedProps.booking as BookingWithFlat;
+		tooltipAnchorEl = info.el;
+
+		// Show after 300ms delay
+		if (tooltipTimeout) clearTimeout(tooltipTimeout);
+		tooltipTimeout = setTimeout(() => {
+			tooltipBooking = booking;
+			requestAnimationFrame(() => positionTooltip());
+		}, 300);
+	}
+
+	function handleEventMouseLeave() {
+		if (tooltipTimeout) clearTimeout(tooltipTimeout);
+		tooltipBooking = null;
+	}
+
+	function closePopover() {
+		popoverBooking = null;
+		confirmingCancel = false;
+	}
+
+	function handleClickOutside(e: MouseEvent) {
+		if (!popoverBooking) return;
+		if (popoverEl && !popoverEl.contains(e.target as Node)) {
+			closePopover();
+		}
+	}
+
+	async function cancelBooking() {
+		if (!popoverBooking) return;
+		const res = await fetch(`/api/bookings/${popoverBooking.id}`, { method: 'DELETE' });
+		if (res.ok) {
+			toast.success('Réservation annulée');
+			closePopover();
+			invalidateAll();
+		} else {
+			const result = await res.json();
+			toast.error(result.error || "Impossible d'annuler");
+		}
+	}
+
+	// --- Lifecycle ---
 	onMount(() => {
 		checkMobile();
 		window.addEventListener('resize', checkMobile);
+		document.addEventListener('click', handleClickOutside, true);
 
 		// Set up SSE for real-time updates
 		eventSource = new EventSource('/api/events');
@@ -84,14 +212,18 @@
 		eventSource.addEventListener('booking_cancelled', (e) => {
 			const { id } = JSON.parse(e.data);
 			bookings = bookings.filter((b) => b.id !== id);
+			// Close popover if the cancelled booking is the one being viewed
+			if (popoverBooking?.id === id) closePopover();
 		});
 	});
 
 	onDestroy(() => {
 		if (typeof window !== 'undefined') {
 			window.removeEventListener('resize', checkMobile);
+			document.removeEventListener('click', handleClickOutside, true);
 		}
 		eventSource?.close();
+		if (tooltipTimeout) clearTimeout(tooltipTimeout);
 	});
 
 	function handleDateClick(info: any) {
@@ -148,6 +280,12 @@
 		selectable: true,
 		select: handleSelect,
 		dateClick: handleDateClick,
+		eventClick: handleEventClick,
+		eventMouseEnter: handleEventMouseEnter,
+		eventMouseLeave: handleEventMouseLeave,
+		eventContent: (info: any) => ({
+			html: `<span style="display:flex;align-items:center;justify-content:center;height:100%;font-size:0.7rem;font-weight:600">${info.event.extendedProps.booking.flatNumber}</span>`
+		}),
 		events,
 		buttonText: {
 			today: "Aujourd'hui",
@@ -184,6 +322,51 @@
 		</div>
 	{/if}
 </div>
+
+<!-- Hover tooltip -->
+{#if tooltipBooking}
+	<div
+		bind:this={tooltipEl}
+		class="bg-popover text-popover-foreground pointer-events-none fixed z-50 rounded-md border px-3 py-1.5 text-xs shadow-md"
+	>
+		{formatTooltipLine(tooltipBooking)}
+	</div>
+{/if}
+
+<!-- Click popover -->
+{#if popoverBooking}
+	<div
+		bind:this={popoverEl}
+		class="bg-popover text-popover-foreground fixed z-50 w-64 rounded-lg border p-4 shadow-lg"
+	>
+		<div class="space-y-2">
+			<p class="font-medium">
+				{popoverBooking.flatNumber}{popoverBooking.flatDisplayName ? ` — ${popoverBooking.flatDisplayName}` : ''}
+			</p>
+			<p class="text-muted-foreground text-sm">
+				{formatPopoverTime(popoverBooking.startTime, popoverBooking.endTime)} · {formatPopoverDuration(popoverBooking.startTime, popoverBooking.endTime)}
+			</p>
+			{#if popoverBooking.note}
+				<p class="text-muted-foreground text-sm">{popoverBooking.note}</p>
+			{/if}
+
+			{#if popoverBooking.flatNumber === data.flat.number}
+				<div class="border-border border-t pt-2">
+					{#if confirmingCancel}
+						<div class="flex items-center gap-2">
+							<Button size="sm" variant="destructive" onclick={cancelBooking}>Confirmer</Button>
+							<Button size="sm" variant="ghost" onclick={() => (confirmingCancel = false)}>Non</Button>
+						</div>
+					{:else}
+						<Button size="sm" variant="destructive" class="w-full" onclick={() => (confirmingCancel = true)}>
+							Annuler la réservation
+						</Button>
+					{/if}
+				</div>
+			{/if}
+		</div>
+	</div>
+{/if}
 
 <style>
 	/* Force our palette onto the EC calendar in both light and dark modes.
@@ -254,6 +437,7 @@
 		font-size: 0.75rem;
 		font-weight: 500;
 		border: none;
+		cursor: pointer;
 	}
 
 	:global(.ec-container .ec .ec-toolbar) {

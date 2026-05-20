@@ -8,12 +8,20 @@ export const GET: RequestHandler = async ({ locals }) => {
 		return json({ error: 'Non autorisé' }, { status: 401 });
 	}
 
-	const spots = await db.select().from(spot).all();
-	return json({ spots });
+	try {
+		const spots = await db.select().from(spot).all();
+		return json({ spots });
+	} catch (e) {
+		console.error('[GET /api/spots]', e);
+		return json({ error: 'Erreur interne' }, { status: 500 });
+	}
 };
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	if (!locals.flat?.isAdmin) {
+	if (!locals.flat) {
+		return json({ error: 'Non autorisé' }, { status: 401 });
+	}
+	if (!locals.flat.isAdmin) {
 		return json({ error: 'Accès interdit' }, { status: 403 });
 	}
 

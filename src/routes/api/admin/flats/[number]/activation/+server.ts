@@ -1,17 +1,19 @@
 import { json } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
+import { ACTIVATION_CODE_TTL_MS } from '$lib/constants';
 import { generateActivationCode } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
 import type { RequestHandler } from './$types';
 
-const ACTIVATION_CODE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-
 /**
  * POST — Generate an activation code (Inactif → En attente)
  */
 export const POST: RequestHandler = async ({ params, locals }) => {
-	if (!locals.flat?.isAdmin) {
+	if (!locals.flat) {
+		return json({ error: 'Non autorisé' }, { status: 401 });
+	}
+	if (!locals.flat.isAdmin) {
 		return json({ error: 'Accès interdit' }, { status: 403 });
 	}
 
@@ -39,7 +41,10 @@ export const POST: RequestHandler = async ({ params, locals }) => {
  * DELETE — Revoke an activation code (En attente → Inactif)
  */
 export const DELETE: RequestHandler = async ({ params, locals }) => {
-	if (!locals.flat?.isAdmin) {
+	if (!locals.flat) {
+		return json({ error: 'Non autorisé' }, { status: 401 });
+	}
+	if (!locals.flat.isAdmin) {
 		return json({ error: 'Accès interdit' }, { status: 403 });
 	}
 

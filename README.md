@@ -66,9 +66,9 @@ src/
 │   ├── (app)/admin/          # Admin: manage flats + spots
 │   ├── (auth)/login/         # PIN login
 │   ├── (auth)/activate/      # First-time activation
+│   ├── (auth)/setup/         # First-time admin setup wizard
 │   └── api/                  # REST endpoints + SSE
-├── drizzle/                  # SQL migrations
-└── scripts/seed.ts           # Initial data seeding (run once)
+└── drizzle/                  # SQL migrations
 ```
 
 ## Getting Started
@@ -82,11 +82,10 @@ src/
 
 ```bash
 npm install
-npm run db:seed         # Creates SQLite DB, runs migrations, seeds admin flat
 npm run dev             # Starts dev server at http://localhost:5173
 ```
 
-On first run, `db:seed` prints an activation code. Go to `/activate` and use flat number `1A` with that code to create the admin account.
+On first run, the app will show a setup wizard at `/setup` where you create the admin account.
 
 ### Docker
 
@@ -110,7 +109,6 @@ Data is persisted in a named volume (`creneau-data`).
 | Preview prod       | `npm run preview`     |
 | Generate migration | `npm run db:generate` |
 | Run migrations     | `npm run db:migrate`  |
-| Seed DB            | `npm run db:seed`     |
 
 ### Key concepts
 
@@ -127,7 +125,6 @@ Data is persisted in a named volume (`creneau-data`).
 | Action     | Command                |
 | ---------- | ---------------------- |
 | Install    | `npm install`          |
-| Seed DB    | `npm run db:seed`      |
 | Dev        | `npm run dev`          |
 | Build      | `npm run build`        |
 | Type check | `npm run check`        |
