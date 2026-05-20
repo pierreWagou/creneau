@@ -21,6 +21,9 @@
 	let confirmPin = $state('');
 	let changingPin = $state(false);
 
+	// Admin ranking period
+	let rankingPeriod = $state<'month' | 'all'>('month');
+
 	let pinMismatch = $derived(newPin.length > 0 && confirmPin.length > 0 && newPin !== confirmPin);
 	let pinValid = $derived(
 		newPin.length >= PIN_MIN_LENGTH &&
@@ -29,6 +32,11 @@
 			newPin === confirmPin &&
 			currentPin.length >= PIN_MIN_LENGTH
 	);
+
+	let currentRanking = $derived(
+		data.ranking ? (rankingPeriod === 'month' ? data.ranking.thisMonth : data.ranking.allTime) : []
+	);
+	let maxHours = $derived(currentRanking.length > 0 ? currentRanking[0].hours : 1);
 
 	async function saveDisplayName() {
 		savingName = true;
@@ -123,21 +131,76 @@
 	<!-- Stats -->
 	<Card.Root>
 		<Card.Header>
-			<Card.Title>Statistiques</Card.Title>
+			<Card.Title>Mes statistiques</Card.Title>
 		</Card.Header>
 		<Card.Content>
-			<div class="grid grid-cols-2 gap-4">
+			<div class="grid grid-cols-4 gap-4">
+				<div class="text-center">
+					<p class="text-2xl font-bold">{data.stats.totalHours}h</p>
+					<p class="text-muted-foreground text-xs">Total heures</p>
+				</div>
+				<div class="text-center">
+					<p class="text-2xl font-bold">{data.stats.monthHours}h</p>
+					<p class="text-muted-foreground text-xs">Ce mois</p>
+				</div>
 				<div class="text-center">
 					<p class="text-2xl font-bold">{data.stats.upcomingBookings}</p>
 					<p class="text-muted-foreground text-xs">À venir</p>
 				</div>
 				<div class="text-center">
 					<p class="text-2xl font-bold">{data.stats.totalBookings}</p>
-					<p class="text-muted-foreground text-xs">Total</p>
+					<p class="text-muted-foreground text-xs">Réservations</p>
 				</div>
 			</div>
+			<p class="text-muted-foreground mt-2 text-center text-xs">Les heures incluent les réservations passées et à venir.</p>
 		</Card.Content>
 	</Card.Root>
+
+	<!-- Admin ranking -->
+	{#if data.ranking}
+		<Card.Root>
+			<Card.Header>
+				<div class="flex items-center justify-between">
+					<Card.Title>Classement des résidents</Card.Title>
+					<select
+						class="bg-muted text-foreground rounded-md border px-2 py-1 text-xs"
+						bind:value={rankingPeriod}
+					>
+						<option value="month">Ce mois</option>
+						<option value="all">Tout</option>
+					</select>
+				</div>
+				<p class="text-muted-foreground text-sm">Par heures réservées</p>
+			</Card.Header>
+			<Card.Content>
+				{#if currentRanking.length === 0}
+					<p class="text-muted-foreground text-center text-sm">Aucune réservation pour cette période.</p>
+				{:else}
+					<div class="space-y-3">
+						{#each currentRanking as entry, i}
+							<div class="flex items-center gap-3">
+								<span class="text-muted-foreground w-5 text-right text-sm font-medium">{i + 1}.</span>
+								<div class="min-w-0 flex-1">
+									<div class="mb-1 flex items-center justify-between">
+										<span class="truncate text-sm font-medium">
+											{entry.flatNumber}{entry.displayName ? ` — ${entry.displayName}` : ''}
+										</span>
+										<span class="text-muted-foreground shrink-0 text-xs">{entry.hours}h</span>
+									</div>
+									<div class="bg-muted h-2 w-full rounded">
+										<div
+											class="bg-primary h-2 rounded transition-all duration-300"
+											style="width: {(entry.hours / maxHours) * 100}%"
+										></div>
+									</div>
+								</div>
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</Card.Content>
+		</Card.Root>
+	{/if}
 
 	<!-- Change PIN -->
 	<Card.Root>

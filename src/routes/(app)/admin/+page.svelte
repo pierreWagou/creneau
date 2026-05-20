@@ -16,6 +16,8 @@
 	let newFlatNumber = $state('');
 	let newSpotNumber = $state('');
 	let newSpotDescription = $state('');
+	let bulkInput = $state('');
+	let bulkLoading = $state(false);
 	let qrFlat = $state<(typeof data.flats)[0] | null>(null);
 	let qrDialogOpen = $state(false);
 
@@ -75,6 +77,41 @@
 		} else {
 			const result = await res.json();
 			toast.error(result.error || "Impossible d'ajouter l'appartement");
+		}
+	}
+
+	let bulkParsed = $derived(
+		[...new Set(bulkInput.split(',').map((s) => s.trim()).filter((s) => s.length > 0))]
+	);
+
+	async function addBulkFlats() {
+		if (bulkParsed.length === 0) return;
+		bulkLoading = true;
+
+		try {
+			const res = await fetch('/api/admin/flats/bulk', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ flats: bulkParsed })
+			});
+
+			if (res.ok) {
+				const { created, skipped } = await res.json();
+				if (skipped.length > 0) {
+					toast.success(`${created} appartement${created > 1 ? 's' : ''} créé${created > 1 ? 's' : ''}, ${skipped.length} déjà existant${skipped.length > 1 ? 's' : ''} (${skipped.join(', ')})`);
+				} else {
+					toast.success(`${created} appartement${created > 1 ? 's' : ''} créé${created > 1 ? 's' : ''}`);
+				}
+				bulkInput = '';
+				invalidateAll();
+			} else {
+				const result = await res.json();
+				toast.error(result.error || 'Impossible de créer les appartements');
+			}
+		} catch {
+			toast.error('Erreur de connexion');
+		} finally {
+			bulkLoading = false;
 		}
 	}
 
@@ -293,6 +330,25 @@
 				<p class="text-muted-foreground text-xs">
 					L'appartement sera créé en état inactif. Vous pourrez générer un lien d'activation ensuite.
 				</p>
+			</div>
+
+			<Separator />
+
+			<div class="space-y-2">
+				<Label>Création en lot</Label>
+				<div class="flex gap-2">
+					<Input placeholder="ex. A01, A02, B01, B02" bind:value={bulkInput} />
+					<Button onclick={addBulkFlats} disabled={bulkParsed.length === 0 || bulkLoading}>
+						{bulkLoading ? '...' : `Créer ${bulkParsed.length > 0 ? bulkParsed.length : ''}`}
+					</Button>
+				</div>
+				{#if bulkParsed.length > 0}
+					<p class="text-muted-foreground text-xs">
+						{bulkParsed.length} appartement{bulkParsed.length > 1 ? 's' : ''} à créer : {bulkParsed.join(', ')}
+					</p>
+				{:else}
+					<p class="text-muted-foreground text-xs">Entrez les numéros séparés par des virgules.</p>
+				{/if}
 			</div>
 		</Card.Content>
 	</Card.Root>

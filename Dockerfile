@@ -18,4 +18,7 @@ VOLUME /app/data
 ENV NODE_ENV=production
 ENV DATABASE_URL=file:/app/data/creneau.db
 
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD wget -qO- http://localhost:3000/api/health || exit 1
+
 CMD ["node", "build"]
