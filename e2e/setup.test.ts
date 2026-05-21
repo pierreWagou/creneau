@@ -1,17 +1,16 @@
 import { expect, test } from '@playwright/test';
-import { ADMIN_FLAT, ADMIN_PIN, TEST_SPOT } from './helpers';
+import { ADMIN_FLAT, ADMIN_PIN, navigateTo, TEST_SPOT } from './helpers';
 
 test.describe
 	.serial('Setup wizard', () => {
 		test('redirects to /setup on first visit', async ({ page }) => {
-			await page.goto('/');
+			await navigateTo(page, '/');
 			await page.waitForURL('/setup');
 			await expect(page.locator('[data-slot="card-title"]')).toContainText('Configuration initiale');
 		});
 
 		test('creates admin account via setup wizard', async ({ page }) => {
-			await page.goto('/setup');
-			await page.waitForLoadState('networkidle');
+			await navigateTo(page, '/setup');
 
 			await page.fill('[id="flat"]', ADMIN_FLAT);
 			await page.fill('[id="name"]', 'Admin');
@@ -25,22 +24,20 @@ test.describe
 		});
 
 		test('setup page redirects to login after admin is created', async ({ page }) => {
-			await page.goto('/setup');
+			await navigateTo(page, '/setup');
 			await page.waitForURL('/login');
 		});
 
 		test('admin creates a parking spot', async ({ page }) => {
 			// Login as admin
-			await page.goto('/login');
-			await page.waitForLoadState('networkidle');
+			await navigateTo(page, '/login');
 			await page.fill('[id="flat"]', ADMIN_FLAT);
 			await page.fill('[id="pin"]', ADMIN_PIN);
 			await page.click('button[type="submit"]');
 			await page.waitForURL('/calendar');
 
 			// Go to admin page and open the add spot dialog
-			await page.goto('/admin');
-			await page.waitForLoadState('networkidle');
+			await navigateTo(page, '/admin');
 			const btn = page.getByRole('button', { name: 'Ajouter une place' });
 			await btn.click();
 

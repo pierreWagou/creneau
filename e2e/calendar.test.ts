@@ -1,5 +1,13 @@
 import { expect, test } from '@playwright/test';
-import { createBookingViaAPI, getDatePlusDays, getSessionCookie, login, TEST_FLATS, TEST_SPOT } from './helpers';
+import {
+	createBookingViaAPI,
+	getDatePlusDays,
+	getSessionCookie,
+	login,
+	navigateTo,
+	TEST_FLATS,
+	TEST_SPOT
+} from './helpers';
 
 const FLAT = TEST_FLATS[1]; // A02
 
@@ -21,7 +29,7 @@ test.describe
 			expect(res.ok()).toBeTruthy();
 
 			// Navigate to calendar
-			await page.goto('/calendar');
+			await navigateTo(page, '/calendar');
 
 			// Verify an event block is visible (it shows the flat number)
 			await expect(page.locator(`.ec-event:has-text("${FLAT.number}")`)).toBeVisible({ timeout: 5000 });
@@ -42,7 +50,7 @@ test.describe
 			);
 			expect(res.ok()).toBeTruthy();
 
-			await page.goto('/calendar');
+			await navigateTo(page, '/calendar');
 
 			// Click on our own event (A02)
 			const event = page.locator(`.ec-event:has-text("${FLAT.number}")`).first();
@@ -67,7 +75,7 @@ test.describe
 			);
 			expect(res.ok()).toBeTruthy();
 
-			await page.goto('/calendar');
+			await navigateTo(page, '/calendar');
 
 			// Click on our own event (A02)
 			const event = page.locator(`.ec-event:has-text("${FLAT.number}")`).first();

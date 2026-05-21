@@ -11,9 +11,23 @@ export const TEST_FLATS = [
 	{ number: 'A04', pin: '1234' }
 ];
 
+/** Navigate to a path and wait for hydration.
+ *  Uses networkidle for auth pages (no SSE), load + small delay for app pages (SSE keeps connection open). */
+export async function navigateTo(page: Page, path: string) {
+	await page.goto(path);
+	// Pages with SSE (/calendar, /book, /my-bookings) never reach networkidle
+	// because EventSource keeps a connection open. Use load + brief wait instead.
+	const hasSSE = /\/(calendar|book|my-bookings)/.test(path);
+	if (hasSSE) {
+		await page.waitForLoadState('load');
+		await page.waitForTimeout(200);
+	} else {
+		await page.waitForLoadState('networkidle');
+	}
+}
+
 export async function login(page: Page, flat: string, pin: string) {
-	await page.goto('/login');
-	await page.waitForLoadState('networkidle');
+	await navigateTo(page, '/login');
 	await page.fill('[id="flat"]', flat);
 	await page.fill('[id="pin"]', pin);
 	await page.click('button[type="submit"]');

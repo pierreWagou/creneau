@@ -1,19 +1,17 @@
 import { expect, test } from '@playwright/test';
-import { ADMIN_FLAT, ADMIN_PIN, TEST_FLATS } from './helpers';
+import { ADMIN_FLAT, ADMIN_PIN, navigateTo, TEST_FLATS } from './helpers';
 
 test.describe
 	.serial('Activation flow', () => {
 		test('admin creates flats and generates activation codes', async ({ page }) => {
 			// Login as admin
-			await page.goto('/login');
-			await page.waitForLoadState('networkidle');
+			await navigateTo(page, '/login');
 			await page.fill('[id="flat"]', ADMIN_FLAT);
 			await page.fill('[id="pin"]', ADMIN_PIN);
 			await page.click('button[type="submit"]');
 			await page.waitForURL('/calendar');
 
-			await page.goto('/admin');
-			await page.waitForLoadState('networkidle');
+			await navigateTo(page, '/admin');
 
 			// Create each test flat via the dialog
 			for (const flat of TEST_FLATS) {
@@ -39,8 +37,7 @@ test.describe
 
 		test('resident activates via activation link', async ({ page, request }) => {
 			// Login as admin to get an activation code
-			await page.goto('/login');
-			await page.waitForLoadState('networkidle');
+			await navigateTo(page, '/login');
 			await page.fill('[id="flat"]', ADMIN_FLAT);
 			await page.fill('[id="pin"]', ADMIN_PIN);
 			await page.click('button[type="submit"]');
@@ -66,8 +63,7 @@ test.describe
 				expect(flatData.activationCode).toBeTruthy();
 
 				// Visit activation link
-				await page.goto(`/activate?flat=${testFlat.number}&code=${flatData.activationCode}`);
-				await page.waitForLoadState('networkidle');
+				await navigateTo(page, `/activate?flat=${testFlat.number}&code=${flatData.activationCode}`);
 
 				// Fill in the activation form
 				await expect(page.locator('[id="flat"]')).toHaveValue(testFlat.number);

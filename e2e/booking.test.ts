@@ -1,5 +1,13 @@
 import { expect, test } from '@playwright/test';
-import { getDatePlusDays, getSessionCookie, getTomorrowDate, login, TEST_FLATS, TEST_SPOT } from './helpers';
+import {
+	getDatePlusDays,
+	getSessionCookie,
+	getTomorrowDate,
+	login,
+	navigateTo,
+	TEST_FLATS,
+	TEST_SPOT
+} from './helpers';
 
 const FLAT = TEST_FLATS[0]; // A01
 
@@ -10,10 +18,7 @@ test.describe
 
 			const tomorrow = getTomorrowDate();
 			// Navigate with pre-filled params
-			await page.goto(`/book?date=${tomorrow}&startHour=10&endHour=12`);
-
-			// Wait for the form to load with pre-filled values
-			await page.waitForTimeout(1000);
+			await navigateTo(page, `/book?date=${tomorrow}&startHour=10&endHour=12`);
 
 			// Submit the booking — button text is "Confirmer la réservation"
 			const submitButton = page.getByRole('button', { name: 'Confirmer la réservation' });
@@ -39,7 +44,7 @@ test.describe
 			expect(res.ok()).toBeTruthy();
 
 			// Navigate to my-bookings
-			await page.goto('/my-bookings');
+			await navigateTo(page, '/my-bookings');
 
 			// Verify booking is listed
 			await expect(page.locator('text=14h00')).toBeVisible();
@@ -59,7 +64,7 @@ test.describe
 			expect(res.ok()).toBeTruthy();
 
 			// Go to my-bookings
-			await page.goto('/my-bookings');
+			await navigateTo(page, '/my-bookings');
 
 			// Find and click the cancel button — opens AlertDialog
 			const cancelButton = page.getByRole('button', { name: 'Annuler' }).first();
