@@ -34,7 +34,7 @@
 		"drizzle-kit": "^0.31.10",
 		"husky": "^9.1.7",
 		"mode-watcher": "^1.1.0",
-		"svelte": "^5.55.2",
+		"svelte": "^5.55.9",
 		"svelte-check": "^4.4.6",
 		"svelte-sonner": "^1.1.1",
 		"tailwind-variants": "^3.2.2",
