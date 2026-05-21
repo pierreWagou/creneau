@@ -14,6 +14,7 @@ export default defineConfig({
 			name: 'setup',
 			testMatch: /setup\.test\.ts/,
 			fullyParallel: false,
+			retries: 0,
 			use: { ...devices['Desktop Chrome'] }
 		},
 		{
@@ -21,6 +22,7 @@ export default defineConfig({
 			testMatch: /activation\.test\.ts/,
 			dependencies: ['setup'],
 			fullyParallel: false,
+			retries: 0,
 			use: { ...devices['Desktop Chrome'] }
 		},
 		{
