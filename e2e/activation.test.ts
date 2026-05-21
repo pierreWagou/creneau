@@ -13,20 +13,29 @@ test.describe
 
 			await page.goto('/admin');
 
-			// Create each test flat
+			// Create each test flat via the dialog
 			for (const flat of TEST_FLATS) {
-				await page.fill('input[placeholder="Numéro (ex. B12)"]', flat.number);
-				await page.locator('button:text("Ajouter")').last().click();
-				// Wait for the flat to appear in the list
-				await expect(page.locator(`text=${flat.number}`).first()).toBeVisible();
+				// The "Ajouter" button in the flats section is next to "Création en lot"
+				const addFlatBtn = page
+					.locator('.flex.gap-2')
+					.filter({ hasText: 'Création en lot' })
+					.getByRole('button', { name: 'Ajouter' });
+				await addFlatBtn.click();
+
+				const dialog = page.locator('[role="dialog"]');
+				await dialog.waitFor();
+				await dialog.locator('[id="flat-number"]').fill(flat.number);
+				await dialog.getByRole('button', { name: 'Ajouter' }).click();
+				// Wait for dialog to close and flat to appear
+				await expect(page.getByText(flat.number).first()).toBeVisible();
 			}
 
 			// Generate activation codes for each flat
 			for (const flat of TEST_FLATS) {
-				const flatCard = page.locator(`div:has(> div > div > span:text("${flat.number}"))`).first();
-				await flatCard.locator('button:text("Générer un lien")').click();
+				const flatCard = page.locator('div.rounded-md.border').filter({ hasText: flat.number }).first();
+				await flatCard.getByRole('button', { name: 'Générer un lien' }).click();
 				// Wait for the activation code to appear
-				await expect(flatCard.locator('text=Code :')).toBeVisible({ timeout: 5000 });
+				await expect(flatCard.getByText('Code :')).toBeVisible({ timeout: 5000 });
 			}
 		});
 

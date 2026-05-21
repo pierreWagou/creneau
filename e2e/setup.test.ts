@@ -11,6 +11,7 @@ test.describe
 
 		test('creates admin account via setup wizard', async ({ page }) => {
 			await page.goto('/setup');
+			await page.waitForSelector('[id="name"]');
 
 			await page.fill('[id="flat"]', ADMIN_FLAT);
 			await page.fill('[id="name"]', 'Admin');
@@ -36,12 +37,17 @@ test.describe
 			await page.click('button[type="submit"]');
 			await page.waitForURL('/calendar');
 
-			// Go to admin page and create a spot
+			// Go to admin page and open the add spot dialog
 			await page.goto('/admin');
-			const spotInput = page.locator('input[placeholder="Numéro (ex. 36)"]');
-			await spotInput.fill(TEST_SPOT);
-			// The "Ajouter" button is next to the spot input in a flex container
-			await spotInput.locator('xpath=..').locator('button').click();
+			await page.waitForLoadState('networkidle');
+			const btn = page.getByRole('button', { name: 'Ajouter une place' });
+			await btn.click();
+
+			// Fill spot number in the dialog
+			const dialog = page.locator('[role="dialog"]');
+			await dialog.waitFor({ timeout: 5000 });
+			await dialog.locator('[id="spot-number"]').fill(TEST_SPOT);
+			await dialog.getByRole('button', { name: 'Ajouter' }).click();
 
 			// Wait for data to refresh and verify spot appears
 			await page.waitForTimeout(1500);

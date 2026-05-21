@@ -1,0 +1,27 @@
+[tools]
+node = "22"
+mprocs = "0.7"
+
+[tasks.setup]
+description = "Install dependencies and Playwright browsers"
+run = "npm install && npx playwright install chromium"
+
+[tasks.dev]
+description = "Start development server"
+run = "npm run dev"
+
+[tasks.mprocs]
+description = "Start full dev environment (dev + tests + e2e in TUI)"
+run = "mprocs"
+
+[tasks."test:server"]
+description = "Start test server on port 5174 with test database"
+run = "DATABASE_URL=file:data/test.db npm run dev -- --port 5174"
+
+[tasks."test:e2e"]
+description = "Run E2E tests (starts test server if not running)"
+run = "npx playwright test"
+
+[tasks."test:e2e:ui"]
+description = "Run E2E tests with visual UI debugger"
+run = "npx playwright test --ui"

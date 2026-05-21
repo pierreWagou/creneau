@@ -91,23 +91,23 @@ test.describe('Drag to move/resize (via PATCH API)', () => {
 		const cookies = await getSessionCookie(page);
 		const date = getDayAfterTomorrowDate();
 
-		const startTime = `${date}T06:00:00`;
-		const endTime = `${date}T07:00:00`;
+		const startTime = `${date}T01:00:00`;
+		const endTime = `${date}T02:00:00`;
 
 		// Create a 1h booking
 		const createRes = await createBookingViaAPI(page.request, cookies, TEST_SPOT, startTime, endTime);
 		expect(createRes.ok()).toBeTruthy();
 		const { booking } = await createRes.json();
 
-		// Resize to 3h (extend end to 09:00)
+		// Resize to 3h (extend end to 04:00)
 		const patchRes = await page.request.patch(`/api/bookings/${booking.id}`, {
 			headers: { 'Content-Type': 'application/json', Cookie: cookies },
-			data: { startTime, endTime: `${date}T09:00:00` }
+			data: { startTime, endTime: `${date}T04:00:00` }
 		});
 		expect(patchRes.ok()).toBeTruthy();
 		const { booking: resized } = await patchRes.json();
 		expect(resized.startTime).toBe(startTime);
-		expect(resized.endTime).toBe(`${date}T09:00:00`);
+		expect(resized.endTime).toBe(`${date}T04:00:00`);
 	});
 
 	test('cannot move another user booking', async ({ page }) => {
@@ -126,9 +126,9 @@ test.describe('Drag to move/resize (via PATCH API)', () => {
 		expect(createRes.ok()).toBeTruthy();
 		const { booking } = await createRes.json();
 
-		// Logout and login as another flat (A04)
+		// Logout and login as another flat (A01)
 		await page.context().clearCookies();
-		await login(page, TEST_FLATS[3].number, TEST_FLATS[3].pin);
+		await login(page, TEST_FLATS[0].number, TEST_FLATS[0].pin);
 		const otherCookies = await getSessionCookie(page);
 
 		// Try to PATCH — should get 403

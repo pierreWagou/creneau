@@ -1,0 +1,5 @@
+procs:
+  dev:
+    cmd: ["npm", "run", "dev"]
+  test:
+    cmd: ["npx", "vitest", "--watch"]

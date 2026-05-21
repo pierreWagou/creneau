@@ -6,27 +6,34 @@ export default defineConfig({
 	retries: process.env.CI ? 1 : 0,
 	workers: process.env.CI ? 2 : 4,
 	use: {
-		baseURL: 'http://localhost:5173',
+		baseURL: 'http://localhost:5174',
 		trace: 'on-first-retry'
 	},
 	projects: [
 		{
 			name: 'setup',
-			testMatch: /setup\.test\.ts|activation\.test\.ts/,
+			testMatch: /setup\.test\.ts/,
+			fullyParallel: false,
+			use: { ...devices['Desktop Chrome'] }
+		},
+		{
+			name: 'activation',
+			testMatch: /activation\.test\.ts/,
+			dependencies: ['setup'],
 			fullyParallel: false,
 			use: { ...devices['Desktop Chrome'] }
 		},
 		{
 			name: 'main',
 			testMatch: /booking|calendar|drag|auth/,
-			dependencies: ['setup'],
+			dependencies: ['activation'],
 			fullyParallel: true,
 			use: { ...devices['Desktop Chrome'] }
 		}
 	],
 	webServer: {
-		command: 'DATABASE_URL=file:data/test.db npm run dev',
-		port: 5173,
+		command: 'DATABASE_URL=file:data/test.db npm run dev -- --port 5174',
+		port: 5174,
 		reuseExistingServer: !process.env.CI
 	}
 });
