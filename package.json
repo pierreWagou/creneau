@@ -27,7 +27,7 @@
 		"@internationalized/date": "^3.12.1",
 		"@lucide/svelte": "^1.16.0",
 		"@playwright/test": "^1.60.0",
-		"@sveltejs/kit": "^2.57.0",
+		"@sveltejs/kit": "^2.60.1",
 		"@sveltejs/vite-plugin-svelte": "^7.0.0",
 		"@tailwindcss/vite": "^4.2.4",
 		"@types/qrcode": "^1.5.6",
