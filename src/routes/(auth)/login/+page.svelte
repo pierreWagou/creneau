@@ -46,7 +46,7 @@
 		<Card.Description>Réservation parking — Metropolitan</Card.Description>
 	</Card.Header>
 	<Card.Content>
-		<form onsubmit={handleLogin} class="space-y-4">
+		<form onsubmit={(e) => { e.preventDefault(); handleLogin(); }} class="space-y-4">
 			<div class="space-y-2">
 				<Label for="flat">Numéro d'appartement</Label>
 				<Input id="flat" type="text" placeholder="ex. B12" bind:value={flatNumber} required />

@@ -60,7 +60,7 @@
 		<Card.Description>Entrez le code d'activation fourni par l'administrateur de votre immeuble.</Card.Description>
 	</Card.Header>
 	<Card.Content>
-		<form onsubmit={handleActivate} class="space-y-4">
+		<form onsubmit={(e) => { e.preventDefault(); handleActivate(); }} class="space-y-4">
 			<div class="space-y-2">
 				<Label for="flat">Numéro d'appartement</Label>
 				<Input id="flat" type="text" placeholder="ex. B12" bind:value={flatNumber} required />
