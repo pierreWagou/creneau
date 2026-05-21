@@ -373,6 +373,7 @@
 		nowIndicator: true,
 		editable: true,
 		selectable: true,
+		selectBackgroundColor: isDark ? 'rgba(137, 180, 250, 0.4)' : 'rgba(30, 102, 245, 0.4)',
 		select: handleSelect,
 		dateClick: handleDateClick,
 		eventClick: handleEventClick,

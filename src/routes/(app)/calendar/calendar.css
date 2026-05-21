@@ -78,6 +78,10 @@
 	opacity: 0.5;
 }
 
+.ec-container .ec .ec-event.ec-preview {
+	border: 2px dashed currentColor;
+}
+
 /* Toolbar */
 .ec-container .ec .ec-toolbar {
 	padding: 0.75rem 1rem;
