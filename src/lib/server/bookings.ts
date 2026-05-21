@@ -1,9 +1,10 @@
 import { and, eq, gt, lt } from 'drizzle-orm';
+import { MAX_BOOKING_HOURS } from '$lib/constants';
 import type { BookingWithFlat } from '$lib/types';
 import { DAY_END, DAY_START } from '$lib/types';
-import { padH } from '$lib/utils/time';
+import { getHourFromISO, padH } from '$lib/utils/time';
 import { db } from './db';
-import { booking, flat } from './db/schema';
+import { booking, flat, spot } from './db/schema';
 
 interface CreateBookingInput {
 	spotNumber: string;
@@ -67,6 +68,35 @@ export async function createBooking(
 ): Promise<{ success: true; booking: BookingWithFlat } | { success: false; error: string; status: number }> {
 	if (input.startTime >= input.endTime) {
 		return { success: false, error: "L'heure de fin doit être après l'heure de début", status: 400 };
+	}
+
+	const now = new Date().toISOString();
+	if (input.startTime < now) {
+		return { success: false, error: 'Impossible de créer une réservation dans le passé', status: 400 };
+	}
+
+	// Verify spot exists
+	const spotExists = await db.select().from(spot).where(eq(spot.number, input.spotNumber)).get();
+	if (!spotExists) {
+		return { success: false, error: 'Place introuvable', status: 400 };
+	}
+
+	// Validate hours are within bookable window
+	const startHour = getHourFromISO(input.startTime);
+	const endHour = getHourFromISO(input.endTime);
+	if (startHour < DAY_START || endHour > DAY_END) {
+		return { success: false, error: 'Créneau en dehors des heures autorisées', status: 400 };
+	}
+
+	// Validate max duration
+	const durationMs = new Date(input.endTime).getTime() - new Date(input.startTime).getTime();
+	const durationHours = durationMs / (1000 * 60 * 60);
+	if (durationHours > MAX_BOOKING_HOURS) {
+		return {
+			success: false,
+			error: `La durée maximale d'une réservation est de ${MAX_BOOKING_HOURS / 24} jours`,
+			status: 400
+		};
 	}
 
 	const conflict = await hasConflict(input.spotNumber, input.startTime, input.endTime);
@@ -143,6 +173,12 @@ export async function cancelBooking(
 		return { success: false, error: 'Réservation introuvable', status: 404 };
 	}
 
+	// Cannot cancel a booking that has already ended
+	const now = new Date().toISOString();
+	if (existing.endTime < now) {
+		return { success: false, error: "Impossible d'annuler une réservation passée", status: 400 };
+	}
+
 	if (existing.flatNumber !== flatNumber && !isAdmin) {
 		return { success: false, error: "Vous n'êtes pas autorisé à annuler cette réservation", status: 403 };
 	}
@@ -169,8 +205,38 @@ export async function updateBooking(
 		return { success: false, error: "Vous n'êtes pas autorisé à modifier cette réservation", status: 403 };
 	}
 
+	const now = new Date().toISOString();
+
+	// Cannot modify a booking that has already ended
+	if (existing.endTime < now) {
+		return { success: false, error: 'Impossible de modifier une réservation passée', status: 400 };
+	}
+
+	// Cannot move a booking to start in the past
+	if (updates.startTime < now) {
+		return { success: false, error: 'Impossible de placer une réservation dans le passé', status: 400 };
+	}
+
 	if (updates.startTime >= updates.endTime) {
 		return { success: false, error: "L'heure de fin doit être après l'heure de début", status: 400 };
+	}
+
+	// Validate hours are within bookable window
+	const startHour = getHourFromISO(updates.startTime);
+	const endHour = getHourFromISO(updates.endTime);
+	if (startHour < DAY_START || endHour > DAY_END) {
+		return { success: false, error: 'Créneau en dehors des heures autorisées', status: 400 };
+	}
+
+	// Validate max duration
+	const durationMs = new Date(updates.endTime).getTime() - new Date(updates.startTime).getTime();
+	const durationHours = durationMs / (1000 * 60 * 60);
+	if (durationHours > MAX_BOOKING_HOURS) {
+		return {
+			success: false,
+			error: `La durée maximale d'une réservation est de ${MAX_BOOKING_HOURS / 24} jours`,
+			status: 400
+		};
 	}
 
 	const conflict = await hasConflict(existing.spotNumber, updates.startTime, updates.endTime, bookingId);

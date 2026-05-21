@@ -4,6 +4,7 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { invalidateAll } from '$app/navigation';
+	import * as AlertDialog from '$lib/components/ui/alert-dialog';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
@@ -11,6 +12,7 @@
 	let { data } = $props();
 
 	let eventSource: EventSource | null = null;
+	let cancellingBookingId = $state<number | null>(null);
 
 	onMount(() => {
 		eventSource = new EventSource('/api/events');
@@ -24,8 +26,6 @@
 	});
 
 	async function cancelBooking(id: number) {
-		if (!confirm('Êtes-vous sûr de vouloir annuler cette réservation ?')) return;
-
 		try {
 			const res = await fetch(`/api/bookings/${id}`, { method: 'DELETE' });
 			if (res.ok) {
@@ -37,6 +37,17 @@
 			}
 		} catch {
 			toast.error('Erreur de connexion');
+		}
+		cancellingBookingId = null;
+	}
+
+	function confirmCancel(id: number) {
+		cancellingBookingId = id;
+	}
+
+	async function executeCancelBooking() {
+		if (cancellingBookingId !== null) {
+			await cancelBooking(cancellingBookingId);
 		}
 	}
 
@@ -80,7 +91,7 @@
 </script>
 
 <div class="space-y-6">
-	<h2 class="text-2xl font-bold tracking-tight">Mes réservations</h2>
+	<h2 class="page-title">Mes réservations</h2>
 
 	{#if upcoming.length === 0 && past.length === 0}
 		<Card.Root>
@@ -103,12 +114,12 @@
 							<div class="min-w-0 space-y-1">
 								<p class="font-medium capitalize">{formatMainLine(booking.startTime, booking.endTime)}</p>
 								<p class="text-muted-foreground text-sm">
-									{formatCreatedAt(booking.createdAt)}{#if booking.note} · {booking.note}{/if}
+																	{formatCreatedAt(booking.createdAt)} · Place {booking.spotNumber}{#if booking.note} · {booking.note}{/if}
 								</p>
 							</div>
 							<div class="flex shrink-0 items-center gap-2">
 								<Badge variant="outline">{formatDuration(booking.startTime, booking.endTime)}</Badge>
-								<Button variant="destructive" size="sm" onclick={() => cancelBooking(booking.id)}>Annuler</Button>
+								<Button variant="destructive" size="sm" onclick={() => confirmCancel(booking.id)}>Annuler</Button>
 							</div>
 						</div>
 					</Card.Content>
@@ -127,7 +138,7 @@
 							<div class="min-w-0 space-y-1">
 								<p class="font-medium capitalize">{formatMainLine(booking.startTime, booking.endTime)}</p>
 								<p class="text-muted-foreground text-sm">
-									{formatCreatedAt(booking.createdAt)}{#if booking.note} · {booking.note}{/if}
+																	{formatCreatedAt(booking.createdAt)} · Place {booking.spotNumber}{#if booking.note} · {booking.note}{/if}
 								</p>
 							</div>
 							<Badge variant="outline">{formatDuration(booking.startTime, booking.endTime)}</Badge>
@@ -138,3 +149,22 @@
 		</div>
 	{/if}
 </div>
+
+<!-- AlertDialog: Cancel confirmation -->
+<AlertDialog.Root
+	open={cancellingBookingId !== null}
+	onOpenChange={(o) => {
+		if (!o) cancellingBookingId = null;
+	}}
+>
+	<AlertDialog.Content>
+		<AlertDialog.Header>
+			<AlertDialog.Title>Annuler la réservation</AlertDialog.Title>
+			<AlertDialog.Description>Êtes-vous sûr de vouloir annuler cette réservation ?</AlertDialog.Description>
+		</AlertDialog.Header>
+		<AlertDialog.Footer>
+			<AlertDialog.Cancel>Non</AlertDialog.Cancel>
+			<AlertDialog.Action onclick={executeCancelBooking}>Annuler la réservation</AlertDialog.Action>
+		</AlertDialog.Footer>
+	</AlertDialog.Content>
+</AlertDialog.Root>

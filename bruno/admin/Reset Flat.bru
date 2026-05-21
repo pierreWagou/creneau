@@ -1,0 +1,17 @@
+meta {
+  name: Reset Flat
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/admin/flats/A01/reset
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "confirm": true
+  }
+}

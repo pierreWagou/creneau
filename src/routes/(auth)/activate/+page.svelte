@@ -114,7 +114,7 @@
 	</Card.Content>
 	<Card.Footer class="flex-col gap-2">
 		<p class="text-muted-foreground text-sm">
-			Déjà activé ? <a href="/login" class="text-primary hover:text-primary/80 font-medium underline transition-colors"
+			Déjà activé ? <a href="/login" class="inline-link font-medium"
 				>Se connecter</a
 			>
 		</p>

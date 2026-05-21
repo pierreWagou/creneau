@@ -79,6 +79,77 @@
 	}
 }
 
+/*
+ * Styling conventions:
+ * - shadcn components: DO NOT modify internals (except bug fixes). Override via `class` prop.
+ * - Repeated patterns: Add to @layer components below.
+ * - Page-specific styles: Use <style> block in the .svelte file or a colocated .css file.
+ * - Third-party overrides: Extract into separate .css files (e.g., calendar.css).
+ */
+
+@layer components {
+	.page-title {
+		@apply text-2xl font-bold tracking-tight;
+	}
+
+	/* Navigation links — desktop header */
+	.nav-link-desktop {
+		@apply flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors;
+	}
+	.nav-link-desktop-active {
+		@apply bg-primary/10 text-primary;
+	}
+	.nav-link-desktop-inactive {
+		@apply text-muted-foreground hover:bg-muted/50 hover:text-foreground;
+	}
+
+	/* Navigation links — mobile bottom bar */
+	.nav-link-mobile {
+		@apply flex flex-col items-center gap-1 px-3 py-1.5 text-xs font-medium transition-colors;
+	}
+	.nav-link-mobile-active {
+		@apply text-primary;
+	}
+	.nav-link-mobile-inactive {
+		@apply text-muted-foreground hover:text-foreground;
+	}
+
+	/* Stats display */
+	.stat-value {
+		@apply text-2xl font-bold;
+	}
+	.stat-label {
+		@apply text-muted-foreground text-xs;
+	}
+	.stat-hint {
+		@apply text-muted-foreground mt-3 text-center text-xs;
+	}
+
+	/* Ranking bar */
+	.ranking-bar-track {
+		@apply bg-muted h-2 w-full rounded;
+	}
+	.ranking-bar-fill {
+		@apply bg-primary h-2 rounded transition-all duration-300;
+	}
+
+	/* Flat state badges */
+	.flat-badge-active {
+		@apply bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200;
+	}
+	.flat-badge-pending {
+		@apply bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200;
+	}
+	.flat-badge-expired {
+		@apply bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200;
+	}
+
+	/* Inline links (in body text) */
+	.inline-link {
+		@apply text-primary underline transition-colors hover:text-primary/80;
+	}
+}
+
 @layer base {
 	* {
 		border-color: hsl(var(--border));
@@ -91,5 +162,21 @@
 	button,
 	[role="button"] {
 		cursor: pointer;
+	}
+	select {
+		cursor: pointer;
+		transition-property: color, background-color, border-color, box-shadow;
+		transition-duration: 150ms;
+	}
+	select:hover {
+		border-color: hsl(var(--ring));
+	}
+	select:focus {
+		outline: none;
+		box-shadow: 0 0 0 2px hsl(var(--ring) / 0.3);
+		border-color: hsl(var(--ring));
+	}
+	input:hover:not(:focus):not(:disabled) {
+		border-color: hsl(var(--ring));
 	}
 }

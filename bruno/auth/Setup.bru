@@ -1,0 +1,19 @@
+meta {
+  name: Setup
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/auth/setup
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "flatNumber": "B12",
+    "displayName": "Admin",
+    "pin": "1234"
+  }
+}

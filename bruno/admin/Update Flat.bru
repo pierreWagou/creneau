@@ -1,0 +1,17 @@
+meta {
+  name: Update Flat
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{baseUrl}}/api/admin/flats/A01
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "isAdmin": true
+  }
+}

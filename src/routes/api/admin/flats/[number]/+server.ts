@@ -29,6 +29,9 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 		const updated = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();
 		return json({ flat: updated });
 	} catch (e) {
+		if (e instanceof SyntaxError) {
+			return json({ error: 'Requête invalide' }, { status: 400 });
+		}
 		console.error('[PATCH /api/admin/flats/:number]', e);
 		return json({ error: 'Erreur interne' }, { status: 500 });
 	}

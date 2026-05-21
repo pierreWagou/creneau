@@ -40,6 +40,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 		return json({ spot: result }, { status: 201 });
 	} catch (e) {
+		if (e instanceof SyntaxError) {
+			return json({ error: 'Requête invalide' }, { status: 400 });
+		}
 		console.error('[POST /api/spots]', e);
 		return json({ error: 'Erreur interne' }, { status: 500 });
 	}

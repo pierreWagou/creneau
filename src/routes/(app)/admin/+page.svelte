@@ -1,25 +1,35 @@
 <script lang="ts">
 	import ClipboardCopy from '@lucide/svelte/icons/clipboard-copy';
+	import Plus from '@lucide/svelte/icons/plus';
 	import QrCodeIcon from '@lucide/svelte/icons/qr-code';
 	import { toast } from 'svelte-sonner';
 	import { invalidateAll } from '$app/navigation';
 	import QrCode from '$lib/components/qr-code.svelte';
+	import * as AlertDialog from '$lib/components/ui/alert-dialog';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
+	import * as Dialog from '$lib/components/ui/dialog';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { Separator } from '$lib/components/ui/separator';
 
 	let { data } = $props();
 
+	// Dialog state
+	type AdminDialog = 'addSpot' | 'addFlat' | 'bulkFlats' | 'qrCode' | null;
+	let openDialog = $state<AdminDialog>(null);
+
+	// Form state
 	let newFlatNumber = $state('');
 	let newSpotNumber = $state('');
 	let newSpotDescription = $state('');
 	let bulkInput = $state('');
 	let bulkLoading = $state(false);
 	let qrFlat = $state<(typeof data.flats)[0] | null>(null);
-	let qrDialogOpen = $state(false);
+
+	// Confirmation dialog state
+	let confirmAction = $state<{ type: 'reset' | 'delete'; flatNumber: string } | null>(null);
 
 	type FlatState = 'inactive' | 'pending' | 'expired' | 'active';
 
@@ -58,7 +68,7 @@
 
 	function showQrCode(f: (typeof data.flats)[0]) {
 		qrFlat = f;
-		qrDialogOpen = true;
+		openDialog = 'qrCode';
 	}
 
 	async function addFlat() {
@@ -73,6 +83,7 @@
 		if (res.ok) {
 			toast.success(`Appartement ${newFlatNumber} ajouté`);
 			newFlatNumber = '';
+			openDialog = null;
 			invalidateAll();
 		} else {
 			const result = await res.json();
@@ -80,9 +91,7 @@
 		}
 	}
 
-	let bulkParsed = $derived(
-		[...new Set(bulkInput.split(',').map((s) => s.trim()).filter((s) => s.length > 0))]
-	);
+	let bulkParsed = $derived([...new Set(bulkInput.split(',').map((s) => s.trim()).filter((s) => s.length > 0))]);
 
 	async function addBulkFlats() {
 		if (bulkParsed.length === 0) return;
@@ -98,11 +107,14 @@
 			if (res.ok) {
 				const { created, skipped } = await res.json();
 				if (skipped.length > 0) {
-					toast.success(`${created} appartement${created > 1 ? 's' : ''} créé${created > 1 ? 's' : ''}, ${skipped.length} déjà existant${skipped.length > 1 ? 's' : ''} (${skipped.join(', ')})`);
+					toast.success(
+						`${created} appartement${created > 1 ? 's' : ''} créé${created > 1 ? 's' : ''}, ${skipped.length} déjà existant${skipped.length > 1 ? 's' : ''} (${skipped.join(', ')})`
+					);
 				} else {
 					toast.success(`${created} appartement${created > 1 ? 's' : ''} créé${created > 1 ? 's' : ''}`);
 				}
 				bulkInput = '';
+				openDialog = null;
 				invalidateAll();
 			} else {
 				const result = await res.json();
@@ -128,6 +140,7 @@
 			toast.success(`Place "${newSpotNumber}" ajoutée`);
 			newSpotNumber = '';
 			newSpotDescription = '';
+			openDialog = null;
 			invalidateAll();
 		} else {
 			const result = await res.json();
@@ -160,8 +173,6 @@
 	}
 
 	async function resetFlat(flatNumber: string) {
-		if (!confirm('Cela va déconnecter le résident et supprimer son code PIN. Continuer ?')) return;
-
 		const res = await fetch(`/api/admin/flats/${encodeURIComponent(flatNumber)}/reset`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
@@ -193,8 +204,6 @@
 	}
 
 	async function deleteFlat(flatNumber: string) {
-		if (!confirm('Supprimer cet appartement ? Cette action est irréversible.')) return;
-
 		const res = await fetch(`/api/admin/flats/${encodeURIComponent(flatNumber)}`, { method: 'DELETE' });
 
 		if (res.ok) {
@@ -205,12 +214,30 @@
 			toast.error(result.error || 'Impossible de supprimer');
 		}
 	}
+
+	function confirmResetFlat(flatNumber: string) {
+		confirmAction = { type: 'reset', flatNumber };
+	}
+
+	function confirmDeleteFlat(flatNumber: string) {
+		confirmAction = { type: 'delete', flatNumber };
+	}
+
+	async function executeConfirmAction() {
+		if (!confirmAction) return;
+		if (confirmAction.type === 'reset') {
+			await resetFlat(confirmAction.flatNumber);
+		} else {
+			await deleteFlat(confirmAction.flatNumber);
+		}
+		confirmAction = null;
+	}
 </script>
 
 <div class="space-y-8">
-	<h2 class="text-2xl font-bold">Administration</h2>
+	<h2 class="page-title">Administration</h2>
 
-	<!-- Gestion des places de parking -->
+	<!-- Places de parking -->
 	<Card.Root>
 		<Card.Header>
 			<Card.Title>Places de parking</Card.Title>
@@ -218,7 +245,7 @@
 		</Card.Header>
 		<Card.Content class="space-y-4">
 			{#if data.spots.length === 0}
-				<p class="text-muted-foreground text-sm">Aucune place configurée. Ajoutez votre première place ci-dessous.</p>
+				<p class="text-muted-foreground text-sm">Aucune place configurée.</p>
 			{:else}
 				<div class="space-y-2">
 					{#each data.spots as s}
@@ -234,149 +261,228 @@
 				</div>
 			{/if}
 
-			<Separator />
-
-			<div class="space-y-2">
-				<Label>Ajouter une place</Label>
-				<div class="flex gap-2">
-					<Input placeholder="Numéro (ex. 36)" bind:value={newSpotNumber} />
-					<Input placeholder="Description (optionnel)" bind:value={newSpotDescription} />
-					<Button onclick={addSpot}>Ajouter</Button>
-				</div>
-			</div>
+			<Button variant="outline" size="sm" onclick={() => (openDialog = 'addSpot')}>
+				<Plus class="mr-1.5 h-3.5 w-3.5" />
+				Ajouter une place
+			</Button>
 		</Card.Content>
 	</Card.Root>
 
-	<!-- Gestion des appartements -->
+	<!-- Appartements -->
 	<Card.Root>
 		<Card.Header>
 			<Card.Title>Appartements</Card.Title>
 			<Card.Description>Gérez les appartements et les accès des résidents.</Card.Description>
 		</Card.Header>
 		<Card.Content class="space-y-4">
-			<div class="space-y-2">
-				{#each data.flats as f}
-					{@const state = getFlatState(f)}
-					<div class="rounded-md border p-3">
-						<div class="flex items-center justify-between">
-							<div class="space-y-1">
-								<div class="flex items-center gap-2">
-									<span class="font-medium">{f.number}</span>
-									{#if f.displayName}
-										<span class="text-muted-foreground text-sm">({f.displayName})</span>
-									{/if}
-									{#if f.isAdmin}
-										<Badge>Admin</Badge>
-									{/if}
-									{#if state === 'active'}
-										<Badge variant="secondary" class="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Actif</Badge>
+			{#if data.flats.length === 0}
+				<p class="text-muted-foreground text-sm">Aucun appartement configuré.</p>
+			{:else}
+				<div class="space-y-2">
+					{#each data.flats as f}
+						{@const state = getFlatState(f)}
+						<div class="rounded-md border p-3">
+							<div class="flex items-center justify-between">
+								<div class="space-y-1">
+									<div class="flex items-center gap-2">
+										<span class="font-medium">{f.number}</span>
+										{#if f.displayName}
+											<span class="text-muted-foreground text-sm">({f.displayName})</span>
+										{/if}
+										{#if f.isAdmin}
+											<Badge>Admin</Badge>
+										{/if}
+										{#if state === 'active'}
+									<Badge variant="secondary" class="flat-badge-active">Actif</Badge>
 									{:else if state === 'pending'}
-										<Badge variant="secondary" class="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">En attente</Badge>
+										<Badge variant="secondary" class="flat-badge-pending">En attente</Badge>
 									{:else if state === 'expired'}
-										<Badge variant="secondary" class="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">Expiré</Badge>
-									{:else}
-										<Badge variant="outline">Inactif</Badge>
+										<Badge variant="secondary" class="flat-badge-expired">Expiré</Badge>
+										{:else}
+											<Badge variant="outline">Inactif</Badge>
+										{/if}
+									</div>
+									{#if state === 'pending' && f.activationCodeExpiresAt}
+										<p class="text-muted-foreground text-xs">
+											{getExpiryLabel(f.activationCodeExpiresAt)}
+										</p>
+									{/if}
+									{#if (state === 'pending' || state === 'expired') && f.activationCode}
+										<p class="text-xs">
+											Code : <span class="font-mono font-medium">{f.activationCode}</span>
+										</p>
 									{/if}
 								</div>
-								{#if state === 'pending' && f.activationCodeExpiresAt}
-									<p class="text-muted-foreground text-xs">
-										{getExpiryLabel(f.activationCodeExpiresAt)}
-									</p>
-								{/if}
-								{#if (state === 'pending' || state === 'expired') && f.activationCode}
-									<p class="text-xs">
-										Code : <span class="font-mono font-medium">{f.activationCode}</span>
-									</p>
-								{/if}
-							</div>
-							<div class="flex items-center gap-1">
+								<div class="flex items-center gap-1">
 								{#if state === 'active'}
 									<Button size="sm" variant="ghost" onclick={() => toggleAdmin(f.number, f.isAdmin)}>
 										{f.isAdmin ? 'Retirer admin' : 'Rendre admin'}
 									</Button>
-									<Button size="sm" variant="ghost" onclick={() => resetFlat(f.number)}>Réinitialiser</Button>
-								{:else if state === 'pending'}
-									<Button size="sm" variant="ghost" onclick={() => copyLink(f)}>
-										<ClipboardCopy class="mr-1 h-3.5 w-3.5" />
-										Copier le lien
-									</Button>
-									<Button size="sm" variant="ghost" onclick={() => showQrCode(f)}>
-										<QrCodeIcon class="mr-1 h-3.5 w-3.5" />
-										QR Code
-									</Button>
-									<Button size="sm" variant="ghost" onclick={() => revokeActivation(f.number)}>Annuler</Button>
-									<Button size="sm" variant="ghost" onclick={() => generateActivation(f.number)}>Régénérer</Button>
-								{:else if state === 'expired'}
-									<Button size="sm" variant="ghost" onclick={() => generateActivation(f.number)}>Régénérer</Button>
-									<Button size="sm" variant="ghost" onclick={() => revokeActivation(f.number)}>Annuler</Button>
-								{:else}
-									<Button size="sm" variant="ghost" onclick={() => generateActivation(f.number)}>Générer un lien</Button>
-								{/if}
-								<Button size="sm" variant="destructive" onclick={() => deleteFlat(f.number)}>Supprimer</Button>
+									<Button size="sm" variant="ghost" onclick={() => confirmResetFlat(f.number)}>Réinitialiser</Button>
+									{:else if state === 'pending'}
+										<Button size="sm" variant="ghost" onclick={() => copyLink(f)}>
+											<ClipboardCopy class="mr-1 h-3.5 w-3.5" />
+											Copier le lien
+										</Button>
+										<Button size="sm" variant="ghost" onclick={() => showQrCode(f)}>
+											<QrCodeIcon class="mr-1 h-3.5 w-3.5" />
+											QR Code
+										</Button>
+										<Button size="sm" variant="ghost" onclick={() => revokeActivation(f.number)}>Annuler</Button>
+										<Button size="sm" variant="ghost" onclick={() => generateActivation(f.number)}>Régénérer</Button>
+									{:else if state === 'expired'}
+										<Button size="sm" variant="ghost" onclick={() => generateActivation(f.number)}>Régénérer</Button>
+										<Button size="sm" variant="ghost" onclick={() => revokeActivation(f.number)}>Annuler</Button>
+									{:else}
+										<Button size="sm" variant="ghost" onclick={() => generateActivation(f.number)}>Générer un lien</Button>
+									{/if}
+									<Button size="sm" variant="destructive" onclick={() => confirmDeleteFlat(f.number)}>Supprimer</Button>
+								</div>
 							</div>
 						</div>
-					</div>
-				{/each}
-			</div>
-
-			<Separator />
-
-			<div class="space-y-2">
-				<Label>Ajouter un appartement</Label>
-				<div class="flex gap-2">
-					<Input placeholder="Numéro (ex. B12)" bind:value={newFlatNumber} />
-					<Button onclick={addFlat}>Ajouter</Button>
+					{/each}
 				</div>
-				<p class="text-muted-foreground text-xs">
-					L'appartement sera créé en état inactif. Vous pourrez générer un lien d'activation ensuite.
-				</p>
-			</div>
+			{/if}
 
-			<Separator />
-
-			<div class="space-y-2">
-				<Label>Création en lot</Label>
-				<div class="flex gap-2">
-					<Input placeholder="ex. A01, A02, B01, B02" bind:value={bulkInput} />
-					<Button onclick={addBulkFlats} disabled={bulkParsed.length === 0 || bulkLoading}>
-						{bulkLoading ? '...' : `Créer ${bulkParsed.length > 0 ? bulkParsed.length : ''}`}
-					</Button>
-				</div>
-				{#if bulkParsed.length > 0}
-					<p class="text-muted-foreground text-xs">
-						{bulkParsed.length} appartement{bulkParsed.length > 1 ? 's' : ''} à créer : {bulkParsed.join(', ')}
-					</p>
-				{:else}
-					<p class="text-muted-foreground text-xs">Entrez les numéros séparés par des virgules.</p>
-				{/if}
+			<div class="flex gap-2">
+				<Button variant="outline" size="sm" onclick={() => (openDialog = 'addFlat')}>
+					<Plus class="mr-1.5 h-3.5 w-3.5" />
+					Ajouter
+				</Button>
+				<Button variant="outline" size="sm" onclick={() => (openDialog = 'bulkFlats')}>
+					<Plus class="mr-1.5 h-3.5 w-3.5" />
+					Création en lot
+				</Button>
 			</div>
 		</Card.Content>
 	</Card.Root>
 </div>
 
-<!-- QR Code Dialog -->
-{#if qrDialogOpen && qrFlat}
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-		onclick={() => { qrDialogOpen = false; qrFlat = null; }}
-		onkeydown={(e) => { if (e.key === 'Escape') { qrDialogOpen = false; qrFlat = null; } }}
-	>
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div
-			class="bg-background w-full max-w-sm rounded-lg border p-6 shadow-lg"
-			onclick={(e) => e.stopPropagation()}
-			onkeydown={(e) => e.stopPropagation()}
-		>
-			<div class="space-y-1 text-center">
-				<h3 class="text-lg font-semibold">Appartement {qrFlat.number}</h3>
-				<p class="text-muted-foreground text-sm">Scannez pour activer le compte parking.</p>
+<!-- Dialog: Ajouter une place -->
+<Dialog.Root
+	open={openDialog === 'addSpot'}
+	onOpenChange={(o) => {
+		if (!o) openDialog = null;
+	}}
+>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>Ajouter une place de parking</Dialog.Title>
+			<Dialog.Description>La place sera disponible immédiatement pour les réservations.</Dialog.Description>
+		</Dialog.Header>
+		<div class="space-y-4">
+			<div class="space-y-2">
+				<Label for="spot-number">Numéro</Label>
+				<Input id="spot-number" placeholder="ex. 36" bind:value={newSpotNumber} />
 			</div>
-			<div class="flex justify-center py-6">
+			<div class="space-y-2">
+				<Label for="spot-desc">Description (optionnel)</Label>
+				<Input id="spot-desc" placeholder="ex. Place handicapé" bind:value={newSpotDescription} />
+			</div>
+			<Button class="w-full" onclick={addSpot} disabled={!newSpotNumber.trim()}>Ajouter</Button>
+		</div>
+	</Dialog.Content>
+</Dialog.Root>
+
+<!-- Dialog: Ajouter un appartement -->
+<Dialog.Root
+	open={openDialog === 'addFlat'}
+	onOpenChange={(o) => {
+		if (!o) openDialog = null;
+	}}
+>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>Ajouter un appartement</Dialog.Title>
+			<Dialog.Description>L'appartement sera créé en état inactif. Vous pourrez générer un lien d'activation ensuite.</Dialog.Description>
+		</Dialog.Header>
+		<div class="space-y-4">
+			<div class="space-y-2">
+				<Label for="flat-number">Numéro d'appartement</Label>
+				<Input id="flat-number" placeholder="ex. B12" bind:value={newFlatNumber} />
+			</div>
+			<Button class="w-full" onclick={addFlat} disabled={!newFlatNumber.trim()}>Ajouter</Button>
+		</div>
+	</Dialog.Content>
+</Dialog.Root>
+
+<!-- Dialog: Création en lot -->
+<Dialog.Root
+	open={openDialog === 'bulkFlats'}
+	onOpenChange={(o) => {
+		if (!o) openDialog = null;
+	}}
+>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>Création en lot</Dialog.Title>
+			<Dialog.Description>Entrez les numéros d'appartements séparés par des virgules.</Dialog.Description>
+		</Dialog.Header>
+		<div class="space-y-4">
+			<div class="space-y-2">
+				<Label for="bulk-input">Numéros</Label>
+				<Input id="bulk-input" placeholder="ex. A01, A02, B01, B02" bind:value={bulkInput} />
+				{#if bulkParsed.length > 0}
+					<p class="text-muted-foreground text-xs">
+						{bulkParsed.length} appartement{bulkParsed.length > 1 ? 's' : ''} : {bulkParsed.join(', ')}
+					</p>
+				{/if}
+			</div>
+			<Button class="w-full" onclick={addBulkFlats} disabled={bulkParsed.length === 0 || bulkLoading}>
+				{bulkLoading ? 'Création...' : `Créer ${bulkParsed.length} appartement${bulkParsed.length > 1 ? 's' : ''}`}
+			</Button>
+		</div>
+	</Dialog.Content>
+</Dialog.Root>
+
+<!-- Dialog: QR Code -->
+<Dialog.Root
+	open={openDialog === 'qrCode'}
+	onOpenChange={(o) => {
+		if (!o) {
+			openDialog = null;
+			qrFlat = null;
+		}
+	}}
+>
+	<Dialog.Content>
+		{#if qrFlat}
+			<Dialog.Header>
+				<Dialog.Title>Appartement {qrFlat.number}</Dialog.Title>
+				<Dialog.Description>Scannez pour activer le compte parking.</Dialog.Description>
+			</Dialog.Header>
+			<div class="flex justify-center py-4">
 				<div class="rounded-lg bg-white p-4">
 					<QrCode value={getActivationLink(qrFlat)} size={256} />
 				</div>
 			</div>
-		</div>
-	</div>
-{/if}
+		{/if}
+	</Dialog.Content>
+</Dialog.Root>
+
+<!-- AlertDialog: Confirmation -->
+<AlertDialog.Root
+	open={confirmAction !== null}
+	onOpenChange={(o) => {
+		if (!o) confirmAction = null;
+	}}
+>
+	<AlertDialog.Content>
+		<AlertDialog.Header>
+			<AlertDialog.Title>
+				{confirmAction?.type === 'reset' ? "Réinitialiser l'appartement" : "Supprimer l'appartement"}
+			</AlertDialog.Title>
+			<AlertDialog.Description>
+				{confirmAction?.type === 'reset'
+					? 'Cela va déconnecter le résident et supprimer son code PIN. Cette action est réversible.'
+					: 'Supprimer cet appartement et toutes ses réservations ? Cette action est irréversible.'}
+			</AlertDialog.Description>
+		</AlertDialog.Header>
+		<AlertDialog.Footer>
+			<AlertDialog.Cancel>Annuler</AlertDialog.Cancel>
+			<AlertDialog.Action onclick={executeConfirmAction}>
+				{confirmAction?.type === 'reset' ? 'Réinitialiser' : 'Supprimer'}
+			</AlertDialog.Action>
+		</AlertDialog.Footer>
+	</AlertDialog.Content>
+</AlertDialog.Root>

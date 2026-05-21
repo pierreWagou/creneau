@@ -26,7 +26,7 @@ Creneau is a shared parking spot booking app for apartment buildings. See the pr
 | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/lib/types.ts`                                      | `DAY_START`/`DAY_END` constants, `AvailableSlot`, `CalendarDayStatus`, `BookingWithFlat`, `SpotTimeline` types, `getTimelineStatus()` helper |
 | `src/lib/server/availability.ts`                        | `buildSpotTimeline()` — pure computation (no DB), `getCalendarStatuses()` — calendar coloring                                                |
-| `src/lib/server/bookings.ts`                            | CRUD: `createBooking()`, `getBookingsInRange()`, `getBookingsByFlat()`, `cancelBooking()`                                                    |
+| `src/lib/server/bookings.ts`                            | CRUD: `createBooking()`, `getBookingsInRange()`, `getBookingsByFlat()`, `cancelBooking()`, `updateBooking()`                                 |
 | `src/lib/server/sse.ts`                                 | SSE broadcaster singleton                                                                                                                    |
 | `src/lib/server/auth.ts`                                | PIN hashing, session create/validate, `setSessionCookie()`                                                                                   |
 | `src/lib/server/db/schema.ts`                           | Drizzle schema: flat, spot, booking, session                                                                                                 |
@@ -38,21 +38,25 @@ Creneau is a shared parking spot booking app for apartment buildings. See the pr
 | `src/routes/api/timeline/+server.ts`                    | `GET` → returns `SpotTimeline` (bookings + available slots) for date range + spot                                                            |
 | `src/routes/api/calendar-statuses/+server.ts`           | `GET` → returns `CalendarDayStatus[]` for calendar coloring                                                                                  |
 | `src/routes/api/bookings/+server.ts`                    | `POST` create booking, broadcasts SSE                                                                                                        |
-| `src/routes/api/bookings/[id]/+server.ts`               | `DELETE` cancel a booking                                                                                                                    |
+| `src/routes/api/bookings/[id]/+server.ts`               | `PATCH` update booking time (drag/drop), `DELETE` cancel a booking                                                                           |
 | `src/routes/api/spots/+server.ts`                       | `GET`/`POST` parking spots (admin for POST)                                                                                                  |
 | `src/routes/api/admin/flats/+server.ts`                 | `GET`/`POST` flats (admin only)                                                                                                              |
 | `src/routes/api/admin/flats/[number]/+server.ts`        | `PATCH`/`DELETE` specific flat (admin only)                                                                                                  |
 | `src/routes/api/admin/flats/[number]/activation/+server.ts` | `POST` generate / `DELETE` revoke activation code                                                                                        |
 | `src/routes/api/admin/flats/[number]/reset/+server.ts`  | `POST` reset an active flat (deactivate, clear PIN/sessions)                                                                                 |
+| `src/routes/api/admin/flats/bulk/+server.ts`            | `POST` bulk create flats from a list                                                                                                         |
+| `src/routes/api/health/+server.ts`                      | `GET` health check (DB connectivity, no auth required)                                                                                       |
 | `src/routes/api/auth/login/+server.ts`                  | `POST` login with flat number + PIN                                                                                                          |
 | `src/routes/api/auth/activate/+server.ts`               | `POST` activate a flat with activation code                                                                                                  |
 | `src/routes/api/auth/setup/+server.ts`                  | `POST` first-time admin setup (only works when no flats exist)                                                                               |
 | `src/routes/api/auth/logout/+server.ts`                 | `POST` logout (clear session)                                                                                                                |
 | `src/routes/api/events/+server.ts`                      | SSE stream endpoint                                                                                                                          |
 | `src/routes/(auth)/setup/+page.svelte`                  | First-time setup wizard (creates admin account)                                                                                              |
-| `src/routes/(app)/account/+page.svelte`                 | Account settings (display name, PIN change, stats)                                                                                           |
+| `src/routes/(app)/stats/+page.svelte`                   | Usage stats: personal metrics + building leaderboard + utilization                                                                           |
+| `src/routes/(app)/account/+page.svelte`                 | Account settings (display name, PIN change)                                                                                                  |
 | `src/routes/api/account/+server.ts`                     | `PATCH` update display name, `POST` change PIN                                                                                               |
-| `src/lib/constants.ts`                                  | Shared constants (PIN lengths, display name max length, calendar lookahead, activation code TTL)                                             |
+| `src/lib/constants.ts`                                  | Shared constants (PIN lengths, display name max length, calendar lookahead, activation code TTL, max booking hours)                           |
+| `src/lib/server/rate-limit.ts`                          | In-memory rate limiting for auth endpoints (login, activation)                                                                               |
 
 ## Availability computation — how it works
 
@@ -125,6 +129,9 @@ onMount(() => {
 	eventSource.addEventListener('booking_cancelled', () => {
 		/* re-fetch */
 	});
+	eventSource.addEventListener('booking_updated', () => {
+		/* re-fetch */
+	});
 });
 onDestroy(() => {
 	eventSource?.close();
@@ -177,12 +184,13 @@ export const PIN_MAX_LENGTH = 6;
 export const DISPLAY_NAME_MAX_LENGTH = 50;
 export const CALENDAR_LOOKAHEAD_MONTHS = 3;
 export const ACTIVATION_CODE_TTL_MS = 24 * 60 * 60 * 1000;
+export const MAX_BOOKING_HOURS = 168;
 ```
 
 ## CI/CD, Testing & Hooks
 
 - **Tooling**: Biome (format + lint in one tool), Vitest (tests), Husky (git hooks)
-- **CI** (`.github/workflows/ci.yml`): `biome ci` → `svelte-check` → `vitest run` → `vite build`
+- **CI** (`.github/workflows/ci.yml`): `biome ci` → `svelte-check` → `vitest run` → `vite build` → `playwright test` (E2E)
 - **CD** (`.github/workflows/cd.yml`): Builds Docker image on CI success, pushes to `ghcr.io`
 - **Pre-commit** (`.husky/pre-commit`): Runs `npx biome check --write .` → `git add -u` → `npm run check`
 - **Tests**: Vitest, config in `vite.config.ts`, test files colocated (`*.test.ts`)

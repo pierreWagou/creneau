@@ -73,7 +73,7 @@
 		<p class="text-muted-foreground text-sm">
 			Première fois ? <a
 				href="/activate"
-				class="text-primary hover:text-primary/80 font-medium underline transition-colors">Activer mon appartement</a
+				class="inline-link font-medium">Activer mon appartement</a
 			>
 		</p>
 	</Card.Footer>

@@ -9,14 +9,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	try {
-		const { spot, startTime, endTime, note } = await request.json();
+		const { spotNumber, startTime, endTime, note } = await request.json();
 
-		if (!spot || !startTime || !endTime) {
-			return json({ error: 'Champs requis manquants' }, { status: 400 });
+		if (!spotNumber || !startTime || !endTime) {
+			return json({ error: 'Champs obligatoires manquants' }, { status: 400 });
 		}
 
 		const result = await createBooking({
-			spotNumber: spot.trim(),
+			spotNumber: spotNumber.trim(),
 			flatNumber: locals.flat.number,
 			startTime,
 			endTime,
@@ -30,6 +30,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		sseManager.broadcast('booking_created', result.booking);
 		return json({ booking: result.booking }, { status: 201 });
 	} catch (e) {
+		if (e instanceof SyntaxError) {
+			return json({ error: 'Requête invalide' }, { status: 400 });
+		}
 		console.error('[POST /api/bookings]', e);
 		return json({ error: 'Erreur interne' }, { status: 500 });
 	}

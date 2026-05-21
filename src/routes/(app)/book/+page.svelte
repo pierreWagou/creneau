@@ -8,6 +8,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { RangeCalendar } from '$lib/components/ui/range-calendar';
+	import * as Tabs from '$lib/components/ui/tabs';
 	import { CALENDAR_LOOKAHEAD_MONTHS } from '$lib/constants';
 	import { type AvailableSlot, type BookingWithFlat, type CalendarDayStatus, DAY_END, DAY_START } from '$lib/types';
 	import { formatDateISO, getHourFromISO, padH, TIME_BLOCKS, type TimeBlockKey } from '$lib/utils/time';
@@ -353,7 +354,7 @@
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					spot: selectedSpot,
+					spotNumber: selectedSpot,
 					startTime: getStartTimeStr(),
 					endTime: getEndTimeStr(),
 					note: note || null
@@ -415,7 +416,7 @@
 </script>
 
 <div class="mx-auto max-w-md space-y-4">
-	<h2 class="text-2xl font-bold tracking-tight">Réserver une place</h2>
+	<h2 class="page-title">Réserver une place</h2>
 
 	<!-- Date selection -->
 	<Card.Root>
@@ -427,15 +428,13 @@
 			{#if data.spots.length > 1}
 				<div class="space-y-2">
 					<Label for="spot">Place de parking</Label>
-					<select
-						id="spot"
-						bind:value={selectedSpot}
-						class="border-input bg-background flex h-10 w-full rounded-md border px-3 py-2 text-sm"
-					>
-						{#each data.spots as s}
-							<option value={s.number}>{s.number}</option>
-						{/each}
-					</select>
+					<Tabs.Root bind:value={selectedSpot}>
+						<Tabs.List>
+							{#each data.spots as s}
+								<Tabs.Trigger value={s.number}>Place {s.number}</Tabs.Trigger>
+							{/each}
+						</Tabs.List>
+					</Tabs.Root>
 				</div>
 			{/if}
 

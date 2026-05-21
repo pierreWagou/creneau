@@ -1,0 +1,18 @@
+meta {
+  name: Update Booking
+  type: http
+  seq: 3
+}
+
+patch {
+  url: {{baseUrl}}/api/bookings/1
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "startTime": "2026-05-06T14:00:00",
+    "endTime": "2026-05-06T18:00:00"
+  }
+}

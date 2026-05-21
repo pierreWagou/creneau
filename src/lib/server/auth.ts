@@ -10,8 +10,7 @@ import { flat, session } from './db/schema';
 const SESSION_DURATION_DAYS = 30;
 
 export const SESSION_COOKIE_NAME = 'session';
-export const SESSION_MAX_AGE = SESSION_DURATION_DAYS * 24 * 60 * 60; // seconds
-export { PIN_MAX_LENGTH, PIN_MIN_LENGTH };
+const SESSION_MAX_AGE = SESSION_DURATION_DAYS * 24 * 60 * 60; // seconds
 
 /** Set the session cookie with standard options */
 export function setSessionCookie(cookies: Cookies, sessionId: string): void {
@@ -30,6 +29,19 @@ export async function hashPin(pin: string): Promise<string> {
 
 export async function verifyPin(pin: string, hashedPin: string): Promise<boolean> {
 	return await verify(hashedPin, pin);
+}
+
+/**
+ * Validate a PIN string. Returns an error message if invalid, or null if valid.
+ */
+export function validatePin(pin: string): string | null {
+	if (pin.length < PIN_MIN_LENGTH || pin.length > PIN_MAX_LENGTH) {
+		return `Le PIN doit contenir ${PIN_MIN_LENGTH} à ${PIN_MAX_LENGTH} chiffres`;
+	}
+	if (!/^\d+$/.test(pin)) {
+		return 'Le PIN ne doit contenir que des chiffres';
+	}
+	return null;
 }
 
 export function generateActivationCode(): string {

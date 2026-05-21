@@ -1,6 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '$lib/constants';
-import { createSession, hashPin, setSessionCookie } from '$lib/server/auth';
+import { createSession, hashPin, setSessionCookie, validatePin } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
 import type { RequestHandler } from './$types';
@@ -20,12 +19,9 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			return json({ error: 'Champs obligatoires manquants' }, { status: 400 });
 		}
 
-		if (pin.length < PIN_MIN_LENGTH || pin.length > PIN_MAX_LENGTH) {
-			return json({ error: `Le PIN doit contenir ${PIN_MIN_LENGTH} à ${PIN_MAX_LENGTH} chiffres` }, { status: 400 });
-		}
-
-		if (!/^\d+$/.test(pin)) {
-			return json({ error: 'Le PIN ne doit contenir que des chiffres' }, { status: 400 });
+		const pinError = validatePin(pin);
+		if (pinError) {
+			return json({ error: pinError }, { status: 400 });
 		}
 
 		// Create admin flat (already active, no activation code)

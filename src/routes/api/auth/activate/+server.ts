@@ -1,8 +1,9 @@
 import { json } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
-import { createSession, hashPin, PIN_MAX_LENGTH, PIN_MIN_LENGTH, setSessionCookie } from '$lib/server/auth';
+import { createSession, hashPin, setSessionCookie, validatePin } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
+import { checkRateLimit, recordFailedAttempt, resetAttempts } from '$lib/server/rate-limit';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
@@ -13,17 +14,25 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			return json({ error: 'Champs obligatoires manquants' }, { status: 400 });
 		}
 
-		if (pin.length < PIN_MIN_LENGTH || pin.length > PIN_MAX_LENGTH) {
-			return json({ error: `Le PIN doit contenir ${PIN_MIN_LENGTH} à ${PIN_MAX_LENGTH} chiffres` }, { status: 400 });
+		// Rate limiting
+		const { allowed, retryAfterMs } = checkRateLimit(`activate:${flatNumber}`);
+		if (!allowed) {
+			const minutes = Math.ceil((retryAfterMs || 0) / 60000);
+			return json(
+				{ error: `Trop de tentatives. Réessayez dans ${minutes} minute${minutes > 1 ? 's' : ''}.` },
+				{ status: 429 }
+			);
 		}
 
-		if (!/^\d+$/.test(pin)) {
-			return json({ error: 'Le PIN ne doit contenir que des chiffres' }, { status: 400 });
+		const pinError = validatePin(pin);
+		if (pinError) {
+			return json({ error: pinError }, { status: 400 });
 		}
 
 		const existingFlat = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();
 
 		if (!existingFlat || existingFlat.activationCode !== activationCode) {
+			recordFailedAttempt(`activate:${flatNumber}`);
 			return json({ error: "Numéro d'appartement ou code d'activation invalide" }, { status: 401 });
 		}
 
@@ -38,6 +47,9 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 				return json({ error: "Code d'activation expiré. Contactez votre administrateur." }, { status: 410 });
 			}
 		}
+
+		// Success — reset rate limit
+		resetAttempts(`activate:${flatNumber}`);
 
 		const pinHash = await hashPin(pin);
 		await db

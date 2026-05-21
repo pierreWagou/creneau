@@ -1,0 +1,18 @@
+meta {
+  name: Change PIN
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/account
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "currentPin": "1234",
+    "newPin": "5678"
+  }
+}

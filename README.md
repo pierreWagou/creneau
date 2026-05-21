@@ -62,6 +62,7 @@ src/
 │   ├── (app)/book/           # Booking page (date + time selection)
 │   ├── (app)/calendar/       # Interactive week/day calendar view
 │   ├── (app)/my-bookings/    # User's booking list
+│   ├── (app)/stats/          # Usage stats & leaderboard
 │   ├── (app)/account/        # Account settings (display name, PIN change)
 │   ├── (app)/admin/          # Admin: manage flats + spots
 │   ├── (auth)/login/         # PIN login
@@ -107,6 +108,7 @@ Data is persisted in a named volume (`creneau-data`).
 | CI check (all)     | `npm run ci`          |
 | Build              | `npm run build`       |
 | Preview prod       | `npm run preview`     |
+| E2E tests          | `npm run test:e2e`    |
 | Generate migration | `npm run db:generate` |
 | Run migrations     | `npm run db:migrate`  |
 

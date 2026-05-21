@@ -1,0 +1,160 @@
+/* Event Calendar (@event-calendar/core) theme overrides.
+ * Maps EC CSS variables to the app's design tokens (Catppuccin via CSS custom properties).
+ * Imported by the calendar page — global scope (no :global() needed in standalone CSS). */
+
+/* Light mode */
+.ec-container .ec {
+	font-family: inherit;
+	border-radius: var(--radius);
+	border: 1px solid hsl(var(--border));
+	overflow: hidden;
+
+	/* Core colors */
+	--ec-bg-color: hsl(var(--card));
+	--ec-text-color: hsl(var(--foreground));
+	--ec-border-color: hsl(var(--border));
+	--ec-today-bg-color: hsl(var(--primary) / 0.06);
+	--ec-highlight-color: hsl(var(--primary) / 0.12);
+	--ec-now-indicator-color: hsl(var(--primary));
+	--ec-popup-bg-color: hsl(var(--card));
+
+	/* Events */
+	--ec-event-bg-color: hsl(var(--accent));
+	--ec-event-text-color: hsl(var(--accent-foreground));
+
+	/* Buttons */
+	--ec-button-bg-color: hsl(var(--card));
+	--ec-button-border-color: hsl(var(--border));
+	--ec-button-text-color: hsl(var(--foreground));
+	--ec-button-active-bg-color: hsl(var(--primary));
+	--ec-button-active-border-color: hsl(var(--primary));
+	--ec-button-active-text-color: hsl(var(--primary-foreground));
+
+	/* Grayscale scale */
+	--ec-color-400: hsl(var(--muted-foreground));
+	--ec-color-300: hsl(var(--border));
+	--ec-color-200: hsl(var(--muted));
+	--ec-color-100: hsl(var(--card));
+	--ec-color-50: hsl(var(--background));
+}
+
+/* Dark mode */
+.ec-dark.ec-container .ec {
+	color-scheme: dark;
+	--ec-bg-color: hsl(var(--card));
+	--ec-text-color: hsl(var(--foreground));
+	--ec-border-color: hsl(var(--border));
+	--ec-today-bg-color: hsl(var(--primary) / 0.1);
+	--ec-highlight-color: hsl(var(--primary) / 0.18);
+	--ec-now-indicator-color: hsl(var(--primary));
+	--ec-popup-bg-color: hsl(var(--card));
+	--ec-event-bg-color: hsl(var(--accent));
+	--ec-event-text-color: hsl(var(--accent-foreground));
+	--ec-button-bg-color: hsl(var(--card));
+	--ec-button-border-color: hsl(var(--border));
+	--ec-button-text-color: hsl(var(--foreground));
+	--ec-button-active-bg-color: hsl(var(--primary));
+	--ec-button-active-border-color: hsl(var(--primary));
+	--ec-button-active-text-color: hsl(var(--primary-foreground));
+	--ec-color-400: hsl(var(--muted-foreground));
+	--ec-color-300: hsl(var(--border));
+	--ec-color-200: hsl(var(--muted));
+	--ec-color-100: hsl(var(--card));
+	--ec-color-50: hsl(var(--background));
+	--ec-bg-event-opacity: 0.5;
+}
+
+/* Events */
+.ec-container .ec .ec-event {
+	border-radius: calc(var(--radius) - 2px);
+	font-size: 0.75rem;
+	font-weight: 500;
+	border: none;
+	cursor: pointer;
+}
+
+.ec-container .ec .ec-event.ec-event-past {
+	cursor: default !important;
+	opacity: 0.5;
+}
+
+/* Toolbar */
+.ec-container .ec .ec-toolbar {
+	padding: 0.75rem 1rem;
+}
+
+.ec-container .ec .ec-title {
+	font-size: 1rem;
+	font-weight: 600;
+}
+
+/* Buttons */
+.ec-container .ec .ec-button {
+	border-radius: calc(var(--radius) - 2px);
+	font-size: 0.8rem;
+	font-weight: 500;
+	transition:
+		background-color 0.15s,
+		border-color 0.15s,
+		color 0.15s;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.ec-container .ec .ec-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.ec-container .ec .ec-icon.ec-prev:after {
+	inset-inline-start: 1px;
+}
+
+.ec-container .ec .ec-icon.ec-next:after {
+	inset-inline-start: -1px;
+}
+
+/* Button groups */
+.ec-container .ec .ec-button-group {
+	gap: 0.375rem;
+}
+
+.ec-container .ec .ec-button-group .ec-button:not(:first-child) {
+	margin-inline-start: 0;
+	border-radius: calc(var(--radius) - 2px);
+}
+
+.ec-container .ec .ec-button-group .ec-button:not(:last-child) {
+	border-radius: calc(var(--radius) - 2px);
+}
+
+.ec-container .ec .ec-button:not(:disabled):hover {
+	background-color: hsl(var(--muted));
+	border-color: hsl(var(--border));
+	color: hsl(var(--foreground));
+}
+
+.ec-container .ec .ec-button.ec-active:not(:disabled):hover {
+	background-color: hsl(var(--primary) / 0.85);
+	border-color: hsl(var(--primary) / 0.85);
+	color: hsl(var(--primary-foreground));
+}
+
+/* Time slot labels */
+.ec-container .ec .ec-time {
+	font-size: 0.7rem;
+	color: hsl(var(--muted-foreground));
+}
+
+/* Day headers */
+.ec-container .ec .ec-day-head {
+	font-size: 0.75rem;
+	font-weight: 500;
+}
+
+/* Scrollbar */
+.ec-container .ec .ec-body {
+	scrollbar-color: hsl(var(--border)) transparent;
+}

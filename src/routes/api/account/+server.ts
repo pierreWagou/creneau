@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { DISPLAY_NAME_MAX_LENGTH } from '$lib/constants';
-import { hashPin, PIN_MAX_LENGTH, PIN_MIN_LENGTH, verifyPin } from '$lib/server/auth';
+import { hashPin, validatePin, verifyPin } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
 import type { RequestHandler } from './$types';
@@ -34,6 +34,9 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
 
 		return json({ success: true });
 	} catch (e) {
+		if (e instanceof SyntaxError) {
+			return json({ error: 'Requête invalide' }, { status: 400 });
+		}
 		console.error('[PATCH /api/account]', e);
 		return json({ error: 'Erreur interne' }, { status: 500 });
 	}
@@ -54,15 +57,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			return json({ error: 'PIN actuel et nouveau PIN requis' }, { status: 400 });
 		}
 
-		if (newPin.length < PIN_MIN_LENGTH || newPin.length > PIN_MAX_LENGTH) {
-			return json(
-				{ error: `Le PIN doit contenir entre ${PIN_MIN_LENGTH} et ${PIN_MAX_LENGTH} chiffres` },
-				{ status: 400 }
-			);
-		}
-
-		if (!/^\d+$/.test(newPin)) {
-			return json({ error: 'Le PIN ne doit contenir que des chiffres' }, { status: 400 });
+		const pinError = validatePin(newPin);
+		if (pinError) {
+			return json({ error: pinError }, { status: 400 });
 		}
 
 		// Fetch current pin hash
@@ -83,6 +80,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 		return json({ success: true });
 	} catch (e) {
+		if (e instanceof SyntaxError) {
+			return json({ error: 'Requête invalide' }, { status: 400 });
+		}
 		console.error('[POST /api/account]', e);
 		return json({ error: 'Erreur interne' }, { status: 500 });
 	}

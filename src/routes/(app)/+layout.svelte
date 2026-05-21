@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CalendarDays from '@lucide/svelte/icons/calendar-days';
+	import ChartBar from '@lucide/svelte/icons/chart-bar';
 	import CirclePlus from '@lucide/svelte/icons/circle-plus';
 	import CircleUser from '@lucide/svelte/icons/circle-user';
 	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
@@ -15,6 +16,7 @@
 		{ href: '/calendar', label: 'Calendrier', icon: CalendarDays },
 		{ href: '/book', label: 'Réserver', icon: CirclePlus },
 		{ href: '/my-bookings', label: 'Mes réservations', icon: ClipboardList },
+		{ href: '/stats', label: 'Activité', icon: ChartBar },
 		{ href: '/account', label: 'Compte', icon: CircleUser }
 	];
 </script>
@@ -24,20 +26,19 @@
 	<header class="bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-0 z-40 border-b backdrop-blur">
 		<div class="flex h-14 items-center justify-between px-4">
 			<div class="flex items-center gap-6">
-				<a href="/calendar" class="text-primary text-lg font-bold tracking-tight transition-opacity hover:opacity-80">
+				<a href="/calendar" class="text-primary text-lg font-bold tracking-tight transition-colors hover:text-primary/80">
 					Créneau
 				</a>
 
 				<!-- Navigation desktop -->
 				<nav class="hidden items-center gap-1 md:flex">
-					{#each navItems.slice(0, 3) as item}
-						<a
-							href={item.href}
-							class="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors {$page
-								.url.pathname === item.href
-								? 'bg-primary/10 text-primary'
-								: 'text-muted-foreground hover:text-foreground'}"
-						>
+					{#each navItems.slice(0, 4) as item}
+					<a
+						href={item.href}
+						class="nav-link-desktop {$page.url.pathname === item.href
+							? 'nav-link-desktop-active'
+							: 'nav-link-desktop-inactive'}"
+					>
 							<item.icon class="h-4 w-4" />
 							<span>{item.label}</span>
 						</a>
@@ -81,10 +82,9 @@
 			{#each navItems as item}
 				<a
 					href={item.href}
-					class="flex flex-col items-center gap-1 px-3 py-1.5 text-xs font-medium transition-colors {$page.url
-						.pathname === item.href
-						? 'text-primary'
-						: 'text-muted-foreground'}"
+					class="nav-link-mobile {$page.url.pathname === item.href
+						? 'nav-link-mobile-active'
+						: 'nav-link-mobile-inactive'}"
 				>
 					<item.icon class="h-5 w-5" />
 					<span>{item.label}</span>

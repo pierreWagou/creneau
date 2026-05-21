@@ -17,3 +17,6 @@ export const CALENDAR_LOOKAHEAD_MONTHS = 3;
 
 /** Activation code TTL in milliseconds (24 hours) */
 export const ACTIVATION_CODE_TTL_MS = 24 * 60 * 60 * 1000;
+
+/** Maximum booking duration in hours (1 week) */
+export const MAX_BOOKING_HOURS = 168;

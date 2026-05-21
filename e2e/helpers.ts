@@ -35,7 +35,7 @@ export async function createBookingViaAPI(
 ) {
 	return request.post('/api/bookings', {
 		headers: { 'Content-Type': 'application/json', Cookie: cookies },
-		data: { spot, startTime, endTime, note: note || null }
+		data: { spotNumber: spot, startTime, endTime, note: note || null }
 	});
 }
 

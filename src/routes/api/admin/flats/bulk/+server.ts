@@ -46,6 +46,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 		return json({ created, skipped }, { status: 201 });
 	} catch (e) {
+		if (e instanceof SyntaxError) {
+			return json({ error: 'Requête invalide' }, { status: 400 });
+		}
 		console.error('[POST /api/admin/flats/bulk]', e);
 		return json({ error: 'Erreur interne' }, { status: 500 });
 	}
