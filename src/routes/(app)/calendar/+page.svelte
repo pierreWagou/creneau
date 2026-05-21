@@ -11,7 +11,7 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
 	import { type BookingWithFlat, DAY_END, DAY_START } from '$lib/types';
-	import { padH } from '$lib/utils/time';
+	import { formatDateISO, padH } from '$lib/utils/time';
 	import '@event-calendar/core/index.css';
 
 	let { data } = $props();
@@ -315,13 +315,12 @@
 	});
 
 	function handleDateClick(info: any) {
-		const rawDate = info.dateStr || info.date?.toISOString();
-		if (rawDate) {
-			const date = rawDate.split('T')[0];
-			const hour = info.date instanceof Date ? info.date.getHours() : null;
+		if (info.date instanceof Date) {
+			const date = formatDateISO(info.date);
+			const hour = info.date.getHours();
 			const params = new URLSearchParams();
 			params.set('date', date);
-			if (hour !== null && hour >= 0 && hour < 24) {
+			if (hour >= 0 && hour < 24) {
 				params.set('startHour', String(hour));
 			}
 			goto(`/book?${params.toString()}`);
@@ -333,11 +332,18 @@
 		const end = info.end;
 		if (!start || !end) return;
 
-		const startDate = start instanceof Date ? start.toISOString().split('T')[0] : String(start).split('T')[0];
-		const endDate = end instanceof Date ? end.toISOString().split('T')[0] : String(end).split('T')[0];
+		const startDate = start instanceof Date ? formatDateISO(start) : String(start).split('T')[0];
+		let endDate = end instanceof Date ? formatDateISO(end) : String(end).split('T')[0];
 		const startHour =
 			start instanceof Date ? start.getHours() : parseInt(String(start).split('T')[1]?.substring(0, 2) || '0', 10);
-		const endHour = end instanceof Date ? end.getHours() : parseInt(String(end).split('T')[1]?.substring(0, 2) || '24', 10);
+		let endHour = end instanceof Date ? end.getHours() : parseInt(String(end).split('T')[1]?.substring(0, 2) || '24', 10);
+
+		// Midnight (00:00 next day) means end-of-day (24:00) on the previous day
+		if (endHour === 0) {
+			const prevDay = new Date(end.getTime() - 1);
+			endDate = formatDateISO(prevDay);
+			endHour = DAY_END;
+		}
 
 		const params = new URLSearchParams();
 		params.set('date', startDate);
@@ -374,9 +380,13 @@
 		eventMouseLeave: handleEventMouseLeave,
 		eventDrop: handleEventUpdate,
 		eventResize: handleEventUpdate,
-		eventContent: (info: any) => ({
-			html: `<span style="display:flex;align-items:center;justify-content:center;height:100%;font-size:0.7rem;font-weight:600">${info.event.extendedProps.booking.flatNumber}</span>`
-		}),
+		eventContent: (info: any) => {
+			// Let EC use default rendering for internal preview/pointer events (selection feedback)
+			if (info.event.display === 'preview' || info.event.display === 'pointer') return undefined;
+			return {
+				html: `<span style="display:flex;align-items:center;justify-content:center;height:100%;font-size:0.7rem;font-weight:600">${info.event.extendedProps.booking.flatNumber}</span>`
+			};
+		},
 		events,
 		buttonText: {
 			today: "Aujourd'hui",
