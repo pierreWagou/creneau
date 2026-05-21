@@ -17,8 +17,8 @@ test.describe
 
 			// Create each test flat via the dialog
 			for (const flat of TEST_FLATS) {
-				// Click the "Ajouter" button (exact match — not "Ajouter une place")
-				await page.getByRole('button', { name: 'Ajouter', exact: true }).click();
+				// Click the "Ajouter" button (first match — page-level, not the one inside the dialog)
+				await page.getByRole('button', { name: 'Ajouter', exact: true }).first().click();
 
 				const dialog = page.locator('[role="dialog"]');
 				await dialog.waitFor();
