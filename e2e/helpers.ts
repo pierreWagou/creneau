@@ -13,6 +13,7 @@ export const TEST_FLATS = [
 
 export async function login(page: Page, flat: string, pin: string) {
 	await page.goto('/login');
+	await page.waitForLoadState('networkidle');
 	await page.fill('[id="flat"]', flat);
 	await page.fill('[id="pin"]', pin);
 	await page.click('button[type="submit"]');

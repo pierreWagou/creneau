@@ -34,6 +34,6 @@ export default defineConfig({
 	webServer: {
 		command: 'DATABASE_URL=file:data/test.db npm run dev -- --port 5174',
 		port: 5174,
-		reuseExistingServer: !process.env.CI
+		reuseExistingServer: false
 	}
 });

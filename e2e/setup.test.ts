@@ -11,7 +11,7 @@ test.describe
 
 		test('creates admin account via setup wizard', async ({ page }) => {
 			await page.goto('/setup');
-			await page.waitForSelector('[id="name"]');
+			await page.waitForLoadState('networkidle');
 
 			await page.fill('[id="flat"]', ADMIN_FLAT);
 			await page.fill('[id="name"]', 'Admin');
@@ -32,6 +32,7 @@ test.describe
 		test('admin creates a parking spot', async ({ page }) => {
 			// Login as admin
 			await page.goto('/login');
+			await page.waitForLoadState('networkidle');
 			await page.fill('[id="flat"]', ADMIN_FLAT);
 			await page.fill('[id="pin"]', ADMIN_PIN);
 			await page.click('button[type="submit"]');

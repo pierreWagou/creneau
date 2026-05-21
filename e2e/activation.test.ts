@@ -6,21 +6,19 @@ test.describe
 		test('admin creates flats and generates activation codes', async ({ page }) => {
 			// Login as admin
 			await page.goto('/login');
+			await page.waitForLoadState('networkidle');
 			await page.fill('[id="flat"]', ADMIN_FLAT);
 			await page.fill('[id="pin"]', ADMIN_PIN);
 			await page.click('button[type="submit"]');
 			await page.waitForURL('/calendar');
 
 			await page.goto('/admin');
+			await page.waitForLoadState('networkidle');
 
 			// Create each test flat via the dialog
 			for (const flat of TEST_FLATS) {
-				// The "Ajouter" button in the flats section is next to "Création en lot"
-				const addFlatBtn = page
-					.locator('.flex.gap-2')
-					.filter({ hasText: 'Création en lot' })
-					.getByRole('button', { name: 'Ajouter' });
-				await addFlatBtn.click();
+				// Click the "Ajouter" button (exact match — not "Ajouter une place")
+				await page.getByRole('button', { name: 'Ajouter', exact: true }).click();
 
 				const dialog = page.locator('[role="dialog"]');
 				await dialog.waitFor();
@@ -42,6 +40,7 @@ test.describe
 		test('resident activates via activation link', async ({ page, request }) => {
 			// Login as admin to get an activation code
 			await page.goto('/login');
+			await page.waitForLoadState('networkidle');
 			await page.fill('[id="flat"]', ADMIN_FLAT);
 			await page.fill('[id="pin"]', ADMIN_PIN);
 			await page.click('button[type="submit"]');
@@ -68,6 +67,7 @@ test.describe
 
 				// Visit activation link
 				await page.goto(`/activate?flat=${testFlat.number}&code=${flatData.activationCode}`);
+				await page.waitForLoadState('networkidle');
 
 				// Fill in the activation form
 				await expect(page.locator('[id="flat"]')).toHaveValue(testFlat.number);
