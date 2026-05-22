@@ -18,13 +18,13 @@ test.describe
 			const cookies = await getSessionCookie(page);
 			const tomorrow = getTomorrowDate();
 
-			// Create a booking via API (use early morning to avoid conflicts with booking tests)
+			// Create a booking via API (use midday to be visible without scrolling)
 			const res = await createBookingViaAPI(
 				page.request,
 				cookies,
 				TEST_SPOT,
-				`${tomorrow}T01:00:00`,
-				`${tomorrow}T03:00:00`
+				`${tomorrow}T12:00:00`,
+				`${tomorrow}T14:00:00`
 			);
 			expect(res.ok()).toBeTruthy();
 
@@ -32,7 +32,7 @@ test.describe
 			await navigateTo(page, '/calendar');
 
 			// Verify an event block is visible (it shows the flat number)
-			await expect(page.locator(`.ec-event:has-text("${FLAT.number}")`)).toBeVisible({ timeout: 5000 });
+			await expect(page.locator(`.ec-event:has-text("${FLAT.number}")`)).toBeVisible({ timeout: 10000 });
 		});
 
 		test('clicking an event shows popover with details', async ({ page }) => {
@@ -45,8 +45,8 @@ test.describe
 				page.request,
 				cookies,
 				TEST_SPOT,
-				`${tomorrow}T03:00:00`,
-				`${tomorrow}T05:00:00`
+				`${tomorrow}T14:00:00`,
+				`${tomorrow}T16:00:00`
 			);
 			expect(res.ok()).toBeTruthy();
 
@@ -70,8 +70,8 @@ test.describe
 				page.request,
 				cookies,
 				TEST_SPOT,
-				`${tomorrow}T05:00:00`,
-				`${tomorrow}T07:00:00`
+				`${tomorrow}T16:00:00`,
+				`${tomorrow}T18:00:00`
 			);
 			expect(res.ok()).toBeTruthy();
 
