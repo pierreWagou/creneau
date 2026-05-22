@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test';
 import {
 	createBookingViaAPI,
-	getDatePlusDays,
 	getSessionCookie,
+	getTomorrowDate,
 	login,
 	navigateTo,
 	TEST_FLATS,
@@ -16,7 +16,7 @@ test.describe
 		test('booking appears on the calendar', async ({ page }) => {
 			await login(page, FLAT.number, FLAT.pin);
 			const cookies = await getSessionCookie(page);
-			const tomorrow = getDatePlusDays(3);
+			const tomorrow = getTomorrowDate();
 
 			// Create a booking via API (use early morning to avoid conflicts with booking tests)
 			const res = await createBookingViaAPI(
@@ -38,7 +38,7 @@ test.describe
 		test('clicking an event shows popover with details', async ({ page }) => {
 			await login(page, FLAT.number, FLAT.pin);
 			const cookies = await getSessionCookie(page);
-			const tomorrow = getDatePlusDays(3);
+			const tomorrow = getTomorrowDate();
 
 			// Create a booking
 			const res = await createBookingViaAPI(
@@ -63,7 +63,7 @@ test.describe
 		test('cancel a booking from the calendar popover', async ({ page }) => {
 			await login(page, FLAT.number, FLAT.pin);
 			const cookies = await getSessionCookie(page);
-			const tomorrow = getDatePlusDays(3);
+			const tomorrow = getTomorrowDate();
 
 			// Create a booking
 			const res = await createBookingViaAPI(
