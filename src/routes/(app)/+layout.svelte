@@ -79,7 +79,7 @@
 		class="bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky bottom-0 z-40 border-t backdrop-blur md:hidden"
 	>
 		<div class="flex items-center justify-around py-2">
-			{#each navItems as item}
+			{#each navItems.slice(0, 4) as item}
 				<a
 					href={item.href}
 					class="nav-link-mobile {$page.url.pathname === item.href
