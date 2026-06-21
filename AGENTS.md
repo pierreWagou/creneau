@@ -48,7 +48,44 @@ SvelteKit (Svelte 5 runes) + SQLite (Drizzle ORM) + Tailwind CSS v4 + shadcn-sve
 
 - Pre-commit: `npx biome check --write .` → `git add -u` → `npm run check`
 - CI: biome ci → svelte-check → vitest → build → playwright (E2E)
+- CD: semantic-release on `main` → bumps version → builds Docker image → pushes `ghcr.io/pierrewagou/creneau:latest` and `ghcr.io/pierrewagou/creneau:<version>` to GHCR
 - SSE events: `booking_created`, `booking_cancelled`, `booking_updated`
+
+## Deployment
+
+Creneau is deployed via **Dokploy** on wagoulab (`apps.wagou.fr`). Two environments:
+
+| Environment | URL | Image | `SEED_ON_INIT` | Data |
+|---|---|---|---|---|
+| Production | `creneau.wagou.fr` | `ghcr.io/pierrewagou/creneau:latest` | not set | bind mount `/var/lib/creneau:/app/data` |
+| Preview | `creneau-preview.wagou.fr` | `ghcr.io/pierrewagou/creneau:latest` | `true` | named volume (ephemeral-ish) |
+
+### Image build
+
+- Built in GitHub Actions (`cd.yml`) — **never built on the server**
+- `seed.ts` runs at Docker build time to generate `drizzle/seed.db` with fresh relative-date bookings
+- `drizzle/seed.db` is baked into the image but **not committed to git** (in `.gitignore`)
+
+### Seed strategy
+
+`scripts/entrypoint.sh` at container startup:
+```sh
+if [ "${SEED_ON_INIT}" = "true" ] && [ ! -f /app/data/creneau.db ]; then
+  cp /app/seed.db /app/data/creneau.db
+fi
+exec node build
+```
+
+- **Preview**: `SEED_ON_INIT=true` set in Dokploy service env vars → seeds on first boot with fake flats + bookings (PIN `1234` for all)
+- **Production**: no `SEED_ON_INIT` → starts with empty DB → redirects to `/setup` for first-time admin creation
+
+### Resetting the production DB
+
+```bash
+ssh wagoulab
+rm /var/lib/creneau/creneau.db
+# Then redeploy in Dokploy UI
+```
 
 ## Architecture
 
