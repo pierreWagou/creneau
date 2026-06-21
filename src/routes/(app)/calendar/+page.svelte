@@ -9,6 +9,7 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { goto, invalidateAll } from '$app/navigation';
+	import { page } from '$app/stores';
 	import { Button } from '$lib/components/ui/button';
 	import { type BookingWithFlat, DAY_END, DAY_START } from '$lib/types';
 	import { formatDateISO, padH } from '$lib/utils/time';
@@ -360,6 +361,7 @@
 
 	let calendarOptions = $derived({
 		view: isMobile ? 'timeGridDay' : 'timeGridWeek',
+		initialDate: $page.url.searchParams.get('date') ?? undefined,
 		headerToolbar: {
 			start: 'prev,next today',
 			center: 'title',

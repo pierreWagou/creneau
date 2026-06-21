@@ -54,6 +54,12 @@ export async function createBookingViaAPI(
 	});
 }
 
+export async function cancelBookingViaAPI(request: APIRequestContext, cookies: string, bookingId: number) {
+	return request.delete(`/api/bookings/${bookingId}`, {
+		headers: { Cookie: cookies }
+	});
+}
+
 export function getTomorrowDate(): string {
 	const d = new Date();
 	d.setDate(d.getDate() + 1);
