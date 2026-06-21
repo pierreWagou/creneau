@@ -11,13 +11,13 @@
 	let flatNumber = $state('');
 	let displayName = $state('');
 	let pin = $state('');
-	let pinConfirm = $state('');
+	let confirmPin = $state('');
 	let loading = $state(false);
 
 	async function handleSetup() {
 		if (!flatNumber || !pin) return;
 
-		if (pin !== pinConfirm) {
+		if (pin !== confirmPin) {
 			toast.error('Les codes PIN ne correspondent pas');
 			return;
 		}
@@ -82,22 +82,22 @@
 					type="password"
 					inputmode="numeric"
 					pattern="[0-9]*"
-					maxlength={6}
-					placeholder="4 à 6 chiffres"
-					bind:value={pin}
-					required
-				/>
-			</div>
-			<div class="space-y-2">
-				<Label for="pin-confirm">Confirmer le PIN</Label>
-				<Input
-					id="pin-confirm"
-					type="password"
-					inputmode="numeric"
-					pattern="[0-9]*"
-					maxlength={6}
-					placeholder="4 à 6 chiffres"
-					bind:value={pinConfirm}
+				maxlength={PIN_MAX_LENGTH}
+				placeholder="{PIN_MIN_LENGTH} à {PIN_MAX_LENGTH} chiffres"
+				bind:value={pin}
+				required
+			/>
+		</div>
+		<div class="space-y-2">
+			<Label for="pin-confirm">Confirmer le PIN</Label>
+			<Input
+				id="pin-confirm"
+				type="password"
+				inputmode="numeric"
+				pattern="[0-9]*"
+				maxlength={PIN_MAX_LENGTH}
+				placeholder="{PIN_MIN_LENGTH} à {PIN_MAX_LENGTH} chiffres"
+				bind:value={confirmPin}
 					required
 				/>
 			</div>

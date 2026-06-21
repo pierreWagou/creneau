@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Calendar, DayGrid, Interaction, List, TimeGrid } from '@event-calendar/core';
+	import { Calendar, DayGrid, Interaction, TimeGrid } from '@event-calendar/core';
 	import { computePosition, flip, offset, shift } from '@floating-ui/dom';
 	import './calendar.css';
 	import CirclePlus from '@lucide/svelte/icons/circle-plus';
@@ -337,7 +337,7 @@
 		let endDate = end instanceof Date ? formatDateISO(end) : String(end).split('T')[0];
 		const startHour =
 			start instanceof Date ? start.getHours() : parseInt(String(start).split('T')[1]?.substring(0, 2) || '0', 10);
-		let endHour = end instanceof Date ? end.getHours() : parseInt(String(end).split('T')[1]?.substring(0, 2) || '24', 10);
+		let endHour = end instanceof Date ? end.getHours() : parseInt(String(end).split('T')[1]?.substring(0, 2) || String(DAY_END), 10);
 
 		// Midnight (00:00 next day) means end-of-day (24:00) on the previous day
 		if (endHour === 0) {
@@ -357,7 +357,7 @@
 		goto(`/book?${params.toString()}`);
 	}
 
-	let plugins = [TimeGrid, DayGrid, List, Interaction];
+	let plugins = [TimeGrid, DayGrid, Interaction];
 
 	let calendarOptions = $derived({
 		view: isMobile ? 'timeGridDay' : 'timeGridWeek',

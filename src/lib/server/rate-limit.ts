@@ -50,3 +50,11 @@ export function recordFailedAttempt(key: string): void {
 export function resetAttempts(key: string): void {
 	attempts.delete(key);
 }
+
+/**
+ * Build the French rate-limit error message for a lockout response.
+ */
+export function rateLimitErrorMessage(retryAfterMs: number): string {
+	const minutes = Math.ceil(retryAfterMs / 60_000);
+	return `Trop de tentatives. Réessayez dans ${minutes} minute${minutes > 1 ? 's' : ''}.`;
+}

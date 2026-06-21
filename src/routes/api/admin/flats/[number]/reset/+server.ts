@@ -28,8 +28,11 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		if (!confirm) {
 			return json({ error: 'Confirmation requise' }, { status: 400 });
 		}
-	} catch {
-		return json({ error: 'Confirmation requise' }, { status: 400 });
+	} catch (e) {
+		if (e instanceof SyntaxError) {
+			return json({ error: 'Requête invalide' }, { status: 400 });
+		}
+		throw e;
 	}
 
 	const existing = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();

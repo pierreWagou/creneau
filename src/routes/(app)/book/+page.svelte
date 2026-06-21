@@ -10,6 +10,7 @@
 	import { RangeCalendar } from '$lib/components/ui/range-calendar';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { CALENDAR_LOOKAHEAD_MONTHS } from '$lib/constants';
+	import './book.css';
 	import { type AvailableSlot, type BookingWithFlat, type CalendarDayStatus, DAY_END, DAY_START } from '$lib/types';
 	import { formatDateISO, getHourFromISO, padH, TIME_BLOCKS, type TimeBlockKey } from '$lib/utils/time';
 
@@ -758,19 +759,3 @@
 	{/if}
 </div>
 
-<style>
-	:global([data-booking-status='partial']:not([data-range-middle]):not([data-range-start]):not([data-range-end])) {
-		background-color: hsl(var(--accent) / 0.4);
-	}
-	:global([data-booking-status='full']:not([data-range-middle]):not([data-range-start]):not([data-range-end])) {
-		background-color: hsl(var(--accent) / 0.7);
-	}
-	:global([data-booking-status]:not([data-selected]):hover) {
-		background-color: hsl(var(--primary) / 0.15);
-	}
-	:global([data-booking-status][data-range-start]),
-	:global([data-booking-status][data-range-end]) {
-		background-color: hsl(var(--primary));
-		color: hsl(var(--primary-foreground));
-	}
-</style>

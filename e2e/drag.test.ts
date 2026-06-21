@@ -1,12 +1,5 @@
 import { expect, test } from '@playwright/test';
-import {
-	createBookingViaAPI,
-	getDayAfterTomorrowDate,
-	getSessionCookie,
-	login,
-	TEST_FLATS,
-	TEST_SPOT
-} from './helpers';
+import { createBookingViaAPI, getDatePlusDays, getSessionCookie, login, TEST_FLATS, TEST_SPOT } from './helpers';
 
 const FLAT = TEST_FLATS[2]; // A03
 
@@ -14,7 +7,7 @@ test.describe('Drag to move/resize (via PATCH API)', () => {
 	test('move a booking to a new time', async ({ page }) => {
 		await login(page, FLAT.number, FLAT.pin);
 		const cookies = await getSessionCookie(page);
-		const date = getDayAfterTomorrowDate();
+		const date = getDatePlusDays(2);
 
 		const startTime = `${date}T14:00:00`;
 		const endTime = `${date}T16:00:00`;
@@ -38,7 +31,7 @@ test.describe('Drag to move/resize (via PATCH API)', () => {
 	test('undo a move (PATCH back to original)', async ({ page }) => {
 		await login(page, FLAT.number, FLAT.pin);
 		const cookies = await getSessionCookie(page);
-		const date = getDayAfterTomorrowDate();
+		const date = getDatePlusDays(2);
 
 		const startTime = `${date}T08:00:00`;
 		const endTime = `${date}T10:00:00`;
@@ -69,7 +62,7 @@ test.describe('Drag to move/resize (via PATCH API)', () => {
 	test('move to conflicting time returns 409', async ({ page }) => {
 		await login(page, FLAT.number, FLAT.pin);
 		const cookies = await getSessionCookie(page);
-		const date = getDayAfterTomorrowDate();
+		const date = getDatePlusDays(2);
 
 		// Create two bookings
 		const res1 = await createBookingViaAPI(page.request, cookies, TEST_SPOT, `${date}T20:00:00`, `${date}T22:00:00`);
@@ -89,7 +82,7 @@ test.describe('Drag to move/resize (via PATCH API)', () => {
 	test('resize a booking (extend end time)', async ({ page }) => {
 		await login(page, FLAT.number, FLAT.pin);
 		const cookies = await getSessionCookie(page);
-		const date = getDayAfterTomorrowDate();
+		const date = getDatePlusDays(2);
 
 		const startTime = `${date}T01:00:00`;
 		const endTime = `${date}T02:00:00`;
@@ -114,7 +107,7 @@ test.describe('Drag to move/resize (via PATCH API)', () => {
 		// Login as A03 and create a booking
 		await login(page, FLAT.number, FLAT.pin);
 		const cookies = await getSessionCookie(page);
-		const date = getDayAfterTomorrowDate();
+		const date = getDatePlusDays(2);
 
 		const createRes = await createBookingViaAPI(
 			page.request,

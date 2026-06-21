@@ -14,6 +14,35 @@ interface CreateBookingInput {
 	note?: string | null;
 }
 
+const MS_PER_HOUR = 3_600_000;
+
+/**
+ * Validate that booking start/end times satisfy hour-bound and duration rules.
+ * Returns an error result on failure, or null on success.
+ */
+function validateBookingTimes(
+	startTime: string,
+	endTime: string
+): { success: false; error: string; status: number } | null {
+	if (startTime >= endTime) {
+		return { success: false, error: "L'heure de fin doit être après l'heure de début", status: 400 };
+	}
+	const startHour = getHourFromISO(startTime);
+	const endHour = getHourFromISO(endTime);
+	if (startHour < DAY_START || endHour > DAY_END) {
+		return { success: false, error: 'Créneau en dehors des heures autorisées', status: 400 };
+	}
+	const durationHours = (new Date(endTime).getTime() - new Date(startTime).getTime()) / MS_PER_HOUR;
+	if (durationHours > MAX_BOOKING_HOURS) {
+		return {
+			success: false,
+			error: `La durée maximale d'une réservation est de ${MAX_BOOKING_HOURS / 24} jours`,
+			status: 400
+		};
+	}
+	return null;
+}
+
 /** Shared select columns for BookingWithFlat queries */
 const bookingWithFlatColumns = {
 	id: booking.id,
@@ -66,10 +95,6 @@ async function getBookingById(id: number): Promise<BookingWithFlat | null> {
 export async function createBooking(
 	input: CreateBookingInput
 ): Promise<{ success: true; booking: BookingWithFlat } | { success: false; error: string; status: number }> {
-	if (input.startTime >= input.endTime) {
-		return { success: false, error: "L'heure de fin doit être après l'heure de début", status: 400 };
-	}
-
 	const now = new Date().toISOString();
 	if (input.startTime < now) {
 		return { success: false, error: 'Impossible de créer une réservation dans le passé', status: 400 };
@@ -81,23 +106,8 @@ export async function createBooking(
 		return { success: false, error: 'Place introuvable', status: 400 };
 	}
 
-	// Validate hours are within bookable window
-	const startHour = getHourFromISO(input.startTime);
-	const endHour = getHourFromISO(input.endTime);
-	if (startHour < DAY_START || endHour > DAY_END) {
-		return { success: false, error: 'Créneau en dehors des heures autorisées', status: 400 };
-	}
-
-	// Validate max duration
-	const durationMs = new Date(input.endTime).getTime() - new Date(input.startTime).getTime();
-	const durationHours = durationMs / (1000 * 60 * 60);
-	if (durationHours > MAX_BOOKING_HOURS) {
-		return {
-			success: false,
-			error: `La durée maximale d'une réservation est de ${MAX_BOOKING_HOURS / 24} jours`,
-			status: 400
-		};
-	}
+	const timesError = validateBookingTimes(input.startTime, input.endTime);
+	if (timesError) return timesError;
 
 	const conflict = await hasConflict(input.spotNumber, input.startTime, input.endTime);
 	if (conflict) {
@@ -217,27 +227,8 @@ export async function updateBooking(
 		return { success: false, error: 'Impossible de placer une réservation dans le passé', status: 400 };
 	}
 
-	if (updates.startTime >= updates.endTime) {
-		return { success: false, error: "L'heure de fin doit être après l'heure de début", status: 400 };
-	}
-
-	// Validate hours are within bookable window
-	const startHour = getHourFromISO(updates.startTime);
-	const endHour = getHourFromISO(updates.endTime);
-	if (startHour < DAY_START || endHour > DAY_END) {
-		return { success: false, error: 'Créneau en dehors des heures autorisées', status: 400 };
-	}
-
-	// Validate max duration
-	const durationMs = new Date(updates.endTime).getTime() - new Date(updates.startTime).getTime();
-	const durationHours = durationMs / (1000 * 60 * 60);
-	if (durationHours > MAX_BOOKING_HOURS) {
-		return {
-			success: false,
-			error: `La durée maximale d'une réservation est de ${MAX_BOOKING_HOURS / 24} jours`,
-			status: 400
-		};
-	}
+	const timesError = validateBookingTimes(updates.startTime, updates.endTime);
+	if (timesError) return timesError;
 
 	const conflict = await hasConflict(existing.spotNumber, updates.startTime, updates.endTime, bookingId);
 	if (conflict) {

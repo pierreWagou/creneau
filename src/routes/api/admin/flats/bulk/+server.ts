@@ -1,9 +1,8 @@
 import { json } from '@sveltejs/kit';
+import { MAX_FLAT_BULK_SIZE } from '$lib/constants';
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
 import type { RequestHandler } from './$types';
-
-const MAX_BATCH_SIZE = 100;
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.flat) {
@@ -20,8 +19,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			return json({ error: 'Liste des appartements requise' }, { status: 400 });
 		}
 
-		if (flats.length > MAX_BATCH_SIZE) {
-			return json({ error: `Maximum ${MAX_BATCH_SIZE} appartements par lot` }, { status: 400 });
+		if (flats.length > MAX_FLAT_BULK_SIZE) {
+			return json({ error: `Maximum ${MAX_FLAT_BULK_SIZE} appartements par lot` }, { status: 400 });
 		}
 
 		// Deduplicate and clean input

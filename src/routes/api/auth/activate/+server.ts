@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { createSession, hashPin, setSessionCookie, validatePin } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
-import { checkRateLimit, recordFailedAttempt, resetAttempts } from '$lib/server/rate-limit';
+import { checkRateLimit, rateLimitErrorMessage, recordFailedAttempt, resetAttempts } from '$lib/server/rate-limit';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
@@ -17,11 +17,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		// Rate limiting
 		const { allowed, retryAfterMs } = checkRateLimit(`activate:${flatNumber}`);
 		if (!allowed) {
-			const minutes = Math.ceil((retryAfterMs || 0) / 60000);
-			return json(
-				{ error: `Trop de tentatives. Réessayez dans ${minutes} minute${minutes > 1 ? 's' : ''}.` },
-				{ status: 429 }
-			);
+			return json({ error: rateLimitErrorMessage(retryAfterMs || 0) }, { status: 429 });
 		}
 
 		const pinError = validatePin(pin);

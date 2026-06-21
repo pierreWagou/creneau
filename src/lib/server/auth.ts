@@ -2,7 +2,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { hash, verify } from '@node-rs/argon2';
 import type { Cookies } from '@sveltejs/kit';
 import { and, eq, gt } from 'drizzle-orm';
-import { PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '$lib/constants';
+import { ACTIVATION_CODE_LENGTH, PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '$lib/constants';
 import type { SessionFlat } from '$lib/types';
 import { db } from './db';
 import { flat, session } from './db/schema';
@@ -45,11 +45,11 @@ export function validatePin(pin: string): string | null {
 }
 
 export function generateActivationCode(): string {
-	// 4-character alphanumeric code (uppercase, no ambiguous chars like O/0, I/1)
+	// Alphanumeric code (uppercase, no ambiguous chars like O/0, I/1)
 	const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-	const bytes = randomBytes(4);
+	const bytes = randomBytes(ACTIVATION_CODE_LENGTH);
 	let code = '';
-	for (let i = 0; i < 4; i++) {
+	for (let i = 0; i < ACTIVATION_CODE_LENGTH; i++) {
 		code += chars[bytes[i] % chars.length];
 	}
 	return code;

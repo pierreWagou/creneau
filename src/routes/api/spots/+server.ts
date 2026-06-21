@@ -3,20 +3,6 @@ import { db } from '$lib/server/db';
 import { spot } from '$lib/server/db/schema';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ locals }) => {
-	if (!locals.flat) {
-		return json({ error: 'Non autorisé' }, { status: 401 });
-	}
-
-	try {
-		const spots = await db.select().from(spot).all();
-		return json({ spots });
-	} catch (e) {
-		console.error('[GET /api/spots]', e);
-		return json({ error: 'Erreur interne' }, { status: 500 });
-	}
-};
-
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.flat) {
 		return json({ error: 'Non autorisé' }, { status: 401 });

@@ -5,10 +5,12 @@ import { booking, flat, spot } from '$lib/server/db/schema';
 import { DAY_END, DAY_START } from '$lib/types';
 import type { PageServerLoad } from './$types';
 
+const MS_PER_HOUR = 3_600_000;
+
 function computeHours(bookings: { startTime: string; endTime: string }[]): number {
 	return bookings.reduce((sum, b) => {
 		const ms = new Date(b.endTime).getTime() - new Date(b.startTime).getTime();
-		return sum + ms / (1000 * 60 * 60);
+		return sum + ms / MS_PER_HOUR;
 	}, 0);
 }
 
@@ -19,7 +21,7 @@ function computeRanking(
 
 	for (const b of bookings) {
 		const existing = grouped.get(b.flatNumber);
-		const hours = (new Date(b.endTime).getTime() - new Date(b.startTime).getTime()) / (1000 * 60 * 60);
+		const hours = (new Date(b.endTime).getTime() - new Date(b.startTime).getTime()) / MS_PER_HOUR;
 		if (existing) {
 			existing.hours += hours;
 		} else {

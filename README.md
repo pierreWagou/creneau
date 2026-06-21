@@ -91,7 +91,7 @@ On first run, the app will show a setup wizard at `/setup` where you create the 
 ### Docker
 
 ```bash
-docker compose up -d    # Builds and runs on port 3000
+docker compose up -d    # Pulls image from GHCR and runs on port 3000 (seeds DB on first boot)
 ```
 
 Data is persisted in a named volume (`creneau-data`).

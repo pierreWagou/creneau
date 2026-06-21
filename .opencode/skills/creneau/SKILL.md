@@ -25,7 +25,7 @@ Creneau is a shared parking spot booking app for apartment buildings. See the pr
 | File                                                    | Purpose                                                                                                                                      |
 | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/lib/types.ts`                                      | `DAY_START`/`DAY_END` constants, `AvailableSlot`, `CalendarDayStatus`, `BookingWithFlat`, `SpotTimeline` types, `getTimelineStatus()` helper |
-| `src/lib/server/availability.ts`                        | `buildSpotTimeline()` — pure computation (no DB), `getCalendarStatuses()` — calendar coloring                                                |
+| `src/lib/server/availability.ts`                        | `buildSpotTimeline()` — pure computation (no DB); `getCalendarStatuses()` — calendar coloring (calls DB)                                     |
 | `src/lib/server/bookings.ts`                            | CRUD: `createBooking()`, `getBookingsInRange()`, `getBookingsByFlat()`, `cancelBooking()`, `updateBooking()`                                 |
 | `src/lib/server/sse.ts`                                 | SSE broadcaster singleton                                                                                                                    |
 | `src/lib/server/auth.ts`                                | PIN hashing, session create/validate, `setSessionCookie()`                                                                                   |
@@ -39,7 +39,7 @@ Creneau is a shared parking spot booking app for apartment buildings. See the pr
 | `src/routes/api/calendar-statuses/+server.ts`           | `GET` → returns `CalendarDayStatus[]` for calendar coloring                                                                                  |
 | `src/routes/api/bookings/+server.ts`                    | `POST` create booking, broadcasts SSE                                                                                                        |
 | `src/routes/api/bookings/[id]/+server.ts`               | `PATCH` update booking time (drag/drop), `DELETE` cancel a booking                                                                           |
-| `src/routes/api/spots/+server.ts`                       | `GET`/`POST` parking spots (admin for POST)                                                                                                  |
+| `src/routes/api/spots/+server.ts`                       | `POST` parking spots (admin only)                                                                                                            |
 | `src/routes/api/admin/flats/+server.ts`                 | `GET`/`POST` flats (admin only)                                                                                                              |
 | `src/routes/api/admin/flats/[number]/+server.ts`        | `PATCH`/`DELETE` specific flat (admin only)                                                                                                  |
 | `src/routes/api/admin/flats/[number]/activation/+server.ts` | `POST` generate / `DELETE` revoke activation code                                                                                        |
@@ -94,7 +94,7 @@ An `AvailableSlot` can span multiple days. With DAY_START=0 and DAY_END=24, cons
 
 Both use `buildSpotTimeline` internally. Calendar statuses call it per-day to classify. The timeline endpoint returns the full object to the client.
 
-Calendar statuses are loaded on page load (3 months). The timeline is fetched on-demand when the user selects a date.
+Calendar statuses are loaded server-side on page load (3 months lookahead) and also re-fetched client-side via `GET /api/calendar-statuses` when the user changes the selected spot. The timeline is fetched on-demand when the user selects a date.
 
 ### Multi-day booking logic
 
@@ -146,24 +146,26 @@ The booking page accepts URL params: `?date=`, `?endDate=`, `?startHour=`, `?end
 
 Four tables (SQLite, WAL mode). All use **natural keys** (no artificial IDs for spot/flat):
 
-| Table     | Key fields                                                                                                  |
-| --------- | ----------------------------------------------------------------------------------------------------------- |
-| `flat`    | number (PK), activationCode, activationCodeExpiresAt, displayName, pinHash, isAdmin, isActive, activatedAt  |
-| `spot`    | number (PK), description                                                                                    |
-| `booking` | id (autoincrement PK), spotNumber (FK→spot), flatNumber (FK→flat), startTime, endTime, note                 |
-| `session` | id (UUID PK), flatNumber (FK→flat), expiresAt                                                               |
+| Table     | Key fields                                                                                                                      |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `flat`    | number (PK), activationCode, activationCodeExpiresAt, displayName, pinHash, isAdmin, isActive, activatedAt, createdAt           |
+| `spot`    | number (PK), description, createdAt                                                                                             |
+| `booking` | id (autoincrement PK), spotNumber (FK→spot), flatNumber (FK→flat), startTime, endTime, note, createdAt                         |
+| `session` | id (UUID PK), flatNumber (FK→flat), expiresAt, createdAt                                                                        |
 
 Bookings store full ISO datetime strings (e.g., `"2026-05-06T14:00:00"`).
 
 ## Flat lifecycle
 
-| State       | French      | `isActive` | `activationCode`       | Description                                     |
-| ----------- | ----------- | ---------- | ---------------------- | ----------------------------------------------- |
-| Inactive    | Inactif     | `false`    | `null`                 | Flat exists but no activation code generated    |
-| Pending     | En attente  | `false`    | Has value (4 chars)    | Code generated, waiting for resident to activate |
-| Active      | Actif       | `true`     | `null`                 | Resident has activated and set their PIN         |
+| State       | French      | `isActive` | `activationCode`            | Description                                          |
+| ----------- | ----------- | ---------- | --------------------------- | ---------------------------------------------------- |
+| Inactive    | Inactif     | `false`    | `null`                      | Flat exists but no activation code generated         |
+| Pending     | En attente  | `false`    | Has value, TTL not elapsed  | Code generated, waiting for resident to activate     |
+| Expired     | Expiré      | `false`    | Has value, TTL elapsed      | Code generated but it expired before activation      |
+| Active      | Actif       | `true`     | `null`                      | Resident has activated and set their PIN             |
 
 Transitions: Inactive → Pending (admin generates code) → Active (resident activates) → Inactive (admin resets)
+Also: Pending → Expired (code TTL elapses) → Inactive (admin resets)
 
 ## Constants
 
@@ -185,6 +187,8 @@ export const DISPLAY_NAME_MAX_LENGTH = 50;
 export const CALENDAR_LOOKAHEAD_MONTHS = 3;
 export const ACTIVATION_CODE_TTL_MS = 24 * 60 * 60 * 1000;
 export const MAX_BOOKING_HOURS = 168;
+export const ACTIVATION_CODE_LENGTH = 4;
+export const MAX_FLAT_BULK_SIZE = 100;
 ```
 
 ## CI/CD, Testing & Hooks
@@ -210,7 +214,7 @@ Edit `DAY_START` / `DAY_END` in `src/lib/types.ts`. Everything else adjusts auto
 
 1. Create `src/routes/api/<name>/+server.ts`
 2. Check `locals.flat` for auth (return 401 if not authenticated, 403 if not admin for admin-only endpoints)
-3. If it modifies bookings, call `sseManager.broadcast('booking_created' | 'booking_cancelled', data)`
+3. If it modifies bookings, call `sseManager.broadcast('booking_created' | 'booking_cancelled' | 'booking_updated', data)`
 
 ### Running migrations
 

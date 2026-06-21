@@ -20,3 +20,9 @@ export const ACTIVATION_CODE_TTL_MS = 24 * 60 * 60 * 1000;
 
 /** Maximum booking duration in hours (1 week) */
 export const MAX_BOOKING_HOURS = 168;
+
+/** Length of generated activation codes (characters) */
+export const ACTIVATION_CODE_LENGTH = 4;
+
+/** Maximum number of flats that can be created in a single bulk request */
+export const MAX_FLAT_BULK_SIZE = 100;

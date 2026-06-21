@@ -19,22 +19,30 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 
 	const flatNumber = params.number;
 
-	const existing = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();
-	if (!existing) {
-		return json({ error: 'Appartement introuvable' }, { status: 404 });
+	try {
+		const existing = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();
+		if (!existing) {
+			return json({ error: 'Appartement introuvable' }, { status: 404 });
+		}
+
+		if (existing.isActive) {
+			return json({ error: 'Cet appartement est déjà activé' }, { status: 409 });
+		}
+
+		const activationCode = generateActivationCode();
+		const expiresAt = new Date(Date.now() + ACTIVATION_CODE_TTL_MS).toISOString();
+
+		await db
+			.update(flat)
+			.set({ activationCode, activationCodeExpiresAt: expiresAt })
+			.where(eq(flat.number, flatNumber));
+
+		const updated = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();
+		return json({ flat: updated });
+	} catch (e) {
+		console.error('[POST /api/admin/flats/:number/activation]', e);
+		return json({ error: 'Erreur interne' }, { status: 500 });
 	}
-
-	if (existing.isActive) {
-		return json({ error: 'Cet appartement est déjà activé' }, { status: 409 });
-	}
-
-	const activationCode = generateActivationCode();
-	const expiresAt = new Date(Date.now() + ACTIVATION_CODE_TTL_MS).toISOString();
-
-	await db.update(flat).set({ activationCode, activationCodeExpiresAt: expiresAt }).where(eq(flat.number, flatNumber));
-
-	const updated = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();
-	return json({ flat: updated });
 };
 
 /**
@@ -50,21 +58,29 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 
 	const flatNumber = params.number;
 
-	const existing = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();
-	if (!existing) {
-		return json({ error: 'Appartement introuvable' }, { status: 404 });
+	try {
+		const existing = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();
+		if (!existing) {
+			return json({ error: 'Appartement introuvable' }, { status: 404 });
+		}
+
+		if (existing.isActive) {
+			return json({ error: 'Cet appartement est déjà activé' }, { status: 409 });
+		}
+
+		if (!existing.activationCode) {
+			return json({ error: "Aucun code d'activation à révoquer" }, { status: 400 });
+		}
+
+		await db
+			.update(flat)
+			.set({ activationCode: null, activationCodeExpiresAt: null })
+			.where(eq(flat.number, flatNumber));
+
+		const updated = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();
+		return json({ flat: updated });
+	} catch (e) {
+		console.error('[DELETE /api/admin/flats/:number/activation]', e);
+		return json({ error: 'Erreur interne' }, { status: 500 });
 	}
-
-	if (existing.isActive) {
-		return json({ error: 'Cet appartement est déjà activé' }, { status: 409 });
-	}
-
-	if (!existing.activationCode) {
-		return json({ error: "Aucun code d'activation à révoquer" }, { status: 400 });
-	}
-
-	await db.update(flat).set({ activationCode: null, activationCodeExpiresAt: null }).where(eq(flat.number, flatNumber));
-
-	const updated = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();
-	return json({ flat: updated });
 };

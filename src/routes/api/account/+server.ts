@@ -71,7 +71,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		// Verify current PIN
 		const valid = await verifyPin(currentPin, user.pinHash);
 		if (!valid) {
-			return json({ error: 'PIN actuel incorrect' }, { status: 403 });
+			return json({ error: 'PIN actuel incorrect' }, { status: 400 });
 		}
 
 		// Hash and save new PIN

@@ -6,6 +6,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import { PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '$lib/constants';
 
 	let flatNumber = $state('');
 	let pin = $state('');
@@ -58,8 +59,8 @@
 					type="password"
 					inputmode="numeric"
 					pattern="[0-9]*"
-					maxlength={6}
-					placeholder="4 à 6 chiffres"
+				maxlength={PIN_MAX_LENGTH}
+				placeholder="{PIN_MIN_LENGTH} à {PIN_MAX_LENGTH} chiffres"
 					bind:value={pin}
 					required
 				/>

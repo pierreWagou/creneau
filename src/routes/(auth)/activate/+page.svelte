@@ -5,7 +5,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '$lib/constants';
+	import { ACTIVATION_CODE_LENGTH, PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '$lib/constants';
 
 	let { data } = $props();
 
@@ -13,19 +13,24 @@
 	let activationCode = $state(data.prefill.code);
 	let displayName = $state('');
 	let pin = $state('');
-	let pinConfirm = $state('');
+	let confirmPin = $state('');
 	let loading = $state(false);
 
 	async function handleActivate() {
 		if (!flatNumber || !activationCode || !pin) return;
 
-		if (pin !== pinConfirm) {
+		if (pin !== confirmPin) {
 			toast.error('Les codes PIN ne correspondent pas');
 			return;
 		}
 
 		if (pin.length < PIN_MIN_LENGTH || pin.length > PIN_MAX_LENGTH) {
 			toast.error(`Le PIN doit contenir ${PIN_MIN_LENGTH} à ${PIN_MAX_LENGTH} chiffres`);
+			return;
+		}
+
+		if (!/^\d+$/.test(pin)) {
+			toast.error('Le PIN ne doit contenir que des chiffres');
 			return;
 		}
 
@@ -71,7 +76,7 @@
 					id="code"
 					type="text"
 					placeholder="ex. K7X9"
-					maxlength={4}
+					maxlength={ACTIVATION_CODE_LENGTH}
 					class="uppercase"
 					bind:value={activationCode}
 					required
@@ -88,22 +93,22 @@
 					type="password"
 					inputmode="numeric"
 					pattern="[0-9]*"
-					maxlength={6}
-					placeholder="4 à 6 chiffres"
-					bind:value={pin}
-					required
-				/>
-			</div>
-			<div class="space-y-2">
-				<Label for="pin-confirm">Confirmer le PIN</Label>
-				<Input
-					id="pin-confirm"
-					type="password"
-					inputmode="numeric"
-					pattern="[0-9]*"
-					maxlength={6}
-					placeholder="4 à 6 chiffres"
-					bind:value={pinConfirm}
+				maxlength={PIN_MAX_LENGTH}
+				placeholder="{PIN_MIN_LENGTH} à {PIN_MAX_LENGTH} chiffres"
+				bind:value={pin}
+				required
+			/>
+		</div>
+		<div class="space-y-2">
+			<Label for="pin-confirm">Confirmer le PIN</Label>
+			<Input
+				id="pin-confirm"
+				type="password"
+				inputmode="numeric"
+				pattern="[0-9]*"
+				maxlength={PIN_MAX_LENGTH}
+				placeholder="{PIN_MIN_LENGTH} à {PIN_MAX_LENGTH} chiffres"
+				bind:value={confirmPin}
 					required
 				/>
 			</div>

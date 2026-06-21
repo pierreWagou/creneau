@@ -101,7 +101,7 @@ src/
 │   │   ├── availability.ts  # Timeline computation (pure function)
 │   │   ├── sse.ts           # SSE broadcaster
 │   │   └── rate-limit.ts    # In-memory rate limiter
-│   ├── constants.ts         # PIN_MIN/MAX, DISPLAY_NAME_MAX, CALENDAR_LOOKAHEAD, ACTIVATION_TTL, MAX_BOOKING_HOURS
+│   	├── constants.ts         # PIN_MIN_LENGTH, PIN_MAX_LENGTH, DISPLAY_NAME_MAX_LENGTH, CALENDAR_LOOKAHEAD_MONTHS, ACTIVATION_CODE_TTL_MS, MAX_BOOKING_HOURS, ACTIVATION_CODE_LENGTH, MAX_FLAT_BULK_SIZE
 │   ├── types.ts             # SessionFlat, BookingWithFlat, SpotTimeline, DAY_START/DAY_END
 │   └── utils/time.ts        # padH, getHourFromISO, formatDateISO, TIME_BLOCKS
 ├── routes/
@@ -115,7 +115,7 @@ src/
 ## Key Decisions
 
 - Setup wizard: first visitor creates admin (no secrets in config, accepts race condition for homeserver)
-- Flat lifecycle: Inactif → En attente (24h activation code) → Actif
+- Flat lifecycle: Inactif → En attente (24h activation code) → Actif / Expiré (code TTL elapsed → back to Inactif via admin reset)
 - Calendar: @event-calendar/core with drag/drop (own bookings only, future only)
 - Stats: visible to all users (transparent building data)
 - QR codes: generated client-side with `qrcode` package, "C" logo overlay
