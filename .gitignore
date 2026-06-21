@@ -4,6 +4,7 @@ build/
 data/*.db
 data/*.db-wal
 data/*.db-shm
+drizzle/seed.db
 .env
 .env.*
 !.env.example

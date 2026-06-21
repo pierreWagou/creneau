@@ -4,6 +4,7 @@ COPY package*.json ./
 RUN npm ci
 COPY . .
 RUN npm run build
+RUN DATABASE_URL=file:./drizzle/seed.db node_modules/.bin/tsx scripts/seed.ts
 
 FROM node:22-slim
 WORKDIR /app
