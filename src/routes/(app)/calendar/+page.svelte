@@ -361,7 +361,7 @@
 
 	let calendarOptions = $derived({
 		view: isMobile ? 'timeGridDay' : 'timeGridWeek',
-		initialDate: $page.url.searchParams.get('date') ?? undefined,
+		date: $page.url.searchParams.get('date') ?? undefined,
 		headerToolbar: {
 			start: 'prev,next today',
 			center: 'title',
