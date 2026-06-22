@@ -1,12 +1,12 @@
-name: Deploy docs
+name: Docs
 
 on:
   push:
     branches: [main]
     paths:
-      - 'docs/**'
-      - 'README.md'
-      - 'openapi.yaml'
+      - "docs/**"
+      - "README.md"
+      - "openapi.yaml"
   workflow_dispatch:
 
 permissions:
@@ -38,14 +38,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Prepare public assets
-        run: |
-          mkdir -p docs/public
-          cp openapi.yaml docs/public/openapi.yaml
-          cp static/favicon.svg docs/public/favicon.svg
-
       - name: Build docs
-        run: VITEPRESS_BASE=/creneau/ npx vitepress build docs
+        run: npm run docs:build
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

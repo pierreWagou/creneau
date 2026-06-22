@@ -20,6 +20,10 @@
 		"test:e2e": "playwright test",
 		"test:e2e:ui": "playwright test --ui",
 		"docs:dev": "vitepress dev docs",
+		"predocs:dev": "mkdir -p docs/public && cp openapi.yaml docs/public/openapi.yaml && cp static/favicon.svg docs/public/favicon.svg",
+		"docs:build": "VITEPRESS_BASE=/creneau/ vitepress build docs",
+		"predocs:build": "mkdir -p docs/public && cp openapi.yaml docs/public/openapi.yaml && cp static/favicon.svg docs/public/favicon.svg",
+		"docs:preview": "vitepress preview docs",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate"
 	},

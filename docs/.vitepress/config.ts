@@ -18,5 +18,5 @@ export default defineConfig({
 			copyright: 'Copyright © 2026 Pierre Romon'
 		}
 	},
-	head: [['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }]]
+	head: [['link', { rel: 'icon', type: 'image/svg+xml', href: `${process.env.VITEPRESS_BASE ?? '/'}favicon.svg` }]]
 });
