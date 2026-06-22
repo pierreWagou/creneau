@@ -1,0 +1,1347 @@
+openapi: 3.1.0
+
+info:
+  title: Créneau API
+  version: 0.1.0
+  description: |
+    REST API for **Créneau**, a shared parking spot booking app for apartment buildings.
+
+    ## Authentication
+
+    Most endpoints require an authenticated session. Log in via `POST /api/auth/login`
+    to receive a `session` cookie, then include it in subsequent requests.
+
+    ## Date/time format
+
+    All datetime values are ISO 8601 strings without timezone (local time assumed),
+    e.g. `"2026-06-22T14:00:00"`. Dates are `"YYYY-MM-DD"`.
+
+servers:
+  - url: http://localhost:5173
+    description: Local development
+  - url: https://creneau.wagou.fr
+    description: Production
+
+security: []
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: session
+      description: Session cookie obtained from `POST /api/auth/login`
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          example: "Non autorisé"
+
+    AvailableSlot:
+      type: object
+      required: [start, end]
+      properties:
+        start:
+          type: string
+          description: ISO datetime string
+          example: "2026-06-22T08:00:00"
+        end:
+          type: string
+          description: ISO datetime string
+          example: "2026-06-22T18:00:00"
+
+    BookingWithFlat:
+      type: object
+      required: [id, spotNumber, flatNumber, startTime, endTime, createdAt]
+      properties:
+        id:
+          type: integer
+          example: 42
+        spotNumber:
+          type: string
+          example: "36"
+        flatNumber:
+          type: string
+          example: "A01"
+        startTime:
+          type: string
+          description: ISO datetime string
+          example: "2026-06-22T08:00:00"
+        endTime:
+          type: string
+          description: ISO datetime string
+          example: "2026-06-22T18:00:00"
+        note:
+          type: string
+          nullable: true
+          example: "Livraison meubles"
+        createdAt:
+          type: string
+          description: ISO datetime string
+          example: "2026-06-20T10:00:00"
+        flatDisplayName:
+          type: string
+          nullable: true
+          example: "Dupont"
+
+    SpotTimeline:
+      type: object
+      required: [bookings, available]
+      properties:
+        bookings:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookingWithFlat'
+        available:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvailableSlot'
+
+    CalendarDayStatus:
+      type: object
+      required: [date, status]
+      properties:
+        date:
+          type: string
+          description: ISO date string
+          example: "2026-06-22"
+        status:
+          type: string
+          enum: [free, partial, full]
+          description: >
+            `free` — no bookings on this day,
+            `partial` — some slots remain,
+            `full` — no available slots
+
+    FlatAdmin:
+      description: Flat record returned by GET /api/admin/flats (no pinHash)
+      type: object
+      required: [number, isAdmin, isActive]
+      properties:
+        number:
+          type: string
+          example: "A01"
+        displayName:
+          type: string
+          nullable: true
+          example: "Dupont"
+        activationCode:
+          type: string
+          nullable: true
+          example: "A1B2"
+        activationCodeExpiresAt:
+          type: string
+          nullable: true
+          example: "2026-06-23T10:00:00"
+        isAdmin:
+          type: boolean
+          example: false
+        isActive:
+          type: boolean
+          example: true
+        activatedAt:
+          type: string
+          nullable: true
+          example: "2026-06-01T09:00:00"
+
+    FlatFull:
+      description: Full flat record returned by admin mutation endpoints (includes pinHash)
+      allOf:
+        - $ref: '#/components/schemas/FlatAdmin'
+        - type: object
+          properties:
+            pinHash:
+              type: string
+              nullable: true
+              description: Argon2 hash of the PIN (included for completeness; treat as opaque)
+            createdAt:
+              type: string
+              example: "2026-05-01T10:00:00"
+
+    SessionFlat:
+      type: object
+      required: [number, isAdmin]
+      properties:
+        number:
+          type: string
+          example: "A01"
+        displayName:
+          type: string
+          nullable: true
+          example: "Dupont"
+        isAdmin:
+          type: boolean
+          example: false
+
+    Spot:
+      type: object
+      required: [number, createdAt]
+      properties:
+        number:
+          type: string
+          example: "36"
+        description:
+          type: string
+          nullable: true
+          example: "Côté rue"
+        createdAt:
+          type: string
+          example: "2026-05-01T10:00:00"
+
+tags:
+  - name: Authentication
+    description: Login, logout, first-time activation, and initial setup
+  - name: Account
+    description: Display name and PIN management for the authenticated flat
+  - name: Bookings
+    description: Create, update, and cancel parking spot reservations
+  - name: Availability
+    description: Spot timeline and per-day calendar status
+  - name: Admin — Flats
+    description: Flat lifecycle management (admin only)
+  - name: Admin — Spots
+    description: Parking spot management (admin only)
+  - name: System
+    description: Health check and real-time SSE event stream
+
+paths:
+  /api/auth/login:
+    post:
+      tags: [Authentication]
+      summary: Log in
+      description: |
+        Authenticate with flat number and PIN. Sets a `session` cookie on success.
+        Rate-limited to 5 attempts per 15 minutes per flat number.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [flatNumber, pin]
+              properties:
+                flatNumber:
+                  type: string
+                  example: "A01"
+                pin:
+                  type: string
+                  minLength: 4
+                  maxLength: 6
+                  example: "1234"
+      responses:
+        '200':
+          description: Login successful. Sets `session` cookie.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  flat:
+                    $ref: '#/components/schemas/SessionFlat'
+        '400':
+          description: Missing fields or invalid JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Invalid flat number or PIN
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Numéro d'appartement ou PIN invalide"
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Trop de tentatives. Réessayez dans 15 minute(s)."
+
+  /api/auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Log out
+      description: Clears the session cookie. Always returns 200 even if not logged in.
+      responses:
+        '200':
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+
+  /api/auth/activate:
+    post:
+      tags: [Authentication]
+      summary: Activate a flat
+      description: |
+        First-time activation. The admin generates an activation code and shares it
+        with the resident, who calls this endpoint to set their PIN and activate the account.
+        Rate-limited to 5 attempts per 15 minutes per flat number.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [flatNumber, activationCode, pin]
+              properties:
+                flatNumber:
+                  type: string
+                  example: "A01"
+                activationCode:
+                  type: string
+                  description: 4-character alphanumeric code generated by the admin
+                  example: "A1B2"
+                pin:
+                  type: string
+                  minLength: 4
+                  maxLength: 6
+                  description: Digits only
+                  example: "1234"
+                displayName:
+                  type: string
+                  nullable: true
+                  maxLength: 50
+                  description: Resident's name (optional)
+                  example: "Dupont"
+      responses:
+        '200':
+          description: Activation successful. Sets `session` cookie.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  flat:
+                    $ref: '#/components/schemas/SessionFlat'
+        '400':
+          description: Missing fields, invalid PIN format, or invalid JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Invalid flat number or activation code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Flat already activated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Cet appartement a déjà été activé"
+        '410':
+          description: Activation code expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Code d'activation expiré. Contactez votre administrateur."
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/auth/setup:
+    post:
+      tags: [Authentication]
+      summary: First-time setup
+      description: |
+        Creates the initial admin account. Only works when no flats exist in the database.
+        Subsequent calls return 409.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [flatNumber, pin]
+              properties:
+                flatNumber:
+                  type: string
+                  example: "B12"
+                pin:
+                  type: string
+                  minLength: 4
+                  maxLength: 6
+                  example: "0000"
+                displayName:
+                  type: string
+                  nullable: true
+                  maxLength: 50
+                  example: "Admin"
+      responses:
+        '200':
+          description: Setup successful. Sets `session` cookie.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  flat:
+                    $ref: '#/components/schemas/SessionFlat'
+        '400':
+          description: Missing fields, invalid PIN, or invalid JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Application already configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "L'application est déjà configurée"
+
+  /api/account:
+    patch:
+      tags: [Account]
+      summary: Update display name
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName:
+                  type: string
+                  nullable: true
+                  maxLength: 50
+                  description: Set to null or empty string to clear
+                  example: "Dupont"
+      responses:
+        '200':
+          description: Display name updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        '400':
+          description: No valid fields, name too long, or invalid JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags: [Account]
+      summary: Change PIN
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPin, newPin]
+              properties:
+                currentPin:
+                  type: string
+                  example: "1234"
+                newPin:
+                  type: string
+                  minLength: 4
+                  maxLength: 6
+                  example: "5678"
+      responses:
+        '200':
+          description: PIN changed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        '400':
+          description: Missing fields, wrong current PIN, invalid new PIN, or invalid JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Flat not found (no PIN hash in DB)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/bookings:
+    post:
+      tags: [Bookings]
+      summary: Create a booking
+      security:
+        - cookieAuth: []
+      description: |
+        Creates a parking spot reservation. The booking is rejected if:
+        - `startTime` is in the past
+        - The spot does not exist
+        - The time range is outside `[00:00, 24:00]`
+        - The duration exceeds 7 days
+        - The slot overlaps with an existing booking on the same spot
+
+        Broadcasts a `booking_created` SSE event to all connected clients on success.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [spotNumber, startTime, endTime]
+              properties:
+                spotNumber:
+                  type: string
+                  example: "36"
+                startTime:
+                  type: string
+                  description: ISO datetime string
+                  example: "2026-06-23T08:00:00"
+                endTime:
+                  type: string
+                  description: ISO datetime string
+                  example: "2026-06-23T18:00:00"
+                note:
+                  type: string
+                  nullable: true
+                  example: "Livraison meubles"
+      responses:
+        '201':
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  booking:
+                    $ref: '#/components/schemas/BookingWithFlat'
+        '400':
+          description: Missing fields, past date, invalid time range, or invalid JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Slot already booked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Ce créneau est déjà réservé"
+
+  /api/bookings/{id}:
+    patch:
+      tags: [Bookings]
+      summary: Update a booking
+      security:
+        - cookieAuth: []
+      description: |
+        Update the time range of an existing booking. Only the booking owner can update it.
+        Broadcasts a `booking_updated` SSE event on success.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 42
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [startTime, endTime]
+              properties:
+                startTime:
+                  type: string
+                  example: "2026-06-23T09:00:00"
+                endTime:
+                  type: string
+                  example: "2026-06-23T17:00:00"
+      responses:
+        '200':
+          description: Booking updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  booking:
+                    $ref: '#/components/schemas/BookingWithFlat'
+        '400':
+          description: Invalid ID, missing fields, past date, or invalid JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not the booking owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Booking not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: New time slot conflicts with another booking
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags: [Bookings]
+      summary: Cancel a booking
+      security:
+        - cookieAuth: []
+      description: |
+        Cancel a booking. The booking owner or an admin can cancel.
+        Past bookings (already ended) cannot be cancelled.
+        Broadcasts a `booking_cancelled` SSE event on success.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 42
+      responses:
+        '200':
+          description: Booking cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        '400':
+          description: Invalid ID or booking already ended
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not the booking owner (and not admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Booking not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/timeline:
+    get:
+      tags: [Availability]
+      summary: Get spot timeline
+      security:
+        - cookieAuth: []
+      description: |
+        Returns existing bookings and available slots for a specific spot and date range.
+        Available slots are computed by subtracting bookings from the full `[00:00, 24:00]`
+        window for each day. Consecutive free days are merged into a single slot.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Start date (YYYY-MM-DD)
+          example: "2026-06-22"
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+          description: End date (YYYY-MM-DD)
+          example: "2026-06-28"
+        - name: spot
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Spot number
+          example: "36"
+      responses:
+        '200':
+          description: Spot timeline
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpotTimeline'
+        '400':
+          description: Missing required parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Paramètres from/to/spot requis"
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/calendar-statuses:
+    get:
+      tags: [Availability]
+      summary: Get per-day calendar status
+      security:
+        - cookieAuth: []
+      description: |
+        Returns a `free` / `partial` / `full` status for each day in the requested range.
+        Used for color-coding the date picker calendar cells.
+        If `spot` is omitted, statuses aggregate across all spots.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Start date (YYYY-MM-DD)
+          example: "2026-06-01"
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+          description: End date (YYYY-MM-DD)
+          example: "2026-09-30"
+        - name: spot
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Spot number filter (optional)
+          example: "36"
+      responses:
+        '200':
+          description: Calendar statuses
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statuses:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CalendarDayStatus'
+        '400':
+          description: Missing from or to parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/admin/flats:
+    get:
+      tags: [Admin — Flats]
+      summary: List all flats
+      security:
+        - cookieAuth: []
+      description: Returns all flats with their lifecycle state. Does not include `pinHash`.
+      responses:
+        '200':
+          description: List of flats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  flats:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FlatAdmin'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags: [Admin — Flats]
+      summary: Create a flat
+      security:
+        - cookieAuth: []
+      description: Creates a flat in the `Inactif` state (no activation code, no PIN).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [number]
+              properties:
+                number:
+                  type: string
+                  example: "A05"
+      responses:
+        '201':
+          description: Flat created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  flat:
+                    $ref: '#/components/schemas/FlatFull'
+        '400':
+          description: Missing flat number or invalid JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/admin/flats/bulk:
+    post:
+      tags: [Admin — Flats]
+      summary: Bulk create flats
+      security:
+        - cookieAuth: []
+      description: |
+        Create multiple flats at once. All are created in the `Inactif` state.
+        Duplicates are silently skipped (reported in `skipped`). Maximum 100 per request.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [flats]
+              properties:
+                flats:
+                  type: array
+                  items:
+                    type: string
+                  maxItems: 100
+                  example: ["A05", "A06", "B04", "B05"]
+      responses:
+        '201':
+          description: Flats created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  created:
+                    type: integer
+                    example: 3
+                  skipped:
+                    type: array
+                    items:
+                      type: string
+                    description: Flat numbers that already existed
+                    example: ["B05"]
+        '400':
+          description: Invalid input or invalid JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/admin/flats/{number}:
+    patch:
+      tags: [Admin — Flats]
+      summary: Update a flat
+      security:
+        - cookieAuth: []
+      description: Currently only supports toggling `isAdmin`.
+      parameters:
+        - name: number
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "A01"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                isAdmin:
+                  type: boolean
+                  example: true
+      responses:
+        '200':
+          description: Flat updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  flat:
+                    $ref: '#/components/schemas/FlatFull'
+        '400':
+          description: No valid fields or invalid JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags: [Admin — Flats]
+      summary: Delete a flat
+      security:
+        - cookieAuth: []
+      description: |
+        Permanently deletes a flat and all associated bookings and sessions (cascade).
+        An admin cannot delete their own flat.
+      parameters:
+        - name: number
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "A01"
+      responses:
+        '200':
+          description: Flat deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        '400':
+          description: Cannot delete own flat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Impossible de supprimer votre propre appartement"
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/admin/flats/{number}/activation:
+    post:
+      tags: [Admin — Flats]
+      summary: Generate activation code
+      security:
+        - cookieAuth: []
+      description: |
+        Generates a 4-character activation code valid for 24 hours.
+        Transitions the flat from `Inactif` → `En attente`.
+        Can be called multiple times to refresh an expired code.
+      parameters:
+        - name: number
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "A01"
+      responses:
+        '200':
+          description: Activation code generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  flat:
+                    $ref: '#/components/schemas/FlatFull'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Flat not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Flat is already active
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags: [Admin — Flats]
+      summary: Revoke activation code
+      security:
+        - cookieAuth: []
+      description: |
+        Revokes a pending activation code.
+        Transitions the flat from `En attente` → `Inactif`.
+      parameters:
+        - name: number
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "A01"
+      responses:
+        '200':
+          description: Activation code revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  flat:
+                    $ref: '#/components/schemas/FlatFull'
+        '400':
+          description: No activation code to revoke
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Flat not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Flat is already active
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/admin/flats/{number}/reset:
+    post:
+      tags: [Admin — Flats]
+      summary: Reset a flat
+      security:
+        - cookieAuth: []
+      description: |
+        Resets an active flat back to `Inactif`. Clears PIN, activation code, display name,
+        and all active sessions. Requires explicit confirmation.
+        An admin cannot reset their own account.
+      parameters:
+        - name: number
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "A01"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm]
+              properties:
+                confirm:
+                  type: boolean
+                  description: Must be `true`
+                  example: true
+      responses:
+        '200':
+          description: Flat reset
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  flat:
+                    $ref: '#/components/schemas/FlatFull'
+        '400':
+          description: Missing confirmation, flat not active, or cannot reset own account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Flat not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/spots:
+    post:
+      tags: [Admin — Spots]
+      summary: Create a parking spot
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [number]
+              properties:
+                number:
+                  type: string
+                  example: "36"
+                description:
+                  type: string
+                  nullable: true
+                  example: "Côté rue"
+      responses:
+        '201':
+          description: Spot created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  spot:
+                    $ref: '#/components/schemas/Spot'
+        '400':
+          description: Missing spot number or invalid JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/health:
+    get:
+      tags: [System]
+      summary: Health check
+      description: Returns `ok` if the database is reachable. No authentication required.
+      responses:
+        '200':
+          description: Service healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+        '503':
+          description: Database unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Service indisponible"
+
+  /api/events:
+    get:
+      tags: [System]
+      summary: Real-time event stream (SSE)
+      security:
+        - cookieAuth: []
+      description: |
+        Opens a **Server-Sent Events** stream for real-time booking updates.
+
+        > **Note:** This endpoint cannot be tested interactively in this UI.
+        > Use `curl -N` or an `EventSource` client in your browser:
+        > ```js
+        > const es = new EventSource('/api/events')
+        > es.addEventListener('booking_created', e => console.log(JSON.parse(e.data)))
+        > ```
+
+        **Events emitted:**
+
+        | Event | Data |
+        |---|---|
+        | `connected` | `{ clientId: string }` — sent once on connect |
+        | `booking_created` | `BookingWithFlat` |
+        | `booking_cancelled` | `{ id: number }` |
+        | `booking_updated` | `BookingWithFlat` |
+      parameters:
+        - name: Accept
+          in: header
+          required: false
+          schema:
+            type: string
+            default: text/event-stream
+      responses:
+        '200':
+          description: SSE stream established
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: Newline-delimited SSE messages
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'

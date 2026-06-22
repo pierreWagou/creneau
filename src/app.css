@@ -32,7 +32,7 @@
 
 @layer base {
 	:root {
-		/* Catppuccin Latte — Blue primary + Peach accent */
+		/* Catppuccin Latte — Blue primary + Lavender accent */
 		--background: 220 23% 95%; /* Base #eff1f5 */
 		--foreground: 234 16% 35%; /* Text #4c4f69 */
 		--muted: 223 16% 88%; /* Surface0 #ccd0da */
@@ -47,7 +47,7 @@
 		--primary-foreground: 220 23% 95%;
 		--secondary: 223 16% 88%; /* Surface0 */
 		--secondary-foreground: 234 16% 35%;
-		--accent: 22 99% 52%; /* Peach #fe640b */
+		--accent: 239 84% 67%; /* Lavender #7287fd */
 		--accent-foreground: 220 23% 95%;
 		--destructive: 347 87% 44%; /* Red #d20f39 */
 		--destructive-foreground: 220 23% 95%;
@@ -56,7 +56,7 @@
 	}
 
 	.dark {
-		/* Catppuccin Mocha — Blue primary + Peach accent */
+		/* Catppuccin Mocha — Blue primary + Lavender accent */
 		--background: 240 21% 15%; /* Base #1e1e2e */
 		--foreground: 226 64% 88%; /* Text #cdd6f4 */
 		--muted: 237 16% 23%; /* Surface0 #313244 */
@@ -71,7 +71,7 @@
 		--primary-foreground: 240 21% 15%;
 		--secondary: 237 16% 23%; /* Surface0 */
 		--secondary-foreground: 226 64% 88%;
-		--accent: 23 92% 75%; /* Peach #fab387 */
+		--accent: 232 97% 85%; /* Lavender #b4befe */
 		--accent-foreground: 240 21% 15%;
 		--destructive: 343 81% 75%; /* Red #f38ba8 */
 		--destructive-foreground: 240 21% 15%;

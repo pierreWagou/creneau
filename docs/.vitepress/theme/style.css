@@ -1,0 +1,23 @@
+/* Catppuccin Latte — light mode */
+:root {
+	--vp-c-bg: #eff1f5;
+	--vp-c-bg-soft: #e6e9ef;
+	--vp-c-bg-alt: #e6e9ef;
+	--vp-c-bg-mute: #ccd0da;
+	--vp-c-brand-1: #1e66f5;
+	--vp-c-brand-2: #1e66f5;
+	--vp-c-brand-3: #7287fd;
+	--vp-c-brand-soft: rgba(30, 102, 245, 0.1);
+}
+
+/* Catppuccin Mocha — dark mode */
+.dark {
+	--vp-c-bg: #1e1e2e;
+	--vp-c-bg-soft: #181825;
+	--vp-c-bg-alt: #181825;
+	--vp-c-bg-mute: #313244;
+	--vp-c-brand-1: #89b4fa;
+	--vp-c-brand-2: #89b4fa;
+	--vp-c-brand-3: #b4befe;
+	--vp-c-brand-soft: rgba(137, 180, 250, 0.1);
+}

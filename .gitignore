@@ -13,3 +13,9 @@ dist/
 test-results/
 playwright-report/
 .mise/
+
+# VitePress
+docs/.vitepress/cache
+docs/.vitepress/dist
+docs/public/openapi.yaml
+docs/public/favicon.svg
