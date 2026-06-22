@@ -33,6 +33,13 @@
 			: items.filter((item) => item.label.toLowerCase().includes(searchValue.trim().toLowerCase()))
 	);
 
+	// Auto-select when typed value exactly matches a flat number (supports programmatic fill e.g. E2E tests)
+	$effect(() => {
+		const match = flats.find((f) => f.number.toLowerCase() === searchValue.trim().toLowerCase());
+		if (match) flatNumber = match.number;
+		else if (searchValue.trim() === '') flatNumber = '';
+	});
+
 	async function handleLogin() {
 		if (!flatNumber || !pin) return;
 		loading = true;
