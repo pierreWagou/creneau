@@ -37,7 +37,6 @@
 	$effect(() => {
 		const match = flats.find((f) => f.number.toLowerCase() === searchValue.trim().toLowerCase());
 		if (match) flatNumber = match.number;
-		else if (searchValue.trim() === '') flatNumber = '';
 	});
 
 	async function handleLogin() {
