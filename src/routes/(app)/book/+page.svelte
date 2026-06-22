@@ -240,11 +240,6 @@
 		return validStartHours.length > 0;
 	});
 
-	// Bookings for display (from calendar statuses we know the day status,
-	// but for booking details we'd need raw bookings — for now show from availability context)
-	// We'll fetch bookings inline when needed, or derive from what the page server provides
-	// For the capsule visualization, we'll infer booked ranges from gaps in available slots
-
 	/** Get actual bookings for the start day, clipped to day boundaries */
 	let startDayBookedRanges = $derived.by(() => {
 		if (!startDateStr) return [];

@@ -63,13 +63,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		}
 
 		// Fetch current pin hash
-		const user = await db.select().from(flat).where(eq(flat.number, locals.flat.number)).get();
-		if (!user?.pinHash) {
-			return json({ error: 'Utilisateur introuvable' }, { status: 404 });
+		const existingFlat = await db.select().from(flat).where(eq(flat.number, locals.flat.number)).get();
+		if (!existingFlat?.pinHash) {
+			return json({ error: 'Appartement introuvable' }, { status: 404 });
 		}
 
 		// Verify current PIN
-		const valid = await verifyPin(currentPin, user.pinHash);
+		const valid = await verifyPin(currentPin, existingFlat.pinHash);
 		if (!valid) {
 			return json({ error: 'PIN actuel incorrect' }, { status: 400 });
 		}

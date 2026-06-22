@@ -63,7 +63,7 @@ Creneau is deployed via **Dokploy** on wagoulab (`apps.wagou.fr`). Two environme
 ### Image build
 
 - Built in GitHub Actions (`cd.yml`) — **never built on the server**
-- `seed.ts` runs at Docker build time to generate `drizzle/seed.db` with fresh relative-date bookings
+- `scripts/seed.ts` runs at Docker build time to generate `drizzle/seed.db` with fresh relative-date bookings
 - `drizzle/seed.db` is baked into the image but **not committed to git** (in `.gitignore`)
 
 ### Seed strategy
@@ -96,12 +96,13 @@ src/
 │   ├── components/qr-code.svelte  # QR code generator with logo
 │   ├── server/              # Server-only modules
 │   │   ├── db/schema.ts     # Drizzle schema (source of truth)
+│   │   ├── db/index.ts      # DB connection singleton, migrations, session cleanup
 │   │   ├── auth.ts          # PIN hashing, sessions, validatePin()
 │   │   ├── bookings.ts      # CRUD + validation
 │   │   ├── availability.ts  # Timeline computation (pure function)
 │   │   ├── sse.ts           # SSE broadcaster
 │   │   └── rate-limit.ts    # In-memory rate limiter
-│   	├── constants.ts         # PIN_MIN_LENGTH, PIN_MAX_LENGTH, DISPLAY_NAME_MAX_LENGTH, CALENDAR_LOOKAHEAD_MONTHS, ACTIVATION_CODE_TTL_MS, MAX_BOOKING_HOURS, ACTIVATION_CODE_LENGTH, MAX_FLAT_BULK_SIZE
+│   ├── constants.ts         # PIN_MIN_LENGTH, PIN_MAX_LENGTH, DISPLAY_NAME_MAX_LENGTH, CALENDAR_LOOKAHEAD_MONTHS, ACTIVATION_CODE_TTL_MS, MAX_BOOKING_HOURS, ACTIVATION_CODE_LENGTH, MAX_FLAT_BULK_SIZE
 │   ├── types.ts             # SessionFlat, BookingWithFlat, SpotTimeline, DAY_START/DAY_END
 │   └── utils/time.ts        # padH, getHourFromISO, formatDateISO, TIME_BLOCKS
 ├── routes/

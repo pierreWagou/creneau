@@ -8,6 +8,8 @@
 	import Sun from '@lucide/svelte/icons/sun';
 	import { mode, toggleMode } from 'mode-watcher';
 	import { page } from '$app/stores';
+	import AboutDialog from '$lib/components/about-dialog.svelte';
+	import Logo from '$lib/components/logo.svelte';
 	import { Button } from '$lib/components/ui/button';
 
 	let { children, data } = $props();
@@ -26,8 +28,9 @@
 	<header class="bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-0 z-40 border-b backdrop-blur">
 		<div class="flex h-14 items-center justify-between px-4">
 			<div class="flex items-center gap-6">
-				<a href="/calendar" class="text-primary text-lg font-bold tracking-tight transition-colors hover:text-primary/80">
-					Créneau
+				<a href="/calendar" class="flex items-center gap-2 transition-opacity hover:opacity-80">
+					<Logo class="h-7 w-7" />
+					<span class="text-primary text-lg font-bold tracking-tight">Créneau</span>
 				</a>
 
 				<!-- Navigation desktop -->
@@ -59,6 +62,7 @@
 						<Moon class="h-4 w-4" />
 					{/if}
 				</Button>
+				<AboutDialog />
 				<a href="/account">
 					<Button variant="ghost" size="sm" class="text-foreground gap-1.5 font-semibold">
 						<CircleUser class="h-4 w-4" />

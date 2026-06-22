@@ -33,7 +33,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 			return json({ error: 'Requête invalide' }, { status: 400 });
 		}
 		console.error('[PATCH /api/bookings/:id]', e);
-		return json({ error: 'Erreur lors de la modification' }, { status: 500 });
+		return json({ error: 'Erreur interne' }, { status: 500 });
 	}
 };
 
@@ -51,13 +51,13 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 		const result = await cancelBooking(bookingId, locals.flat.number, locals.flat.isAdmin);
 
 		if (!result.success) {
-			return json({ error: result.error }, { status: result.status ?? 400 });
+			return json({ error: result.error }, { status: result.status });
 		}
 
 		sseManager.broadcast('booking_cancelled', { id: bookingId });
 		return json({ success: true });
 	} catch (e) {
 		console.error('[DELETE /api/bookings/:id]', e);
-		return json({ error: "Erreur lors de l'annulation" }, { status: 500 });
+		return json({ error: 'Erreur interne' }, { status: 500 });
 	}
 };

@@ -176,7 +176,7 @@ export async function cancelBooking(
 	bookingId: number,
 	flatNumber: string,
 	isAdmin: boolean
-): Promise<{ success: boolean; error?: string; status?: number }> {
+): Promise<{ success: true } | { success: false; error: string; status: number }> {
 	const existing = await db.select().from(booking).where(eq(booking.id, bookingId)).get();
 
 	if (!existing) {

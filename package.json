@@ -25,7 +25,7 @@
 	"devDependencies": {
 		"@biomejs/biome": "2.4.15",
 		"@internationalized/date": "^3.12.1",
-		"@lucide/svelte": "^1.16.0",
+		"@lucide/svelte": "^1.21.0",
 		"@playwright/test": "^1.60.0",
 		"@semantic-release/npm": "^13.1.5",
 		"@sveltejs/kit": "^2.57.0",

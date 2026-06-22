@@ -8,6 +8,6 @@ export const GET: RequestHandler = async () => {
 		await db.run(sql`SELECT 1`);
 		return json({ status: 'ok' });
 	} catch {
-		return json({ error: 'Service unavailable' }, { status: 503 });
+		return json({ error: 'Service indisponible' }, { status: 503 });
 	}
 };

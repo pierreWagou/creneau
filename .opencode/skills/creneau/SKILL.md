@@ -24,12 +24,13 @@ Creneau is a shared parking spot booking app for apartment buildings. See the pr
 
 | File                                                    | Purpose                                                                                                                                      |
 | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/lib/types.ts`                                      | `DAY_START`/`DAY_END` constants, `AvailableSlot`, `CalendarDayStatus`, `BookingWithFlat`, `SpotTimeline` types, `getTimelineStatus()` helper |
+| `src/lib/types.ts`                                      | `SessionFlat`, `DAY_START`/`DAY_END` constants, `AvailableSlot`, `CalendarDayStatus`, `BookingWithFlat`, `SpotTimeline` types, `getTimelineStatus()` helper |
 | `src/lib/server/availability.ts`                        | `buildSpotTimeline()` — pure computation (no DB); `getCalendarStatuses()` — calendar coloring (calls DB)                                     |
 | `src/lib/server/bookings.ts`                            | CRUD: `createBooking()`, `getBookingsInRange()`, `getBookingsByFlat()`, `cancelBooking()`, `updateBooking()`                                 |
 | `src/lib/server/sse.ts`                                 | SSE broadcaster singleton                                                                                                                    |
 | `src/lib/server/auth.ts`                                | PIN hashing, session create/validate, `setSessionCookie()`                                                                                   |
 | `src/lib/server/db/schema.ts`                           | Drizzle schema: flat, spot, booking, session                                                                                                 |
+| `src/lib/server/db/index.ts`                            | DB connection singleton (libsql + Drizzle), runs migrations on startup, cleans expired sessions                                              |
 | `src/lib/utils/time.ts`                                 | `TIME_BLOCKS`, `padH()`, `getHourFromISO()`, `formatDateISO()`                                                                               |
 | `src/lib/utils.ts`                                      | `cn()` utility (clsx + tailwind-merge)                                                                                                       |
 | `src/routes/(app)/book/+page.svelte`                    | Booking page (main UX)                                                                                                                       |

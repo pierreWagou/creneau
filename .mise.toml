@@ -25,3 +25,7 @@ run = "npx playwright test"
 [tasks."test:e2e:ui"]
 description = "Run E2E tests with visual UI debugger"
 run = "npx playwright test --ui"
+
+[tasks.seed]
+description = "Seed local database with test data (deletes existing DB first)"
+run = "rm -f data/creneau.db && DATABASE_URL=file:./data/creneau.db npx tsx scripts/seed.ts"

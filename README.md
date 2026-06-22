@@ -56,6 +56,7 @@ src/
 │   │   ├── bookings.ts       # CRUD + conflict detection
 │   │   ├── auth.ts           # PIN hashing, session management
 │   │   ├── sse.ts            # Server-Sent Events broadcaster
+│   │   ├── rate-limit.ts     # In-memory rate limiter
 │   │   └── db/schema.ts      # Drizzle schema (flat, spot, booking, session)
 │   └── components/ui/        # shadcn-svelte components
 ├── routes/
@@ -69,7 +70,7 @@ src/
 │   ├── (auth)/activate/      # First-time activation
 │   ├── (auth)/setup/         # First-time admin setup wizard
 │   └── api/                  # REST endpoints + SSE
-└── drizzle/                  # SQL migrations
+drizzle/                      # SQL migrations
 ```
 
 ## Getting Started

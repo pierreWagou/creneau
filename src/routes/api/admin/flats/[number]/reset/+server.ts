@@ -35,31 +35,36 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		throw e;
 	}
 
-	const existing = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();
-	if (!existing) {
-		return json({ error: 'Appartement introuvable' }, { status: 404 });
+	try {
+		const existing = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();
+		if (!existing) {
+			return json({ error: 'Appartement introuvable' }, { status: 404 });
+		}
+
+		if (!existing.isActive) {
+			return json({ error: "Cet appartement n'est pas actif" }, { status: 400 });
+		}
+
+		// Reset to Inactif state
+		await db
+			.update(flat)
+			.set({
+				isActive: false,
+				pinHash: null,
+				activationCode: null,
+				activationCodeExpiresAt: null,
+				displayName: null,
+				activatedAt: null
+			})
+			.where(eq(flat.number, flatNumber));
+
+		// Delete all sessions for this flat
+		await db.delete(session).where(eq(session.flatNumber, flatNumber));
+
+		const updated = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();
+		return json({ flat: updated });
+	} catch (e) {
+		console.error('[POST /api/admin/flats/:number/reset]', e);
+		return json({ error: 'Erreur interne' }, { status: 500 });
 	}
-
-	if (!existing.isActive) {
-		return json({ error: "Cet appartement n'est pas actif" }, { status: 400 });
-	}
-
-	// Reset to Inactif state
-	await db
-		.update(flat)
-		.set({
-			isActive: false,
-			pinHash: null,
-			activationCode: null,
-			activationCodeExpiresAt: null,
-			displayName: null,
-			activatedAt: null
-		})
-		.where(eq(flat.number, flatNumber));
-
-	// Delete all sessions for this flat
-	await db.delete(session).where(eq(session.flatNumber, flatNumber));
-
-	const updated = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();
-	return json({ flat: updated });
 };
