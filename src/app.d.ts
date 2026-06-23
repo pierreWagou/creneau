@@ -3,6 +3,8 @@
 import type { SessionFlat } from '$lib/types';
 
 declare global {
+	const __APP_VERSION__: string;
+
 	namespace App {
 		interface Locals {
 			flat?: SessionFlat;

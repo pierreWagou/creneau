@@ -94,7 +94,7 @@
 
 				<div class="border-t"></div>
 
-				<p class="text-muted-foreground text-center text-xs">Version 0.1.0</p>
+				<p class="text-muted-foreground text-center text-xs">Version {__APP_VERSION__}</p>
 			</div>
 		</Dialog.Content>
 	</Dialog.Portal>
