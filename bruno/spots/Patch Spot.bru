@@ -1,0 +1,17 @@
+meta {
+  name: Patch Spot
+  type: http
+  seq: 2
+}
+
+patch {
+  url: {{baseUrl}}/api/spots/36
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "description": "Côté rue"
+  }
+}

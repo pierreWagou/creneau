@@ -1,7 +1,9 @@
 <script lang="ts">
 	import ClipboardCopy from '@lucide/svelte/icons/clipboard-copy';
+	import Pencil from '@lucide/svelte/icons/pencil';
 	import Plus from '@lucide/svelte/icons/plus';
-	import QrCodeIcon from '@lucide/svelte/icons/qr-code';
+	import Search from '@lucide/svelte/icons/search';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import { toast } from 'svelte-sonner';
 	import { invalidateAll } from '$app/navigation';
 	import QrCode from '$lib/components/qr-code.svelte';
@@ -16,19 +18,37 @@
 	let { data } = $props();
 
 	// Dialog state
-	type AdminDialog = 'addSpot' | 'addFlat' | 'bulkFlats' | 'qrCode' | null;
+	type AdminDialog = 'addSpot' | 'editSpot' | 'addFlat' | 'bulkFlats' | 'invite' | null;
 	let openDialog = $state<AdminDialog>(null);
 
 	// Form state
 	let newFlatNumber = $state('');
 	let newSpotNumber = $state('');
 	let newSpotDescription = $state('');
+	let editSpotTarget = $state<(typeof data.spots)[0] | null>(null);
+	let editSpotDescription = $state('');
 	let bulkInput = $state('');
 	let bulkLoading = $state(false);
-	let qrFlat = $state<(typeof data.flats)[0] | null>(null);
+	let inviteFlat = $state<(typeof data.flats)[0] | null>(null);
+
+	// Search
+	let searchQuery = $state('');
+	let filteredFlats = $derived(
+		searchQuery.trim() === ''
+			? data.flats
+			: data.flats.filter(
+					(f) =>
+						f.number.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
+						(f.displayName?.toLowerCase().includes(searchQuery.trim().toLowerCase()) ?? false)
+				)
+	);
 
 	// Confirmation dialog state
-	let confirmAction = $state<{ type: 'reset' | 'delete'; flatNumber: string } | null>(null);
+	let confirmAction = $state<
+		| { type: 'reset' | 'delete'; flatNumber: string }
+		| { type: 'deleteSpot'; spotNumber: string }
+		| null
+	>(null);
 
 	type FlatState = 'inactive' | 'pending' | 'expired' | 'active';
 
@@ -48,15 +68,16 @@
 		if (diff <= 0) return 'Expiré';
 		const hours = Math.floor(diff / (1000 * 60 * 60));
 		const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-		if (hours > 0) return `Expire dans ${hours}h${String(minutes).padStart(2, '0')}`;
-		return `Expire dans ${minutes}min`;
+		if (hours > 0) return `expire dans ${hours}h${String(minutes).padStart(2, '0')}`;
+		return `expire dans ${minutes}min`;
 	}
 
 	function getActivationLink(f: (typeof data.flats)[0]): string {
 		return `${window.location.origin}/activate?flat=${encodeURIComponent(f.number)}&code=${f.activationCode}`;
 	}
 
-	async function copyLink(f: (typeof data.flats)[0]) {
+	async function copyLink(f: (typeof data.flats)[0] | null) {
+		if (!f) return;
 		try {
 			await navigator.clipboard.writeText(getActivationLink(f));
 			toast.success("Lien d'activation copié");
@@ -65,9 +86,60 @@
 		}
 	}
 
-	function showQrCode(f: (typeof data.flats)[0]) {
-		qrFlat = f;
-		openDialog = 'qrCode';
+	function showInvite(f: (typeof data.flats)[0]) {
+		inviteFlat = f;
+		openDialog = 'invite';
+	}
+
+	async function generateAndInvite(flatNumber: string) {
+		const res = await fetch(`/api/admin/flats/${encodeURIComponent(flatNumber)}/activation`, {
+			method: 'POST'
+		});
+		if (res.ok) {
+			await invalidateAll();
+			const updated = data.flats.find((f) => f.number === flatNumber);
+			if (updated) {
+				inviteFlat = updated;
+				openDialog = 'invite';
+			}
+		} else {
+			const result = await res.json();
+			toast.error(result.error || 'Impossible de générer le code');
+		}
+	}
+
+	async function regenerateInvite() {
+		if (!inviteFlat) return;
+		const flatNumber = inviteFlat.number;
+		const res = await fetch(`/api/admin/flats/${encodeURIComponent(flatNumber)}/activation`, {
+			method: 'POST'
+		});
+		if (res.ok) {
+			await invalidateAll();
+			const updated = data.flats.find((f) => f.number === flatNumber);
+			if (updated) inviteFlat = updated;
+			toast.success("Lien régénéré (valable 24h)");
+		} else {
+			const result = await res.json();
+			toast.error(result.error || 'Impossible de régénérer le lien');
+		}
+	}
+
+	async function revokeInvite() {
+		if (!inviteFlat) return;
+		const flatNumber = inviteFlat.number;
+		const res = await fetch(`/api/admin/flats/${encodeURIComponent(flatNumber)}/activation`, {
+			method: 'DELETE'
+		});
+		if (res.ok) {
+			toast.success("Invitation révoquée");
+			openDialog = null;
+			inviteFlat = null;
+			invalidateAll();
+		} else {
+			const result = await res.json();
+			toast.error(result.error || 'Impossible de révoquer');
+		}
 	}
 
 	async function addFlat() {
@@ -147,28 +219,43 @@
 		}
 	}
 
-	async function generateActivation(flatNumber: string) {
-		const res = await fetch(`/api/admin/flats/${encodeURIComponent(flatNumber)}/activation`, { method: 'POST' });
+	function showEditSpot(s: (typeof data.spots)[0]) {
+		editSpotTarget = s;
+		editSpotDescription = s.description ?? '';
+		openDialog = 'editSpot';
+	}
 
+	async function saveEditSpot() {
+		if (!editSpotTarget) return;
+		const res = await fetch(`/api/spots/${encodeURIComponent(editSpotTarget.number)}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ description: editSpotDescription.trim() || null })
+		});
 		if (res.ok) {
-			toast.success("Code d'activation généré (valable 24h)");
+			toast.success(`Place "${editSpotTarget.number}" mise à jour`);
+			openDialog = null;
+			editSpotTarget = null;
 			invalidateAll();
 		} else {
 			const result = await res.json();
-			toast.error(result.error || 'Impossible de générer le code');
+			toast.error(result.error || 'Impossible de modifier la place');
 		}
 	}
 
-	async function revokeActivation(flatNumber: string) {
-		const res = await fetch(`/api/admin/flats/${encodeURIComponent(flatNumber)}/activation`, { method: 'DELETE' });
-
+	async function deleteSpot(spotNumber: string) {
+		const res = await fetch(`/api/spots/${encodeURIComponent(spotNumber)}`, { method: 'DELETE' });
 		if (res.ok) {
-			toast.success("Code d'activation révoqué");
+			toast.success(`Place "${spotNumber}" supprimée`);
 			invalidateAll();
 		} else {
 			const result = await res.json();
-			toast.error(result.error || 'Impossible de révoquer le code');
+			toast.error(result.error || 'Impossible de supprimer la place');
 		}
+	}
+
+	function confirmDeleteSpot(spotNumber: string) {
+		confirmAction = { type: 'deleteSpot', spotNumber };
 	}
 
 	async function resetFlat(flatNumber: string) {
@@ -226,8 +313,10 @@
 		if (!confirmAction) return;
 		if (confirmAction.type === 'reset') {
 			await resetFlat(confirmAction.flatNumber);
-		} else {
+		} else if (confirmAction.type === 'delete') {
 			await deleteFlat(confirmAction.flatNumber);
+		} else if (confirmAction.type === 'deleteSpot') {
+			await deleteSpot(confirmAction.spotNumber);
 		}
 		confirmAction = null;
 	}
@@ -247,16 +336,24 @@
 				<p class="text-muted-foreground text-sm">Aucune place configurée.</p>
 			{:else}
 				<div class="space-y-2">
-					{#each data.spots as s}
-						<div class="flex items-center justify-between rounded-md border p-3">
-							<div>
-								<p class="font-medium">{s.number}</p>
-								{#if s.description}
-									<p class="text-muted-foreground text-sm">{s.description}</p>
-								{/if}
-							</div>
+				{#each data.spots as s}
+					<div class="flex items-center justify-between rounded-md border p-3">
+						<div>
+							<p class="font-medium">{s.number}</p>
+							{#if s.description}
+								<p class="text-muted-foreground text-sm">{s.description}</p>
+							{/if}
 						</div>
-					{/each}
+						<div class="flex items-center gap-1">
+							<Button size="sm" variant="ghost" onclick={() => showEditSpot(s)}>
+								<Pencil class="h-3.5 w-3.5" />
+							</Button>
+							<Button size="sm" variant="ghost" class="text-destructive hover:text-destructive" onclick={() => confirmDeleteSpot(s.number)}>
+								<Trash2 class="h-3.5 w-3.5" />
+							</Button>
+						</div>
+					</div>
+				{/each}
 				</div>
 			{/if}
 
@@ -269,76 +366,78 @@
 
 	<!-- Appartements -->
 	<Card.Root>
-		<Card.Header>
-			<Card.Title>Appartements</Card.Title>
-			<Card.Description>Gérez les appartements et les accès des résidents.</Card.Description>
+		<Card.Header class="flex flex-row items-start justify-between gap-4">
+			<div>
+				<Card.Title>Appartements</Card.Title>
+				<Card.Description>Gérez les appartements et les accès des résidents.</Card.Description>
+			</div>
+			{#if data.flats.length > 0}
+				<div class="relative shrink-0">
+					<Search class="text-muted-foreground absolute top-1/2 left-2 h-3.5 w-3.5 -translate-y-1/2" />
+					<Input
+						placeholder="Rechercher..."
+						bind:value={searchQuery}
+						class="h-7 w-36 pl-7 text-xs"
+					/>
+				</div>
+			{/if}
 		</Card.Header>
 		<Card.Content class="space-y-4">
 			{#if data.flats.length === 0}
-				<p class="text-muted-foreground text-sm">Aucun appartement configuré.</p>
+				<p class="text-muted-foreground text-sm">
+					Aucun appartement configuré. Ajoutez les appartements de votre immeuble, puis invitez chaque résident.
+				</p>
 			{:else}
 				<div class="space-y-2">
-					{#each data.flats as f}
+					{#each filteredFlats as f}
 						{@const state = getFlatState(f)}
 						<div class="rounded-md border p-3">
 							<div class="flex items-center justify-between">
-								<div class="space-y-1">
-									<div class="flex items-center gap-2">
-										<span class="font-medium">{f.number}</span>
-										{#if f.displayName}
-											<span class="text-muted-foreground text-sm">({f.displayName})</span>
-										{/if}
-										{#if f.isAdmin}
-											<Badge>Admin</Badge>
-										{/if}
-										{#if state === 'active'}
-									<Badge variant="secondary" class="flat-badge-active">Actif</Badge>
-									{:else if state === 'pending'}
-										<Badge variant="secondary" class="flat-badge-pending">En attente</Badge>
-									{:else if state === 'expired'}
-										<Badge variant="secondary" class="flat-badge-expired">Expiré</Badge>
-										{:else}
-											<Badge variant="outline">Inactif</Badge>
-										{/if}
-									</div>
-									{#if state === 'pending' && f.activationCodeExpiresAt}
-										<p class="text-muted-foreground text-xs">
-											{getExpiryLabel(f.activationCodeExpiresAt)}
-										</p>
+								<!-- Left: identity + state pill -->
+								<div class="flex min-w-0 flex-wrap items-center gap-2">
+									<span class="font-medium">{f.number}</span>
+									{#if f.displayName}
+										<span class="text-muted-foreground text-sm">({f.displayName})</span>
 									{/if}
-									{#if (state === 'pending' || state === 'expired') && f.activationCode}
-										<p class="text-xs">
-											Code : <span class="font-mono font-medium">{f.activationCode}</span>
-										</p>
+									{#if f.isAdmin}
+										<Badge>Admin</Badge>
+									{/if}
+									{#if state === 'active'}
+										<Badge variant="secondary" class="flat-badge-active">Actif</Badge>
+								{:else if state === 'pending'}
+									<Badge variant="secondary" class="flat-badge-pending">
+										En attente · {f.activationCodeExpiresAt ? getExpiryLabel(f.activationCodeExpiresAt) : ''}
+									</Badge>
+									{:else if state === 'expired'}
+										<Badge variant="secondary" class="flat-badge-expired">Expiré · lien périmé</Badge>
+									{:else}
+										<Badge variant="outline">Inactif</Badge>
 									{/if}
 								</div>
-								<div class="flex items-center gap-1">
+								<!-- Right: actions -->
+								<div class="ml-2 flex shrink-0 items-center gap-1">
 								{#if state === 'active'}
 									<Button size="sm" variant="ghost" onclick={() => toggleAdmin(f.number, f.isAdmin)}>
 										{f.isAdmin ? 'Retirer admin' : 'Rendre admin'}
 									</Button>
 									<Button size="sm" variant="ghost" onclick={() => confirmResetFlat(f.number)}>Réinitialiser</Button>
-									{:else if state === 'pending'}
-										<Button size="sm" variant="ghost" onclick={() => copyLink(f)}>
-											<ClipboardCopy class="mr-1 h-3.5 w-3.5" />
-											Copier le lien
-										</Button>
-										<Button size="sm" variant="ghost" onclick={() => showQrCode(f)}>
-											<QrCodeIcon class="mr-1 h-3.5 w-3.5" />
-											QR Code
-										</Button>
-										<Button size="sm" variant="ghost" onclick={() => revokeActivation(f.number)}>Annuler</Button>
-										<Button size="sm" variant="ghost" onclick={() => generateActivation(f.number)}>Régénérer</Button>
-									{:else if state === 'expired'}
-										<Button size="sm" variant="ghost" onclick={() => generateActivation(f.number)}>Régénérer</Button>
-										<Button size="sm" variant="ghost" onclick={() => revokeActivation(f.number)}>Annuler</Button>
-									{:else}
-										<Button size="sm" variant="ghost" onclick={() => generateActivation(f.number)}>Générer un lien</Button>
-									{/if}
-									<Button size="sm" variant="destructive" onclick={() => confirmDeleteFlat(f.number)}>Supprimer</Button>
+								{:else if state === 'pending'}
+									<Button size="sm" variant="ghost" onclick={() => showInvite(f)}>Inviter</Button>
+								{:else if state === 'expired'}
+									<Button size="sm" variant="ghost" onclick={() => generateAndInvite(f.number)}>
+										Renvoyer une invitation
+									</Button>
+								{:else}
+									<Button size="sm" variant="ghost" onclick={() => generateAndInvite(f.number)}>Inviter</Button>
+								{/if}
+									<Button size="sm" variant="ghost" class="text-destructive hover:text-destructive" onclick={() => confirmDeleteFlat(f.number)}>
+									<Trash2 class="h-3.5 w-3.5" />
+								</Button>
 								</div>
 							</div>
 						</div>
+					{:else}
+						<p class="text-muted-foreground text-sm">Aucun appartement trouvé.</p>
 					{/each}
 				</div>
 			{/if}
@@ -383,6 +482,33 @@
 	</Dialog.Content>
 </Dialog.Root>
 
+<!-- Dialog: Modifier une place -->
+<Dialog.Root
+	open={openDialog === 'editSpot'}
+	onOpenChange={(o) => {
+		if (!o) {
+			openDialog = null;
+			editSpotTarget = null;
+		}
+	}}
+>
+	<Dialog.Content>
+		{#if editSpotTarget}
+			<Dialog.Header>
+				<Dialog.Title>Modifier la place {editSpotTarget.number}</Dialog.Title>
+				<Dialog.Description>Le numéro de la place ne peut pas être modifié.</Dialog.Description>
+			</Dialog.Header>
+			<div class="space-y-4">
+				<div class="space-y-2">
+					<Label for="edit-spot-desc">Description (optionnel)</Label>
+					<Input id="edit-spot-desc" placeholder="ex. Place handicapé" bind:value={editSpotDescription} />
+				</div>
+				<Button class="w-full" onclick={saveEditSpot}>Enregistrer</Button>
+			</div>
+		{/if}
+	</Dialog.Content>
+</Dialog.Root>
+
 <!-- Dialog: Ajouter un appartement -->
 <Dialog.Root
 	open={openDialog === 'addFlat'}
@@ -393,7 +519,7 @@
 	<Dialog.Content>
 		<Dialog.Header>
 			<Dialog.Title>Ajouter un appartement</Dialog.Title>
-			<Dialog.Description>L'appartement sera créé en état inactif. Vous pourrez générer un lien d'activation ensuite.</Dialog.Description>
+			<Dialog.Description>L'appartement sera créé en état inactif. Vous pourrez l'inviter ensuite.</Dialog.Description>
 		</Dialog.Header>
 		<div class="space-y-4">
 			<div class="space-y-2">
@@ -434,25 +560,55 @@
 	</Dialog.Content>
 </Dialog.Root>
 
-<!-- Dialog: QR Code -->
+<!-- Dialog: Inviter un résident -->
 <Dialog.Root
-	open={openDialog === 'qrCode'}
+	open={openDialog === 'invite'}
 	onOpenChange={(o) => {
 		if (!o) {
 			openDialog = null;
-			qrFlat = null;
+			inviteFlat = null;
 		}
 	}}
 >
 	<Dialog.Content>
-		{#if qrFlat}
+		{#if inviteFlat}
 			<Dialog.Header>
-				<Dialog.Title>Appartement {qrFlat.number}</Dialog.Title>
-				<Dialog.Description>Scannez pour activer le compte parking.</Dialog.Description>
+				<Dialog.Title>Inviter l'appartement {inviteFlat.number}</Dialog.Title>
+				<Dialog.Description>
+					Partagez ce lien avec le résident pour qu'il puisse activer son compte. Valable 24h.
+				</Dialog.Description>
 			</Dialog.Header>
-			<div class="flex justify-center py-4">
-				<div class="rounded-lg bg-white p-4">
-					<QrCode value={getActivationLink(qrFlat)} size={256} />
+			<div class="space-y-4">
+				<!-- Copiable URL -->
+				<div class="flex gap-2">
+					<Input readonly value={getActivationLink(inviteFlat)} class="font-mono text-xs" />
+					<Button variant="outline" size="sm" onclick={() => copyLink(inviteFlat)}>
+						<ClipboardCopy class="h-4 w-4" />
+					</Button>
+				</div>
+				<!-- Divider -->
+				<div class="relative">
+					<div class="absolute inset-0 flex items-center">
+						<span class="border-t w-full"></span>
+					</div>
+					<div class="relative flex justify-center text-xs uppercase">
+						<span class="bg-background text-muted-foreground px-2">ou scanner</span>
+					</div>
+				</div>
+				<!-- QR code -->
+				<div class="flex justify-center">
+					<div class="rounded-lg bg-white p-4">
+						<QrCode value={getActivationLink(inviteFlat)} size={200} />
+					</div>
+				</div>
+				<!-- Footer actions -->
+				<div class="border-t pt-3 flex justify-between">
+					<Button variant="outline" size="sm" onclick={regenerateInvite}>
+						Régénérer un lien
+					</Button>
+					<Button variant="destructive" size="sm" onclick={revokeInvite}>
+						Révoquer
+					</Button>
 				</div>
 			</div>
 		{/if}
@@ -469,12 +625,22 @@
 	<AlertDialog.Content>
 		<AlertDialog.Header>
 			<AlertDialog.Title>
-				{confirmAction?.type === 'reset' ? "Réinitialiser l'appartement" : "Supprimer l'appartement"}
+				{#if confirmAction?.type === 'reset'}
+					Réinitialiser l'appartement
+				{:else if confirmAction?.type === 'deleteSpot'}
+					Supprimer la place
+				{:else}
+					Supprimer l'appartement
+				{/if}
 			</AlertDialog.Title>
 			<AlertDialog.Description>
-				{confirmAction?.type === 'reset'
-					? 'Cela va déconnecter le résident et supprimer son code PIN. Cette action est réversible.'
-					: 'Supprimer cet appartement et toutes ses réservations ? Cette action est irréversible.'}
+				{#if confirmAction?.type === 'reset'}
+					Cela va déconnecter le résident et supprimer son code PIN. Cette action est réversible.
+				{:else if confirmAction?.type === 'deleteSpot'}
+					Supprimer cette place et toutes ses réservations ? Cette action est irréversible.
+				{:else}
+					Supprimer cet appartement et toutes ses réservations ? Cette action est irréversible.
+				{/if}
 			</AlertDialog.Description>
 		</AlertDialog.Header>
 		<AlertDialog.Footer>

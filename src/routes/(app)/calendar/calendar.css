@@ -19,7 +19,7 @@
 	--ec-popup-bg-color: hsl(var(--card));
 
 	/* Events */
-	--ec-event-bg-color: hsl(var(--accent));
+	--ec-event-bg-color: hsl(var(--booking-busy));
 	--ec-event-text-color: hsl(var(--accent-foreground));
 
 	/* Buttons */
@@ -48,7 +48,7 @@
 	--ec-highlight-color: hsl(var(--primary) / 0.18);
 	--ec-now-indicator-color: hsl(var(--primary));
 	--ec-popup-bg-color: hsl(var(--card));
-	--ec-event-bg-color: hsl(var(--accent));
+	--ec-event-bg-color: hsl(var(--booking-busy));
 	--ec-event-text-color: hsl(var(--accent-foreground));
 	--ec-button-bg-color: hsl(var(--card));
 	--ec-button-border-color: hsl(var(--border));

@@ -77,17 +77,23 @@ drizzle/                      # SQL migrations
 
 ### Prerequisites
 
-- Node.js 22+
-- npm
+- [mise](https://mise.jdx.dev) — manages Node.js version and dev tasks
+- [mprocs](https://github.com/pvolok/mprocs) — multi-process TUI (installed automatically by mise)
 
 ### Local development
 
 ```bash
-npm install
-npm run dev             # Starts dev server at http://localhost:5173
+# Install Node.js, dependencies, and Playwright browsers
+mise run setup
+
+# (Optional) Seed the database with demo data
+mise run seed
+
+# Start full dev environment (app + docs + test watcher)
+mise run mprocs
 ```
 
-On first run, the app will show a setup wizard at `/setup` where you create the admin account.
+On first run with an empty database, the app shows a setup wizard at `/setup` to create the admin account.
 
 ### Docker
 
@@ -99,19 +105,22 @@ Data is persisted in a named volume (`creneau-data`).
 
 ## Development
 
-| Action             | Command               |
-| ------------------ | --------------------- |
-| Dev server         | `npm run dev`         |
-| Type check         | `npm run check`       |
-| Lint               | `npm run lint`        |
-| Format             | `npm run format`      |
-| Tests              | `npm run test`        |
-| CI check (all)     | `npm run ci`          |
-| Build              | `npm run build`       |
-| Preview prod       | `npm run preview`     |
-| E2E tests          | `npm run test:e2e`    |
+| Action | Command |
+|---|---|
+| Full dev environment | `mise run mprocs` |
+| Dev server only | `mise run dev` |
+| Docs server only | `mise run docs` |
+| Seed database | `mise run seed` |
+| Release patch | `mise run release:patch` |
+| Release minor | `mise run release:minor` |
+| Type check | `npm run check` |
+| Lint | `npm run lint` |
+| Unit tests | `npm run test` |
+| E2E tests | `mise run test:e2e` |
+| E2E tests (UI) | `mise run test:e2e:ui` |
+| Build | `npm run build` |
 | Generate migration | `npm run db:generate` |
-| Run migrations     | `npm run db:migrate`  |
+| Apply migrations | `npm run db:migrate` |
 
 ### Key concepts
 
@@ -125,13 +134,13 @@ Data is persisted in a named volume (`creneau-data`).
 
 ## Quick Reference
 
-| Action     | Command                |
-| ---------- | ---------------------- |
-| Install    | `npm install`          |
-| Dev        | `npm run dev`          |
-| Build      | `npm run build`        |
-| Type check | `npm run check`        |
-| Docker     | `docker compose up -d` |
+| Action | Command |
+|---|---|
+| Setup | `mise run setup` |
+| Dev | `mise run mprocs` |
+| Seed | `mise run seed` |
+| Build | `npm run build` |
+| Docker | `docker compose up -d` |
 
 ## License
 

@@ -1,5 +1,7 @@
 procs:
   dev:
     cmd: ["npm", "run", "dev", "--", "--host"]
+  docs:
+    cmd: ["npm", "run", "docs:dev"]
   test:
     cmd: ["npx", "vitest", "--watch"]

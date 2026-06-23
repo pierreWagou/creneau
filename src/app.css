@@ -21,6 +21,7 @@
 	--color-secondary-foreground: hsl(var(--secondary-foreground));
 	--color-accent: hsl(var(--accent));
 	--color-accent-foreground: hsl(var(--accent-foreground));
+	--color-booking-busy: hsl(var(--booking-busy));
 	--color-destructive: hsl(var(--destructive));
 	--color-destructive-foreground: hsl(var(--destructive-foreground));
 	--color-ring: hsl(var(--ring));
@@ -49,6 +50,7 @@
 		--secondary-foreground: 234 16% 35%;
 		--accent: 239 84% 67%; /* Lavender #7287fd */
 		--accent-foreground: 220 23% 95%;
+		--booking-busy: 22 99% 52%; /* Peach #fe640b */
 		--destructive: 347 87% 44%; /* Red #d20f39 */
 		--destructive-foreground: 220 23% 95%;
 		--ring: 220 91% 54%;
@@ -73,6 +75,7 @@
 		--secondary-foreground: 226 64% 88%;
 		--accent: 232 97% 85%; /* Lavender #b4befe */
 		--accent-foreground: 240 21% 15%;
+		--booking-busy: 23 92% 75%; /* Peach #fab387 */
 		--destructive: 343 81% 75%; /* Red #f38ba8 */
 		--destructive-foreground: 240 21% 15%;
 		--ring: 217 92% 76%;

@@ -1,9 +1,9 @@
 /* bits-ui RangeCalendar cell overrides for booking status indicators */
 [data-booking-status="partial"]:not([data-range-middle]):not([data-range-start]):not([data-range-end]) {
-	background-color: hsl(var(--accent) / 0.4);
+	background-color: hsl(var(--booking-busy) / 0.4);
 }
 [data-booking-status="full"]:not([data-range-middle]):not([data-range-start]):not([data-range-end]) {
-	background-color: hsl(var(--accent) / 0.7);
+	background-color: hsl(var(--booking-busy) / 0.7);
 }
 [data-booking-status]:not([data-selected]):hover {
 	background-color: hsl(var(--primary) / 0.15);

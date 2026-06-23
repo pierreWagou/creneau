@@ -440,10 +440,10 @@
 
 			<div class="text-muted-foreground flex items-center justify-center gap-4 text-xs">
 				<span class="flex items-center gap-1">
-					<span class="bg-accent/40 border-accent/60 h-3 w-3 rounded-sm border"></span> Partiellement réservé
+					<span class="bg-booking-busy/40 border-booking-busy/60 h-3 w-3 rounded-sm border"></span> Partiellement réservé
 				</span>
 				<span class="flex items-center gap-1">
-					<span class="bg-accent/70 border-accent/80 h-3 w-3 rounded-sm border"></span> Complet
+					<span class="bg-booking-busy/70 border-booking-busy/80 h-3 w-3 rounded-sm border"></span> Complet
 				</span>
 			</div>
 
@@ -505,7 +505,7 @@
 								<!-- Booked ranges -->
 								{#each startDayBookedRanges as range}
 									<div
-										class="bg-accent/70 absolute top-[4px] bottom-[4px] flex items-center justify-center overflow-hidden rounded-[6px]"
+										class="bg-booking-busy/70 absolute top-[4px] bottom-[4px] flex items-center justify-center overflow-hidden rounded-[6px]"
 										style="left: calc({((range.start - DAY_START) / TOTAL_HOURS) *
 											100}% + 4px); width: calc({((range.end - range.start) / TOTAL_HOURS) * 100}% - 8px);"
 									>
@@ -620,9 +620,9 @@
 									<!-- Booked part before the available slot -->
 									{#if multiDaySlotStartH > DAY_START}
 										<div
-											class="bg-accent/70 absolute top-[3px] bottom-[3px] rounded-[5px]"
-											style="left: calc(0% + 3px); width: calc({((multiDaySlotStartH - DAY_START) / TOTAL_HOURS) *
-												100}% - 6px);"
+										class="bg-booking-busy/70 absolute top-[3px] bottom-[3px] rounded-[5px]"
+										style="left: calc(0% + 3px); width: calc({((multiDaySlotStartH - DAY_START) / TOTAL_HOURS) *
+											100}% - 6px);"
 										></div>
 									{/if}
 									<!-- User's selection -->
@@ -672,9 +672,9 @@
 									<!-- Booked part after the available slot -->
 									{#if multiDaySlotEndH < DAY_END}
 										<div
-											class="bg-accent/70 absolute top-[3px] bottom-[3px] rounded-[5px]"
-											style="left: calc({((multiDaySlotEndH - DAY_START) / TOTAL_HOURS) *
-												100}% + 3px); width: calc({((DAY_END - multiDaySlotEndH) / TOTAL_HOURS) * 100}% - 6px);"
+										class="bg-booking-busy/70 absolute top-[3px] bottom-[3px] rounded-[5px]"
+										style="left: calc({((multiDaySlotEndH - DAY_START) / TOTAL_HOURS) *
+											100}% + 3px); width: calc({((DAY_END - multiDaySlotEndH) / TOTAL_HOURS) * 100}% - 6px);"
 										></div>
 									{/if}
 								</div>
