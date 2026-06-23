@@ -1,17 +1,22 @@
-name: CD
+name: Deploy
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
   release:
     types: [published]
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  docker:
+  deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.event_name == 'release' && 'production' || 'preview' }}
+      url: ${{ github.event_name == 'release' && 'https://creneau.wagou.fr' || 'https://creneau-preview.wagou.fr' }}
     permissions:
       contents: read
       packages: write
@@ -33,9 +38,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
+            ${{ github.event_name == 'release' && 'type=semver,pattern={{version}}' || '' }}
+            ${{ github.event_name == 'release' && 'type=semver,pattern={{major}}.{{minor}}' || '' }}
+            ${{ github.event_name == 'release' && 'type=raw,value=latest' || 'type=raw,value=canary' }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -44,3 +49,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Deploy
+        run: curl -s -X POST "${{ secrets.DOKPLOY_WEBHOOK_URL }}"

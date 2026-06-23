@@ -48,17 +48,23 @@ SvelteKit (Svelte 5 runes) + SQLite (Drizzle ORM) + Tailwind CSS v4 + shadcn-sve
 
 - Pre-commit: `npx biome check --write .` → `git add -u` → `npm run check`
 - CI: biome ci → svelte-check → vitest → build → playwright (E2E)
-- CD: semantic-release on `main` → bumps version → builds Docker image → pushes `ghcr.io/pierrewagou/creneau:latest` and `ghcr.io/pierrewagou/creneau:<version>` to GHCR
+- Preview CD (`cd.yml`): push to `main` → builds `:canary` → pushes to GHCR → deploys preview via Dokploy webhook
+- Release CD (`cd.yml`): GitHub Release published → builds `:X.Y.Z` + `:X.Y` + `:latest` → pushes to GHCR → deploys production via Dokploy webhook
+- Release flow: `npm run release:patch|minor|major` → `gh release create <tag> --generate-notes`
 - SSE events: `booking_created`, `booking_cancelled`, `booking_updated`
 
 ## Deployment
 
 Creneau is deployed via **Dokploy** on wagoulab (`apps.wagou.fr`). Two environments:
 
-| Environment | URL | Image | `SEED_ON_INIT` | Data |
+| Environment | URL | Image tag | `SEED_ON_INIT` | Data |
 |---|---|---|---|---|
-| Production | `creneau.wagou.fr` | `ghcr.io/pierrewagou/creneau:latest` | not set | bind mount `/var/lib/creneau:/app/data` |
-| Preview | `creneau-preview.wagou.fr` | `ghcr.io/pierrewagou/creneau:latest` | `true` | named volume (ephemeral-ish) |
+| Production | `creneau.wagou.fr` | `:latest` | not set | bind mount `/var/lib/creneau:/app/data` |
+| Preview | `creneau-preview.wagou.fr` | `:canary` | `true` | named volume (ephemeral-ish) |
+
+Auto-deploy is triggered via Dokploy webhook URLs stored as GitHub Actions secrets:
+- `DOKPLOY_PREVIEW_WEBHOOK_URL` — called after every push to `main`
+- `DOKPLOY_PROD_WEBHOOK_URL` — called after every GitHub Release
 
 ### Image build
 
