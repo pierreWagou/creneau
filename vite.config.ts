@@ -11,6 +11,9 @@ export default defineConfig({
 		__APP_VERSION__: JSON.stringify(pkg.version)
 	},
 	plugins: [tailwindcss(), sveltekit()],
+	server: {
+		host: true // listen on all interfaces so the dev server is reachable on the local network
+	},
 	test: {
 		include: ['src/**/*.test.ts']
 	}

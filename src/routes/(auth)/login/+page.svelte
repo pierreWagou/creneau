@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Combobox } from 'bits-ui';
+	import { tick } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
 	import Logo from '$lib/components/logo.svelte';
@@ -12,12 +13,14 @@
 	let { data } = $props();
 
 	let flatNumber = $state('');
-	let comboValue = $state(''); // bits-ui internal binding — separate from flatNumber to prevent reset on close
+	let comboValue = $state('');
 	let pin = $state('');
 	let loading = $state(false);
 	let searchValue = $state('');
 	let comboOpen = $state(false);
 	let pinInputEl = $state<HTMLInputElement | null>(null);
+	let inputEl = $state<HTMLInputElement | null>(null);
+	let retriggering = $state(false);
 
 	const flats = $derived(data.flats ?? []);
 
@@ -31,14 +34,33 @@
 	const filteredItems = $derived(
 		searchValue.trim() === ''
 			? []
-			: items.filter((item) => item.label.toLowerCase().includes(searchValue.trim().toLowerCase()))
+			: (() => {
+					const q = searchValue.trim().toLowerCase();
+					const matches = items.filter((item) => item.label.toLowerCase().includes(q));
+					const startsWith = matches.filter((item) => item.label.toLowerCase().startsWith(q));
+					const contains = matches.filter((item) => !item.label.toLowerCase().startsWith(q));
+					return [...startsWith, ...contains];
+				})()
 	);
 
-	// Auto-select when typed value exactly matches a flat number (supports programmatic fill e.g. E2E tests)
 	$effect(() => {
 		const match = flats.find((f) => f.number.toLowerCase() === searchValue.trim().toLowerCase());
 		if (match) flatNumber = match.number;
 	});
+
+	$effect(() => {
+		const _ = filteredItems;
+		if (comboOpen) {
+			requestAnimationFrame(() => {
+				if (comboOpen && inputEl) {
+					retriggering = true;
+					inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+					retriggering = false;
+				}
+			});
+		}
+	});
+
 	async function handleLogin() {
 		if (!flatNumber || !pin) return;
 		loading = true;
@@ -93,7 +115,9 @@
 					>
 						<Combobox.Input
 							id="flat"
+							bind:ref={inputEl}
 							oninput={(e) => {
+								if (retriggering) return;
 								searchValue = e.currentTarget.value;
 								comboOpen = e.currentTarget.value.trim().length > 0;
 							}}

@@ -17,7 +17,7 @@ export function setSessionCookie(cookies: Cookies, sessionId: string): void {
 	cookies.set(SESSION_COOKIE_NAME, sessionId, {
 		path: '/',
 		httpOnly: true,
-		secure: true,
+		secure: import.meta.env.PROD,
 		sameSite: 'lax',
 		maxAge: SESSION_MAX_AGE
 	});
