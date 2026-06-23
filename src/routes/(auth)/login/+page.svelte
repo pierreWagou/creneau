@@ -12,6 +12,7 @@
 	let { data } = $props();
 
 	let flatNumber = $state('');
+	let comboValue = $state(''); // bits-ui internal binding — separate from flatNumber to prevent reset on close
 	let pin = $state('');
 	let loading = $state(false);
 	let searchValue = $state('');
@@ -38,7 +39,6 @@
 		const match = flats.find((f) => f.number.toLowerCase() === searchValue.trim().toLowerCase());
 		if (match) flatNumber = match.number;
 	});
-
 	async function handleLogin() {
 		if (!flatNumber || !pin) return;
 		loading = true;
@@ -78,12 +78,13 @@
 			<div class="space-y-2">
 				<Label for="flat">Numéro d'appartement</Label>
 				{#if flats.length > 0}
-					<Combobox.Root
-						type="single"
-						bind:value={flatNumber}
-						bind:open={comboOpen}
-						items={filteredItems}
-						onOpenChangeComplete={(open) => {
+				<Combobox.Root
+					type="single"
+					bind:value={comboValue}
+					bind:open={comboOpen}
+					items={filteredItems}
+					onValueChange={(v) => { if (v) flatNumber = v; }}
+					onOpenChangeComplete={(open) => {
 							if (!open) {
 								searchValue = '';
 								if (flatNumber) setTimeout(() => pinInputEl?.focus(), 50);

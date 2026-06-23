@@ -348,9 +348,9 @@
 							<Button size="sm" variant="ghost" onclick={() => showEditSpot(s)}>
 								<Pencil class="h-3.5 w-3.5" />
 							</Button>
-							<Button size="sm" variant="ghost" class="text-destructive hover:text-destructive" onclick={() => confirmDeleteSpot(s.number)}>
-								<Trash2 class="h-3.5 w-3.5" />
-							</Button>
+						<Button size="sm" variant="ghost" class="text-destructive hover:text-destructive" aria-label="Supprimer" onclick={() => confirmDeleteSpot(s.number)}>
+							<Trash2 class="h-3.5 w-3.5" />
+						</Button>
 						</div>
 					</div>
 				{/each}
@@ -430,8 +430,8 @@
 								{:else}
 									<Button size="sm" variant="ghost" onclick={() => generateAndInvite(f.number)}>Inviter</Button>
 								{/if}
-									<Button size="sm" variant="ghost" class="text-destructive hover:text-destructive" onclick={() => confirmDeleteFlat(f.number)}>
-									<Trash2 class="h-3.5 w-3.5" />
+								<Button size="sm" variant="ghost" class="text-destructive hover:text-destructive" aria-label="Supprimer" onclick={() => confirmDeleteFlat(f.number)}>
+								<Trash2 class="h-3.5 w-3.5" />
 								</Button>
 								</div>
 							</div>

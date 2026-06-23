@@ -29,6 +29,9 @@ export async function navigateTo(page: Page, path: string) {
 export async function login(page: Page, flat: string, pin: string) {
 	await navigateTo(page, '/login');
 	await page.fill('[id="flat"]', flat);
+	// Close the combobox dropdown (if open) before proceeding — prevents bits-ui from
+	// resetting flatNumber via the binding when the dropdown closes on PIN focus.
+	await page.keyboard.press('Escape');
 	await page.fill('[id="pin"]', pin);
 	await page.click('button[type="submit"]');
 	await page.waitForURL('/calendar');

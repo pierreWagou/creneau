@@ -7,6 +7,7 @@ test.describe
 			// Login as admin
 			await navigateTo(page, '/login');
 			await page.fill('[id="flat"]', ADMIN_FLAT);
+			await page.keyboard.press('Escape'); // close combobox before proceeding
 			await page.fill('[id="pin"]', ADMIN_PIN);
 			await page.click('button[type="submit"]');
 			await page.waitForURL('/calendar');
@@ -29,9 +30,17 @@ test.describe
 			// Generate activation codes for each flat
 			for (const flat of TEST_FLATS) {
 				const flatCard = page.locator('div.rounded-md.border').filter({ hasText: flat.number }).first();
-				await flatCard.getByRole('button', { name: 'Générer un lien' }).click();
-				// Wait for the activation code to appear
-				await expect(flatCard.getByText('Code :')).toBeVisible({ timeout: 5000 });
+				await flatCard.getByRole('button', { name: 'Inviter' }).click();
+				// Invite dialog should open with activation URL
+				const inviteDialog = page.locator('[role="dialog"]');
+				await expect(inviteDialog).toBeVisible({ timeout: 5000 });
+				await expect(inviteDialog.locator('input[readonly]')).toHaveValue(
+					new RegExp(`/activate\\?flat=${flat.number}`),
+					{ timeout: 5000 }
+				);
+				// Close the dialog before moving to the next flat
+				await page.keyboard.press('Escape');
+				await expect(inviteDialog).not.toBeVisible({ timeout: 3000 });
 			}
 		});
 
@@ -39,6 +48,7 @@ test.describe
 			// Login as admin to get an activation code
 			await navigateTo(page, '/login');
 			await page.fill('[id="flat"]', ADMIN_FLAT);
+			await page.keyboard.press('Escape'); // close combobox before proceeding
 			await page.fill('[id="pin"]', ADMIN_PIN);
 			await page.click('button[type="submit"]');
 			await page.waitForURL('/calendar');
