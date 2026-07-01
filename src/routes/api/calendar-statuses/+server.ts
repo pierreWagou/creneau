@@ -1,11 +1,11 @@
 import { json } from '@sveltejs/kit';
 import { getCalendarStatuses } from '$lib/server/availability';
+import { requireAuth } from '$lib/server/guards';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
-	if (!locals.flat) {
-		return json({ error: 'Non autorisé' }, { status: 401 });
-	}
+	const guard = requireAuth(locals);
+	if (guard) return guard;
 
 	const from = url.searchParams.get('from');
 	const to = url.searchParams.get('to');

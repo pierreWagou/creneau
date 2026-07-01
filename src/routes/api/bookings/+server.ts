@@ -3,13 +3,13 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { createBooking } from '$lib/server/bookings';
 import { db } from '$lib/server/db';
 import { spot } from '$lib/server/db/schema';
+import { requireAuth } from '$lib/server/guards';
 import { sseManager } from '$lib/server/sse';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	if (!locals.flat) {
-		return json({ error: 'Non autorisé' }, { status: 401 });
-	}
+	const guard = requireAuth(locals);
+	if (guard) return guard;
 
 	try {
 		const { spotNumber, startTime, endTime, note } = await request.json();
@@ -31,7 +31,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 		const result = await createBooking({
 			spotNumber: spotNumber.trim(),
-			flatNumber: locals.flat.number,
+			flatNumber: locals.flat!.number,
 			startTime,
 			endTime,
 			note: note || null

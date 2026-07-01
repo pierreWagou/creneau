@@ -1,12 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import { json } from '@sveltejs/kit';
+import { requireAuth } from '$lib/server/guards';
 import { sseManager } from '$lib/server/sse';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals }) => {
-	if (!locals.flat) {
-		return json({ error: 'Non autorisé' }, { status: 401 });
-	}
+	const guard = requireAuth(locals);
+	if (guard) return guard;
 
 	const clientId = randomUUID();
 

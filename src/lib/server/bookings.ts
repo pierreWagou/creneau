@@ -1,4 +1,4 @@
-import { and, eq, gt, lt } from 'drizzle-orm';
+import { and, eq, gt, lt, ne } from 'drizzle-orm';
 import { MAX_BOOKING_HOURS, MS_PER_HOUR } from '$lib/constants';
 import type { BookingWithFlat } from '$lib/types';
 import { DAY_END, DAY_START } from '$lib/types';
@@ -62,15 +62,20 @@ async function hasConflict(
 	endTime: string,
 	excludeBookingId?: number
 ): Promise<boolean> {
-	const existingBookings = await db
-		.select()
+	const conditions = [
+		eq(booking.spotNumber, spotNumber),
+		lt(booking.startTime, endTime),
+		gt(booking.endTime, startTime)
+	];
+	if (excludeBookingId !== undefined) {
+		conditions.push(ne(booking.id, excludeBookingId));
+	}
+	const rows = await db
+		.select({ id: booking.id })
 		.from(booking)
-		.where(and(eq(booking.spotNumber, spotNumber), lt(booking.startTime, endTime), gt(booking.endTime, startTime)))
+		.where(and(...conditions))
 		.all();
-
-	const filtered = excludeBookingId ? existingBookings.filter((b) => b.id !== excludeBookingId) : existingBookings;
-
-	return filtered.length > 0;
+	return rows.length > 0;
 }
 
 /**

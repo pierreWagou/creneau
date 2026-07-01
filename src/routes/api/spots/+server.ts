@@ -1,15 +1,12 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { spot } from '$lib/server/db/schema';
+import { requireAdmin } from '$lib/server/guards';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	if (!locals.flat) {
-		return json({ error: 'Non autorisé' }, { status: 401 });
-	}
-	if (!locals.flat.isAdmin) {
-		return json({ error: 'Accès interdit' }, { status: 403 });
-	}
+	const guard = requireAdmin(locals);
+	if (guard) return guard;
 
 	try {
 		const { number, description } = await request.json();

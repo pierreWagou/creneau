@@ -2,15 +2,12 @@ import { json } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { flat, spot } from '$lib/server/db/schema';
+import { requireAdmin } from '$lib/server/guards';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals }) => {
-	if (!locals.flat) {
-		return json({ error: 'Non autorisé' }, { status: 401 });
-	}
-	if (!locals.flat.isAdmin) {
-		return json({ error: 'Accès interdit' }, { status: 403 });
-	}
+	const guard = requireAdmin(locals);
+	if (guard) return guard;
 
 	try {
 		const flats = await db
@@ -34,12 +31,8 @@ export const GET: RequestHandler = async ({ locals }) => {
 };
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	if (!locals.flat) {
-		return json({ error: 'Non autorisé' }, { status: 401 });
-	}
-	if (!locals.flat.isAdmin) {
-		return json({ error: 'Accès interdit' }, { status: 403 });
-	}
+	const guard = requireAdmin(locals);
+	if (guard) return guard;
 
 	try {
 		const { number, spotNumbers } = await request.json();

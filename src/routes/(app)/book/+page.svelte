@@ -12,6 +12,7 @@
 	import { CALENDAR_LOOKAHEAD_MONTHS } from '$lib/constants';
 	import './book.css';
 	import { type AvailableSlot, type BookingWithFlat, type CalendarDayStatus, DAY_END, DAY_START } from '$lib/types';
+	import { createBookingSSE } from '$lib/utils/sse';
 	import { formatDateISO, getHourFromISO, padH, TIME_BLOCKS, type TimeBlockKey } from '$lib/utils/time';
 
 	let { data } = $props();
@@ -49,26 +50,22 @@
 	let dayBookings = $state<BookingWithFlat[]>([]);
 
 	// SSE for real-time updates
-	let eventSource: EventSource | null = null;
+	let sse: ReturnType<typeof createBookingSSE> | null = null;
 
 	onMount(() => {
-		eventSource = new EventSource('/api/events');
-		eventSource.addEventListener('booking_created', () => {
+		const refresh = () => {
 			refreshCalendarStatuses();
 			if (hasDateSelection) fetchTimeline();
-		});
-		eventSource.addEventListener('booking_cancelled', () => {
-			refreshCalendarStatuses();
-			if (hasDateSelection) fetchTimeline();
-		});
-		eventSource.addEventListener('booking_updated', () => {
-			refreshCalendarStatuses();
-			if (hasDateSelection) fetchTimeline();
+		};
+		sse = createBookingSSE({
+			onCreated: refresh,
+			onCancelled: refresh,
+			onUpdated: refresh
 		});
 	});
 
 	onDestroy(() => {
-		eventSource?.close();
+		sse?.destroy();
 	});
 
 	// ============================================================

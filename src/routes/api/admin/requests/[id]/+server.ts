@@ -2,15 +2,12 @@ import { json } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { flat, flatRequest, spot } from '$lib/server/db/schema';
+import { requireAdmin } from '$lib/server/guards';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ params, locals }) => {
-	if (!locals.flat) {
-		return json({ error: 'Non autorisé' }, { status: 401 });
-	}
-	if (!locals.flat.isAdmin) {
-		return json({ error: 'Accès interdit' }, { status: 403 });
-	}
+	const guard = requireAdmin(locals);
+	if (guard) return guard;
 
 	const requestId = Number(params.id);
 	if (Number.isNaN(requestId)) {
@@ -28,7 +25,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 			return json({ error: 'Cette demande a déjà été traitée' }, { status: 409 });
 		}
 
-		const spotNumbers: string[] = JSON.parse(existing.spotNumbers);
+		const spotNumbers = existing.spotNumbers;
 
 		// Create flat
 		const newFlat = await db
@@ -56,7 +53,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 			.set({
 				status: 'approved',
 				reviewedAt: new Date().toISOString(),
-				reviewedBy: locals.flat.number
+				reviewedBy: locals.flat!.number
 			})
 			.where(eq(flatRequest.id, requestId));
 
@@ -71,12 +68,8 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 };
 
 export const PATCH: RequestHandler = async ({ params, locals }) => {
-	if (!locals.flat) {
-		return json({ error: 'Non autorisé' }, { status: 401 });
-	}
-	if (!locals.flat.isAdmin) {
-		return json({ error: 'Accès interdit' }, { status: 403 });
-	}
+	const guard = requireAdmin(locals);
+	if (guard) return guard;
 
 	const requestId = Number(params.id);
 	if (Number.isNaN(requestId)) {
@@ -99,7 +92,7 @@ export const PATCH: RequestHandler = async ({ params, locals }) => {
 			.set({
 				status: 'rejected',
 				reviewedAt: new Date().toISOString(),
-				reviewedBy: locals.flat.number
+				reviewedBy: locals.flat!.number
 			})
 			.where(eq(flatRequest.id, requestId));
 

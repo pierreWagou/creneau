@@ -11,7 +11,7 @@ export const spot = sqliteTable('spot', {
 export const flatRequest = sqliteTable('flat_request', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
 	flatNumber: text('flat_number').notNull(),
-	spotNumbers: text('spot_numbers').notNull(),
+	spotNumbers: text('spot_numbers', { mode: 'json' }).$type<string[]>().notNull(),
 	requesterName: text('requester_name'),
 	status: text('status', { enum: ['pending', 'approved', 'rejected'] })
 		.notNull()

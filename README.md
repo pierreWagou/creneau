@@ -15,33 +15,42 @@ A shared parking spot booking system for apartment buildings. Residents pick a t
 
 ## Overview
 
-- **Full-day clock** — book any hour from 00:00 to 24:00, single or multi-day
+- **Full-day clock** — book any hour from `DAY_START` to `DAY_END`, single or multi-day (up to 7 days)
 - **Real-time updates** — SSE broadcasts keep all connected users in sync
 - **Visual availability** — calendar coloring (free/partial/full) and time capsule with booked ranges
 - **Quick presets** — one-tap booking for morning, afternoon, evening, or full day
 - **Multi-day continuity** — overnight gaps are bridged automatically; one booking can span days
-- **Admin panel** — manage flats, activation codes, parking slots
+- **Flat request flow** — new residents request access via `/request`, admin approves from the admin panel
+- **Admin panel** — manage flats, spots, activation codes, and review access requests
+- **Usage stats** — building-wide utilization metrics and per-flat leaderboard
 - **Mobile-first** — responsive layout with bottom navigation
 
 ## Architecture
 
 ```
- ┌──────────────────────────────────────────────────┐
- │                   SvelteKit App                  │
- ├────────────────────────┬─────────────────────────┤
- │      Pages (SSR)       │      API Routes         │  routes
- │  /book /calendar /admin│  /api/timeline          │
- │  /my-bookings /account │  /api/calendar-statuses │
- │                        │  /api/bookings          │
- │                        │  /api/events (SSE)      │
- ├────────────────────────┼─────────────────────────┤
- │     UI Components      │    Server Logic         │  lib
- │  shadcn-svelte (bits)  │  availability.ts        │
- │  range-calendar        │  bookings.ts            │
- │  sonner toasts         │  auth.ts / sse.ts       │
- ├────────────────────────┴─────────────────────────┤
- │              Drizzle ORM + SQLite                │  data
- └──────────────────────────────────────────────────┘
+ ┌──────────────────────────────────────────────────────┐
+ │                    SvelteKit App                      │
+ ├────────────────────────────┬─────────────────────────┤
+ │       Pages (SSR)          │       API Routes         │  routes
+ │  /book /calendar /admin    │  /api/bookings           │
+ │  /my-bookings /account     │  /api/bookings/[id]      │
+ │  /stats                    │  /api/timeline            │
+ │  /request (public)         │  /api/calendar-statuses   │
+ │                            │  /api/events (SSE)        │
+ │                            │  /api/account             │
+ │                            │  /api/spots, /api/spots/* │
+ │                            │  /api/requests (public)   │
+ │                            │  /api/admin/flats/*       │
+ │                            │  /api/admin/requests/*    │
+ ├────────────────────────────┼─────────────────────────┤
+ │      UI Components         │     Server Logic         │  lib
+ │  shadcn-svelte (bits)      │  availability.ts         │
+ │  event-calendar            │  bookings.ts             │
+ │  sonner toasts             │  auth.ts / sse.ts        │
+ │                            │  guards.ts / rate-limit  │
+ ├────────────────────────────┴─────────────────────────┤
+ │               Drizzle ORM + SQLite                   │  data
+ └──────────────────────────────────────────────────────┘
 ```
 
 ## Structure
@@ -50,27 +59,43 @@ A shared parking spot booking system for apartment buildings. Residents pick a t
 src/
 ├── lib/
 │   ├── types.ts              # DAY_START/DAY_END constants, shared types
-│   ├── utils/time.ts         # Time block presets (matin, après-midi, soirée)
+│   ├── constants.ts          # PIN lengths, booking limits, session duration
+│   ├── utils/time.ts         # padH, getHourFromISO, formatDateISO, formatDuration
+│   ├── utils/sse.ts          # createBookingSSE composable
+│   ├── utils.ts              # cn() utility (clsx + tailwind-merge)
 │   ├── server/
 │   │   ├── availability.ts   # buildSpotTimeline(), getCalendarStatuses()
 │   │   ├── bookings.ts       # CRUD + conflict detection
 │   │   ├── auth.ts           # PIN hashing, session management
+│   │   ├── guards.ts         # requireAuth(), requireAdmin() helpers
 │   │   ├── sse.ts            # Server-Sent Events broadcaster
 │   │   ├── rate-limit.ts     # In-memory rate limiter
-│   │   └── db/schema.ts      # Drizzle schema (flat, spot, booking, session)
-│   └── components/ui/        # shadcn-svelte components
+│   │   └── db/
+│   │       ├── schema.ts     # Drizzle schema (flat, spot, booking, session, flat_request)
+│   │       └── index.ts      # DB connection, migrations, session cleanup
+│   └── components/
+│       ├── ui/               # shadcn-svelte components
+│       ├── qr-code.svelte   # QR code generator with logo
+│       └── logo.svelte      # App logo
 ├── routes/
-│   ├── (app)/book/           # Booking page (date + time selection)
-│   ├── (app)/calendar/       # Interactive week/day calendar view
-│   ├── (app)/my-bookings/    # User's booking list
-│   ├── (app)/stats/          # Usage stats & leaderboard
-│   ├── (app)/account/        # Account settings (display name, PIN change)
-│   ├── (app)/admin/          # Admin: manage flats + spots
-│   ├── (auth)/login/         # PIN login
-│   ├── (auth)/activate/      # First-time activation
-│   ├── (auth)/setup/         # First-time admin setup wizard
+│   ├── (auth)/
+│   │   ├── login/            # PIN login
+│   │   ├── activate/         # First-time activation via invitation link
+│   │   ├── setup/            # First-time admin setup wizard
+│   │   └── request/          # Public flat access request form
+│   ├── (app)/
+│   │   ├── book/             # Booking page (date + time selection)
+│   │   ├── calendar/         # Interactive week/day calendar view
+│   │   ├── my-bookings/      # User's booking list
+│   │   ├── stats/            # Usage stats & leaderboard
+│   │   ├── account/          # Account settings (display name, PIN change)
+│   │   └── admin/            # Admin: manage flats, spots, requests
 │   └── api/                  # REST endpoints + SSE
-drizzle/                      # SQL migrations
+├── scripts/
+│   ├── seed.ts               # Database seeding (generates drizzle/seed.db)
+│   └── entrypoint.sh         # Docker entrypoint (copies seed DB on first boot)
+├── drizzle/                  # SQL migrations
+└── e2e/                      # Playwright end-to-end tests
 ```
 
 ## Getting Started
@@ -101,7 +126,7 @@ On first run with an empty database, the app shows a setup wizard at `/setup` to
 docker compose up -d    # Pulls image from GHCR and runs on port 3000 (seeds DB on first boot)
 ```
 
-Data is persisted in a named volume (`creneau-data`).
+**Production** persists data via bind mount (`/var/lib/creneau:/app/data`). **Preview** uses a named volume (ephemeral).
 
 ## Development
 
@@ -114,7 +139,7 @@ Data is persisted in a named volume (`creneau-data`).
 | Release patch | `mise run release:patch` |
 | Release minor | `mise run release:minor` |
 | Type check | `npm run check` |
-| Lint | `npm run lint` |
+| Lint & format | `npx biome check --write .` |
 | Unit tests | `npm run test` |
 | E2E tests | `mise run test:e2e` |
 | E2E tests (UI) | `mise run test:e2e:ui` |
@@ -130,7 +155,9 @@ Data is persisted in a named volume (`creneau-data`).
 
 **Multi-day bookings** — a booking spans multiple days as one continuous slot. The overnight gap (end-of-day → start-of-next-day) is bridged implicitly. The system finds a single `AvailableSlot` that covers the entire range.
 
-**Real-time sync** — any booking creation or cancellation broadcasts via SSE to all connected clients, which re-fetch availability and calendar statuses.
+**Real-time sync** — any booking creation, update, or cancellation broadcasts via SSE to all connected clients, which re-fetch availability and calendar statuses.
+
+**Flat request workflow** — unauthenticated users submit a request at `/request` with their flat number and spot numbers. Admins review and approve from the admin panel, which creates the flat, binds spots, and generates an activation code. The resident then activates via the invitation link.
 
 ## Quick Reference
 

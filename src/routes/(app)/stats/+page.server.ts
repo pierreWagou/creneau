@@ -1,3 +1,4 @@
+import { redirect } from '@sveltejs/kit';
 import { endOfMonth, format, getDaysInMonth, startOfMonth } from 'date-fns';
 import { eq } from 'drizzle-orm';
 import { MS_PER_HOUR } from '$lib/constants';
@@ -35,7 +36,8 @@ function computeRanking(
 }
 
 export const load: PageServerLoad = async ({ locals }) => {
-	const sessionFlat = locals.flat!;
+	const sessionFlat = locals.flat;
+	if (!sessionFlat) throw redirect(302, '/login');
 
 	// --- Personal stats ---
 	const userBookings = await db

@@ -61,12 +61,9 @@
 
 	const pendingRequests = $derived(data.requests.filter((r) => r.status === 'pending'));
 
-	function parseSpotNumbers(json: string): string[] {
-		try {
-			return JSON.parse(json);
-		} catch {
-			return [];
-		}
+	function parseSpotNumbers(val: unknown): string[] {
+		if (Array.isArray(val)) return val;
+		return [];
 	}
 
 	type FlatState = 'inactive' | 'pending' | 'expired' | 'active';
