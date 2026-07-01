@@ -61,6 +61,14 @@
 
 	const pendingRequests = $derived(data.requests.filter((r) => r.status === 'pending'));
 
+	function parseSpotNumbers(json: string): string[] {
+		try {
+			return JSON.parse(json);
+		} catch {
+			return [];
+		}
+	}
+
 	type FlatState = 'inactive' | 'pending' | 'expired' | 'active';
 
 	function getFlatState(f: (typeof data.flats)[0]): FlatState {
@@ -385,7 +393,7 @@
 			</Card.Header>
 			<Card.Content class="space-y-4">
 				{#each pendingRequests as req}
-					{@const spots = JSON.parse(req.spotNumbers)}
+					{@const spots = parseSpotNumbers(req.spotNumbers)}
 					<div class="rounded-md border p-3">
 						<div class="flex items-center justify-between">
 							<div>

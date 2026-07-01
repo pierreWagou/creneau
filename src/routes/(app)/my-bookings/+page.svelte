@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { differenceInHours, format, isPast, isSameDay, isSameMonth, parseISO } from 'date-fns';
+	import { format, isPast, isSameDay, isSameMonth, parseISO } from 'date-fns';
 	import { fr } from 'date-fns/locale';
 	import { onDestroy, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
@@ -8,6 +8,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
+	import { formatDuration } from '$lib/utils/time';
 
 	let { data } = $props();
 
@@ -67,13 +68,6 @@
 
 		// "lun. 30 avril, 14h00 → mer. 2 mai, 10h00"
 		return `${format(startDate, "EEE d MMMM, HH'h'mm", { locale: fr })} → ${format(endDate, "EEE d MMMM, HH'h'mm", { locale: fr })}`;
-	}
-
-	function formatDuration(start: string, end: string): string {
-		const hours = differenceInHours(parseISO(end), parseISO(start));
-		if (hours < 24) return `${hours}h`;
-		const days = Math.ceil(hours / 24);
-		return `${days} jour${days > 1 ? 's' : ''}`;
 	}
 
 	function formatCreatedAt(iso: string): string {

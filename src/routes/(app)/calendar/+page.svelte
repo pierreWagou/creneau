@@ -3,7 +3,7 @@
 	import { computePosition, flip, offset, shift } from '@floating-ui/dom';
 	import './calendar.css';
 	import CirclePlus from '@lucide/svelte/icons/circle-plus';
-	import { differenceInHours, format, isSameDay, parseISO } from 'date-fns';
+	import { format, isSameDay, parseISO } from 'date-fns';
 	import { fr } from 'date-fns/locale';
 	import { mode } from 'mode-watcher';
 	import { onDestroy, onMount } from 'svelte';
@@ -12,7 +12,7 @@
 	import { page } from '$app/stores';
 	import { Button } from '$lib/components/ui/button';
 	import { type BookingWithFlat, DAY_END, DAY_START } from '$lib/types';
-	import { formatDateISO, padH } from '$lib/utils/time';
+	import { formatDateISO, formatDuration, padH } from '$lib/utils/time';
 	import '@event-calendar/core/index.css';
 
 	let { data } = $props();
@@ -77,11 +77,8 @@
 				start: b.startTime,
 				end: b.endTime,
 				title: '',
-		editable: false,
-		eventStartEditable: false,
-		eventDurationEditable: false,
-			startEditable: isOwn && !isPast,
-			durationEditable: isOwn && !isPast,
+				startEditable: isOwn && !isPast,
+				durationEditable: isOwn && !isPast,
 				classNames: isPast ? ['ec-event-past'] : [],
 				backgroundColor: isOwn ? (isDark ? '#89b4fa' : '#1e66f5') : getFlatColor(b.flatNumber),
 				textColor: isDark ? '#1e1e2e' : '#eff1f5',
@@ -108,10 +105,7 @@
 	}
 
 	function formatPopoverDuration(start: string, end: string): string {
-		const hours = differenceInHours(parseISO(end), parseISO(start));
-		if (hours < 24) return `${hours}h`;
-		const days = Math.ceil(hours / 24);
-		return `${days} jour${days > 1 ? 's' : ''}`;
+		return formatDuration(start, end);
 	}
 
 	function formatTooltipLine(booking: BookingWithFlat): string {

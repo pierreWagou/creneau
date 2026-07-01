@@ -8,7 +8,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 		return json({ error: 'Non autorisé' }, { status: 401 });
 	}
 
-	const bookingId = parseInt(params.id, 10);
+	const bookingId = Number(params.id);
 	if (Number.isNaN(bookingId)) {
 		return json({ error: 'Identifiant de réservation invalide' }, { status: 400 });
 	}
@@ -42,7 +42,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 		return json({ error: 'Non autorisé' }, { status: 401 });
 	}
 
-	const bookingId = parseInt(params.id, 10);
+	const bookingId = Number(params.id);
 	if (Number.isNaN(bookingId)) {
 		return json({ error: 'Identifiant de réservation invalide' }, { status: 400 });
 	}
