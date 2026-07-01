@@ -1,5 +1,8 @@
 import { json } from '@sveltejs/kit';
+import { and, eq, isNull } from 'drizzle-orm';
 import { createBooking } from '$lib/server/bookings';
+import { db } from '$lib/server/db';
+import { spot } from '$lib/server/db/schema';
 import { sseManager } from '$lib/server/sse';
 import type { RequestHandler } from './$types';
 
@@ -13,6 +16,17 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 		if (!spotNumber || !startTime || !endTime) {
 			return json({ error: 'Champs obligatoires manquants' }, { status: 400 });
+		}
+
+		// Validate spot is shared (not bound to any flat)
+		const targetSpot = await db
+			.select()
+			.from(spot)
+			.where(and(eq(spot.number, spotNumber.trim()), isNull(spot.flatNumber)))
+			.get();
+
+		if (!targetSpot) {
+			return json({ error: "Cette place n'est pas disponible pour réservation" }, { status: 400 });
 		}
 
 		const result = await createBooking({

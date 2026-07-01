@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
+import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { flat } from '$lib/server/db/schema';
+import { flat, spot } from '$lib/server/db/schema';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals }) => {
@@ -41,14 +42,34 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	try {
-		const { number } = await request.json();
+		const { number, spotNumbers } = await request.json();
 
 		if (!number) {
 			return json({ error: "Numéro d'appartement requis" }, { status: 400 });
 		}
 
-		// Create flat in "Inactif" state — no activation code yet
-		const result = await db.insert(flat).values({ number: number.trim() }).returning().get();
+		const trimmedSpots = Array.isArray(spotNumbers)
+			? [...new Set(spotNumbers.map((s: unknown) => String(s).trim()).filter((s) => s.length > 0))]
+			: [];
+
+		if (trimmedSpots.length === 0) {
+			return json({ error: 'Au moins une place requise' }, { status: 400 });
+		}
+
+		const flatNumber = number.trim();
+
+		// Create flat in "Inactif" state
+		const result = await db.insert(flat).values({ number: flatNumber }).returning().get();
+
+		// Create/bind spots
+		for (const spotNum of trimmedSpots) {
+			const existingSpot = await db.select().from(spot).where(eq(spot.number, spotNum)).get();
+			if (existingSpot) {
+				await db.update(spot).set({ flatNumber }).where(eq(spot.number, spotNum));
+			} else {
+				await db.insert(spot).values({ number: spotNum, flatNumber });
+			}
+		}
 
 		return json({ flat: result }, { status: 201 });
 	} catch (e) {

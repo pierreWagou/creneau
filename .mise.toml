@@ -28,7 +28,7 @@ run = "npx playwright test --ui"
 
 [tasks.seed]
 description = "Seed local database with test data (deletes existing DB first)"
-run = "rm -f data/creneau.db && DATABASE_URL=file:./data/creneau.db npx tsx scripts/seed.ts"
+run = "rm -f data/creneau.db data/creneau.db-shm data/creneau.db-wal && DATABASE_URL=file:./data/creneau.db npx tsx scripts/seed.ts"
 
 [tasks.docs]
 description = "Start docs dev server (VitePress) at http://localhost:5175"

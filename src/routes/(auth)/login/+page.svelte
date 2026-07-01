@@ -171,10 +171,15 @@
 		</form>
 	</Card.Content>
 	<Card.Footer class="flex-col gap-2">
-		<p class="text-muted-foreground text-sm">
-			Première fois ? <a href="/activate" class="inline-link font-medium"
-				>Activer mon appartement</a
-			>
-		</p>
+	<p class="text-muted-foreground text-sm">
+		Vous avez une invitation ? <a href="/activate" class="inline-link font-medium"
+			>Activer mon appartement</a
+		>
+	</p>
+	<p class="text-muted-foreground text-sm">
+		Pas encore de compte ? <a href="/request" class="inline-link font-medium"
+			>Demander l'accès</a
+		>
+	</p>
 	</Card.Footer>
 </Card.Root>

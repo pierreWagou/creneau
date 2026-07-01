@@ -77,7 +77,11 @@
 				start: b.startTime,
 				end: b.endTime,
 				title: '',
-				editable: isOwn && !isPast,
+		editable: false,
+		eventStartEditable: false,
+		eventDurationEditable: false,
+			startEditable: isOwn && !isPast,
+			durationEditable: isOwn && !isPast,
 				classNames: isPast ? ['ec-event-past'] : [],
 				backgroundColor: isOwn ? (isDark ? '#89b4fa' : '#1e66f5') : getFlatColor(b.flatNumber),
 				textColor: isDark ? '#1e1e2e' : '#eff1f5',
@@ -215,6 +219,14 @@
 
 	async function handleEventUpdate(info: any) {
 		const booking = info.event.extendedProps.booking as BookingWithFlat;
+
+		// Reject if not own booking
+		if (booking.flatNumber !== data.flat.number) {
+			info.revert();
+			toast.error("Vous ne pouvez déplacer que vos propres réservations");
+			return;
+		}
+
 		const newStart = toISOLocal(info.event.start);
 		const newEnd = toISOLocal(info.event.end);
 
@@ -373,7 +385,7 @@
 		slotDuration: '01:00:00',
 		firstDay: 1,
 		nowIndicator: true,
-		editable: true,
+		editable: false,
 		selectable: true,
 		selectBackgroundColor: isDark ? 'rgba(137, 180, 250, 0.4)' : 'rgba(30, 102, 245, 0.4)',
 		select: handleSelect,

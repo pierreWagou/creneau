@@ -107,7 +107,7 @@
 					<Input
 						id="display-name"
 						type="text"
-						placeholder="ex. Famille Dupont"
+						placeholder="ex. Jean, Famille Dupont"
 						bind:value={displayName}
 						maxlength={DISPLAY_NAME_MAX_LENGTH}
 					/>
@@ -117,6 +117,29 @@
 				</div>
 				<p class="text-muted-foreground text-xs">Ce nom sera visible par les autres résidents sur le calendrier.</p>
 			</div>
+		</Card.Content>
+	</Card.Root>
+
+	<!-- Assigned spots -->
+	<Card.Root>
+		<Card.Header>
+			<Card.Title>Places assignées</Card.Title>
+		</Card.Header>
+		<Card.Content>
+			{#if data.spots.length === 0}
+				<p class="text-muted-foreground text-sm">Aucune place assignée.</p>
+			{:else}
+				<div class="space-y-2">
+					{#each data.spots as s}
+						<div class="rounded-md border p-3">
+							<p class="font-medium">Place {s.number}</p>
+							{#if s.description}
+								<p class="text-muted-foreground text-sm">{s.description}</p>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			{/if}
 		</Card.Content>
 	</Card.Root>
 

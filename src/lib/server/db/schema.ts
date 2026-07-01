@@ -3,8 +3,22 @@ import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 export const spot = sqliteTable('spot', {
 	number: text('number').primaryKey(),
+	flatNumber: text('flat_number').references(() => flat.number, { onDelete: 'set null' }),
 	description: text('description'),
 	createdAt: text('created_at').notNull().default(sql`(datetime('now'))`)
+});
+
+export const flatRequest = sqliteTable('flat_request', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	flatNumber: text('flat_number').notNull(),
+	spotNumbers: text('spot_numbers').notNull(),
+	requesterName: text('requester_name'),
+	status: text('status', { enum: ['pending', 'approved', 'rejected'] })
+		.notNull()
+		.default('pending'),
+	createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+	reviewedAt: text('reviewed_at'),
+	reviewedBy: text('reviewed_by').references(() => flat.number)
 });
 
 export const flat = sqliteTable('flat', {

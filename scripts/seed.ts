@@ -84,6 +84,26 @@ console.log('Inserting flats…');
 await db.insert(flat).values(flats).onConflictDoNothing();
 
 // ---------------------------------------------------------------------------
+// Bound spots — one per flat (inserted after flats to satisfy FK)
+// ---------------------------------------------------------------------------
+
+console.log('Inserting bound spots…');
+const boundSpots: (typeof spot.$inferInsert)[] = [
+	{ number: '01', flatNumber: 'A00' },
+	{ number: '02', flatNumber: 'B00' },
+	{ number: '03', flatNumber: 'A01' },
+	{ number: '04', flatNumber: 'A02' },
+	{ number: '05', flatNumber: 'A03' },
+	{ number: '06', flatNumber: 'A04' },
+	{ number: '07', flatNumber: 'B01' },
+	{ number: '08', flatNumber: 'B02' },
+	{ number: '09', flatNumber: 'B03' },
+	{ number: '10', flatNumber: 'A05' },
+	{ number: '11', flatNumber: 'B05' }
+];
+await db.insert(spot).values(boundSpots).onConflictDoNothing();
+
+// ---------------------------------------------------------------------------
 // Bookings — spot 36, past 2 weeks + next 2 weeks
 // ---------------------------------------------------------------------------
 
