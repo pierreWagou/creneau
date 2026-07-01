@@ -16,7 +16,9 @@ SvelteKit (Svelte 5 runes) + SQLite (Drizzle ORM) + Tailwind CSS v4 + shadcn-sve
 
 - Natural keys: `flat.number` and `spot.number` are text primary keys (no artificial integer IDs)
 - Booking still has an integer `id` (needed for DELETE/PATCH URLs)
-- All FKs cascade on delete
+- `booking` and `session` FKs cascade on delete
+- `spot.flatNumber` FK uses `SET NULL` on flat delete (spot becomes shared)
+- `flat_request.reviewedBy` FK has no explicit cascade
 
 ### API Conventions
 
@@ -63,8 +65,7 @@ Creneau is deployed via **Dokploy** on wagoulab (`apps.wagou.fr`). Two environme
 | Preview | `creneau-preview.wagou.fr` | `:canary` | `true` | named volume (ephemeral-ish) |
 
 Auto-deploy is triggered via Dokploy webhook URLs stored as GitHub Actions secrets:
-- `DOKPLOY_PREVIEW_WEBHOOK_URL` — called after every push to `main`
-- `DOKPLOY_PROD_WEBHOOK_URL` — called after every GitHub Release
+- `DOKPLOY_WEBHOOK_URL` — called for both preview (push to main) and production (GitHub Release) deploys
 
 ### Image build
 
@@ -108,11 +109,11 @@ src/
 │   │   ├── availability.ts  # Timeline computation (pure function)
 │   │   ├── sse.ts           # SSE broadcaster
 │   │   └── rate-limit.ts    # In-memory rate limiter
-│   ├── constants.ts         # PIN_MIN_LENGTH, PIN_MAX_LENGTH, DISPLAY_NAME_MAX_LENGTH, CALENDAR_LOOKAHEAD_MONTHS, ACTIVATION_CODE_TTL_MS, MAX_BOOKING_HOURS, ACTIVATION_CODE_LENGTH, MAX_FLAT_BULK_SIZE
+│   ├── constants.ts         # PIN_MIN_LENGTH, PIN_MAX_LENGTH, DISPLAY_NAME_MAX_LENGTH, CALENDAR_LOOKAHEAD_MONTHS, ACTIVATION_CODE_TTL_MS, MAX_BOOKING_HOURS, ACTIVATION_CODE_LENGTH, MAX_FLAT_BULK_SIZE, MS_PER_HOUR, SESSION_DURATION_DAYS
 │   ├── types.ts             # SessionFlat, BookingWithFlat, SpotTimeline, DAY_START/DAY_END
-│   └── utils/time.ts        # padH, getHourFromISO, formatDateISO, TIME_BLOCKS
+│   └── utils/time.ts        # padH, getHourFromISO, formatDateISO, formatDuration, TIME_BLOCKS
 ├── routes/
-│   ├── (auth)/              # Login, activate, setup (unauthenticated)
+│   ├── (auth)/              # Login, activate, setup, request (unauthenticated)
 │   ├── (app)/               # Authenticated pages (calendar, book, my-bookings, stats, account, admin)
 │   └── api/                 # REST endpoints + SSE
 ├── app.css                  # Theme + @layer components (semantic classes) + @layer base (global form styles)

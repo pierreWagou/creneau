@@ -1,3 +1,5 @@
+import { differenceInHours, parseISO } from 'date-fns';
+
 export const TIME_BLOCKS = {
 	morning: { start: '06:00', end: '12:00', label: 'Matin' },
 	afternoon: { start: '12:00', end: '18:00', label: 'Après-midi' },
@@ -26,4 +28,14 @@ export function getHourFromISO(iso: string): number {
 export function formatDateISO(d: Date): string {
 	const noon = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12);
 	return noon.toISOString().split('T')[0];
+}
+
+/**
+ * Format a duration between two ISO datetime strings (e.g., "3h", "2 jours")
+ */
+export function formatDuration(start: string, end: string): string {
+	const hours = differenceInHours(parseISO(end), parseISO(start));
+	if (hours < 24) return `${hours}h`;
+	const days = Math.ceil(hours / 24);
+	return `${days} jour${days > 1 ? 's' : ''}`;
 }

@@ -2,18 +2,15 @@ import { json } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { spot } from '$lib/server/db/schema';
+import { requireAdmin } from '$lib/server/guards';
 import type { RequestHandler } from './$types';
 
 /**
  * PATCH — Update a spot's description (admin only)
  */
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
-	if (!locals.flat) {
-		return json({ error: 'Non autorisé' }, { status: 401 });
-	}
-	if (!locals.flat.isAdmin) {
-		return json({ error: 'Accès interdit' }, { status: 403 });
-	}
+	const guard = requireAdmin(locals);
+	if (guard) return guard;
 
 	const spotNumber = params.number;
 
@@ -47,12 +44,8 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
  * Cascades to all bookings for this spot (FK cascade on delete).
  */
 export const DELETE: RequestHandler = async ({ params, locals }) => {
-	if (!locals.flat) {
-		return json({ error: 'Non autorisé' }, { status: 401 });
-	}
-	if (!locals.flat.isAdmin) {
-		return json({ error: 'Accès interdit' }, { status: 403 });
-	}
+	const guard = requireAdmin(locals);
+	if (guard) return guard;
 
 	const spotNumber = params.number;
 

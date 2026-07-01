@@ -1,7 +1,7 @@
 import { redirect } from '@sveltejs/kit';
-import { asc } from 'drizzle-orm';
+import { asc, desc } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { flat, spot } from '$lib/server/db/schema';
+import { flat, flatRequest, spot } from '$lib/server/db/schema';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -23,6 +23,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		.orderBy(asc(flat.number))
 		.all();
 	const spots = await db.select().from(spot).all();
+	const requests = await db.select().from(flatRequest).orderBy(desc(flatRequest.createdAt)).all();
 
-	return { flats, spots };
+	return { flats, spots, requests };
 };

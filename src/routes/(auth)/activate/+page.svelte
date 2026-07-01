@@ -11,7 +11,7 @@
 
 	let flatNumber = $state(data.prefill.flat);
 	let activationCode = $state(data.prefill.code);
-	let displayName = $state('');
+	let displayName = $state(data.prefill.displayName);
 	let pin = $state('');
 	let confirmPin = $state('');
 	let loading = $state(false);
@@ -83,8 +83,8 @@
 				/>
 			</div>
 			<div class="space-y-2">
-				<Label for="name">Votre prénom (optionnel)</Label>
-				<Input id="name" type="text" placeholder="ex. Marc" bind:value={displayName} />
+				<Label for="name">Nom d'affichage (optionnel)</Label>
+				<Input id="name" type="text" placeholder="ex. Jean, Famille Dupont" bind:value={displayName} />
 			</div>
 			<div class="space-y-2">
 				<Label for="pin">Choisir un code PIN</Label>

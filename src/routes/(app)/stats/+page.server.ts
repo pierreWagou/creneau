@@ -1,11 +1,11 @@
+import { redirect } from '@sveltejs/kit';
 import { endOfMonth, format, getDaysInMonth, startOfMonth } from 'date-fns';
 import { eq } from 'drizzle-orm';
+import { MS_PER_HOUR } from '$lib/constants';
 import { db } from '$lib/server/db';
 import { booking, flat, spot } from '$lib/server/db/schema';
 import { DAY_END, DAY_START } from '$lib/types';
 import type { PageServerLoad } from './$types';
-
-const MS_PER_HOUR = 3_600_000;
 
 function computeHours(bookings: { startTime: string; endTime: string }[]): number {
 	return bookings.reduce((sum, b) => {
@@ -36,7 +36,8 @@ function computeRanking(
 }
 
 export const load: PageServerLoad = async ({ locals }) => {
-	const sessionFlat = locals.flat!;
+	const sessionFlat = locals.flat;
+	if (!sessionFlat) throw redirect(302, '/login');
 
 	// --- Personal stats ---
 	const userBookings = await db

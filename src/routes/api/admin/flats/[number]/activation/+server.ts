@@ -4,18 +4,15 @@ import { ACTIVATION_CODE_TTL_MS } from '$lib/constants';
 import { generateActivationCode } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
+import { requireAdmin } from '$lib/server/guards';
 import type { RequestHandler } from './$types';
 
 /**
  * POST — Generate an activation code (Inactif → En attente)
  */
 export const POST: RequestHandler = async ({ params, locals }) => {
-	if (!locals.flat) {
-		return json({ error: 'Non autorisé' }, { status: 401 });
-	}
-	if (!locals.flat.isAdmin) {
-		return json({ error: 'Accès interdit' }, { status: 403 });
-	}
+	const guard = requireAdmin(locals);
+	if (guard) return guard;
 
 	const flatNumber = params.number;
 
@@ -49,12 +46,8 @@ export const POST: RequestHandler = async ({ params, locals }) => {
  * DELETE — Revoke an activation code (En attente → Inactif)
  */
 export const DELETE: RequestHandler = async ({ params, locals }) => {
-	if (!locals.flat) {
-		return json({ error: 'Non autorisé' }, { status: 401 });
-	}
-	if (!locals.flat.isAdmin) {
-		return json({ error: 'Accès interdit' }, { status: 403 });
-	}
+	const guard = requireAdmin(locals);
+	if (guard) return guard;
 
 	const flatNumber = params.number;
 

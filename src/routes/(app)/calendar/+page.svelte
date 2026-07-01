@@ -3,7 +3,7 @@
 	import { computePosition, flip, offset, shift } from '@floating-ui/dom';
 	import './calendar.css';
 	import CirclePlus from '@lucide/svelte/icons/circle-plus';
-	import { differenceInHours, format, isSameDay, parseISO } from 'date-fns';
+	import { format, isSameDay, parseISO } from 'date-fns';
 	import { fr } from 'date-fns/locale';
 	import { mode } from 'mode-watcher';
 	import { onDestroy, onMount } from 'svelte';
@@ -12,13 +12,14 @@
 	import { page } from '$app/stores';
 	import { Button } from '$lib/components/ui/button';
 	import { type BookingWithFlat, DAY_END, DAY_START } from '$lib/types';
-	import { formatDateISO, padH } from '$lib/utils/time';
+	import { createBookingSSE } from '$lib/utils/sse';
+	import { formatDateISO, formatDuration, padH } from '$lib/utils/time';
 	import '@event-calendar/core/index.css';
 
 	let { data } = $props();
 
 	let isMobile = $state(false);
-	let eventSource: EventSource | null = null;
+	let sse: ReturnType<typeof createBookingSSE> | null = null;
 
 	// Track dark mode for the calendar container class
 	let isDark = $derived(mode.current === 'dark');
@@ -77,7 +78,8 @@
 				start: b.startTime,
 				end: b.endTime,
 				title: '',
-				editable: isOwn && !isPast,
+				startEditable: isOwn && !isPast,
+				durationEditable: isOwn && !isPast,
 				classNames: isPast ? ['ec-event-past'] : [],
 				backgroundColor: isOwn ? (isDark ? '#89b4fa' : '#1e66f5') : getFlatColor(b.flatNumber),
 				textColor: isDark ? '#1e1e2e' : '#eff1f5',
@@ -104,10 +106,7 @@
 	}
 
 	function formatPopoverDuration(start: string, end: string): string {
-		const hours = differenceInHours(parseISO(end), parseISO(start));
-		if (hours < 24) return `${hours}h`;
-		const days = Math.ceil(hours / 24);
-		return `${days} jour${days > 1 ? 's' : ''}`;
+		return formatDuration(start, end);
 	}
 
 	function formatTooltipLine(booking: BookingWithFlat): string {
@@ -215,6 +214,14 @@
 
 	async function handleEventUpdate(info: any) {
 		const booking = info.event.extendedProps.booking as BookingWithFlat;
+
+		// Reject if not own booking
+		if (booking.flatNumber !== data.flat.number) {
+			info.revert();
+			toast.error("Vous ne pouvez déplacer que vos propres réservations");
+			return;
+		}
+
 		const newStart = toISOLocal(info.event.start);
 		const newEnd = toISOLocal(info.event.end);
 
@@ -282,27 +289,18 @@
 		window.addEventListener('resize', checkMobile);
 		document.addEventListener('click', handleClickOutside, true);
 
-		// Set up SSE for real-time updates
-		eventSource = new EventSource('/api/events');
-		eventSource.addEventListener('booking_created', (e) => {
-			try {
-				const booking = JSON.parse(e.data) as BookingWithFlat;
+		sse = createBookingSSE({
+			onCreated: (booking) => {
 				bookings = [...bookings, booking];
-			} catch { /* ignore malformed SSE data */ }
-		});
-		eventSource.addEventListener('booking_cancelled', (e) => {
-			try {
-				const { id } = JSON.parse(e.data);
-				bookings = bookings.filter((b) => b.id !== id);
-				if (popoverBooking?.id === id) closePopover();
-			} catch { /* ignore malformed SSE data */ }
-		});
-		eventSource.addEventListener('booking_updated', (e) => {
-			try {
-				const updated = JSON.parse(e.data) as BookingWithFlat;
+			},
+			onCancelled: (data) => {
+				bookings = bookings.filter((b) => b.id !== data.id);
+				if (popoverBooking?.id === data.id) closePopover();
+			},
+			onUpdated: (updated) => {
 				bookings = bookings.map((b) => (b.id === updated.id ? updated : b));
 				if (popoverBooking?.id === updated.id) popoverBooking = updated;
-			} catch { /* ignore malformed SSE data */ }
+			}
 		});
 	});
 
@@ -311,7 +309,7 @@
 			window.removeEventListener('resize', checkMobile);
 			document.removeEventListener('click', handleClickOutside, true);
 		}
-		eventSource?.close();
+		sse?.destroy();
 		if (tooltipTimeout) clearTimeout(tooltipTimeout);
 	});
 
@@ -373,7 +371,7 @@
 		slotDuration: '01:00:00',
 		firstDay: 1,
 		nowIndicator: true,
-		editable: true,
+		editable: false,
 		selectable: true,
 		selectBackgroundColor: isDark ? 'rgba(137, 180, 250, 0.4)' : 'rgba(30, 102, 245, 0.4)',
 		select: handleSelect,

@@ -29,9 +29,9 @@ Creneau is a shared parking spot booking app for apartment buildings. See the pr
 | `src/lib/server/bookings.ts`                            | CRUD: `createBooking()`, `getBookingsInRange()`, `getBookingsByFlat()`, `cancelBooking()`, `updateBooking()`                                 |
 | `src/lib/server/sse.ts`                                 | SSE broadcaster singleton                                                                                                                    |
 | `src/lib/server/auth.ts`                                | PIN hashing, session create/validate, `setSessionCookie()`                                                                                   |
-| `src/lib/server/db/schema.ts`                           | Drizzle schema: flat, spot, booking, session                                                                                                 |
+| `src/lib/server/db/schema.ts`                           | Drizzle schema: flat, spot, booking, session, flat_request                                                                                    |
 | `src/lib/server/db/index.ts`                            | DB connection singleton (libsql + Drizzle), runs migrations on startup, cleans expired sessions                                              |
-| `src/lib/utils/time.ts`                                 | `TIME_BLOCKS`, `padH()`, `getHourFromISO()`, `formatDateISO()`                                                                               |
+| `src/lib/utils/time.ts`                                 | `TIME_BLOCKS`, `padH()`, `getHourFromISO()`, `formatDateISO()`, `formatDuration()`                                                            |
 | `src/lib/utils.ts`                                      | `cn()` utility (clsx + tailwind-merge)                                                                                                       |
 | `src/routes/(app)/book/+page.svelte`                    | Booking page (main UX)                                                                                                                       |
 | `src/routes/(app)/calendar/+page.svelte`                | Calendar view (@event-calendar) with event popover                                                                                           |
@@ -41,11 +41,14 @@ Creneau is a shared parking spot booking app for apartment buildings. See the pr
 | `src/routes/api/bookings/+server.ts`                    | `POST` create booking, broadcasts SSE                                                                                                        |
 | `src/routes/api/bookings/[id]/+server.ts`               | `PATCH` update booking time (drag/drop), `DELETE` cancel a booking                                                                           |
 | `src/routes/api/spots/+server.ts`                       | `POST` parking spots (admin only)                                                                                                            |
-| `src/routes/api/admin/flats/+server.ts`                 | `GET`/`POST` flats (admin only)                                                                                                              |
+| `src/routes/api/spots/[number]/+server.ts`              | `PATCH` update description / `DELETE` spot (admin only)                                                                                      |
+| `src/routes/api/admin/flats/+server.ts`                 | `GET`/`POST` flats (admin only, POST accepts `spotNumbers`)                                                                                  |
 | `src/routes/api/admin/flats/[number]/+server.ts`        | `PATCH`/`DELETE` specific flat (admin only)                                                                                                  |
 | `src/routes/api/admin/flats/[number]/activation/+server.ts` | `POST` generate / `DELETE` revoke activation code                                                                                        |
 | `src/routes/api/admin/flats/[number]/reset/+server.ts`  | `POST` reset an active flat (deactivate, clear PIN/sessions)                                                                                 |
-| `src/routes/api/admin/flats/bulk/+server.ts`            | `POST` bulk create flats from a list                                                                                                         |
+| `src/routes/api/admin/requests/+server.ts`              | `GET` list pending requests (admin only)                                                                                                     |
+| `src/routes/api/admin/requests/[id]/+server.ts`         | `POST` approve request (creates flat + spots) / `PATCH` reject                                                                              |
+| `src/routes/api/requests/+server.ts`                    | `POST` submit a flat access request (public, no auth)                                                                                        |
 | `src/routes/api/health/+server.ts`                      | `GET` health check (DB connectivity, no auth required)                                                                                       |
 | `src/routes/api/auth/login/+server.ts`                  | `POST` login with flat number + PIN                                                                                                          |
 | `src/routes/api/auth/activate/+server.ts`               | `POST` activate a flat with activation code                                                                                                  |
@@ -145,14 +148,15 @@ The booking page accepts URL params: `?date=`, `?endDate=`, `?startHour=`, `?end
 
 ## Database schema
 
-Four tables (SQLite, WAL mode). All use **natural keys** (no artificial IDs for spot/flat):
+Five tables (SQLite, WAL mode). All use **natural keys** (no artificial IDs for spot/flat):
 
-| Table     | Key fields                                                                                                                      |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `flat`    | number (PK), activationCode, activationCodeExpiresAt, displayName, pinHash, isAdmin, isActive, activatedAt, createdAt           |
-| `spot`    | number (PK), description, createdAt                                                                                             |
-| `booking` | id (autoincrement PK), spotNumber (FK→spot), flatNumber (FK→flat), startTime, endTime, note, createdAt                         |
-| `session` | id (UUID PK), flatNumber (FK→flat), expiresAt, createdAt                                                                        |
+| Table         | Key fields                                                                                                                      |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `flat`        | number (PK), activationCode, activationCodeExpiresAt, displayName, pinHash, isAdmin, isActive, activatedAt, createdAt           |
+| `spot`        | number (PK), flatNumber (FK→flat, nullable, SET NULL on delete), description, createdAt                                          |
+| `booking`     | id (autoincrement PK), spotNumber (FK→spot), flatNumber (FK→flat), startTime, endTime, note, createdAt                         |
+| `session`     | id (UUID PK), flatNumber (FK→flat), expiresAt, createdAt                                                                        |
+| `flat_request`| id (autoincrement PK), flatNumber, spotNumbers (JSON text), requesterName, status (pending/approved/rejected), createdAt, reviewedAt, reviewedBy (FK→flat) |
 
 Bookings store full ISO datetime strings (e.g., `"2026-05-06T14:00:00"`).
 

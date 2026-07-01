@@ -22,7 +22,9 @@ test.describe
 				const dialog = page.locator('[role="dialog"]');
 				await dialog.waitFor();
 				await dialog.locator('[id="flat-number"]').fill(flat.number);
-				await dialog.getByRole('button', { name: 'Ajouter' }).click();
+				// Fill a spot number (required now)
+				await dialog.locator('input[placeholder="ex. 01"]').fill(`S${flat.number}`);
+				await dialog.getByRole('button', { name: 'Ajouter', exact: true }).click();
 				// Wait for dialog to close and flat to appear
 				await expect(page.getByText(flat.number).first()).toBeVisible();
 			}
@@ -30,17 +32,20 @@ test.describe
 			// Generate activation codes for each flat
 			for (const flat of TEST_FLATS) {
 				const flatCard = page.locator('div.rounded-md.border').filter({ hasText: flat.number }).first();
-				await flatCard.getByRole('button', { name: 'Inviter' }).click();
-				// Invite dialog should open with activation URL
-				const inviteDialog = page.locator('[role="dialog"]');
-				await expect(inviteDialog).toBeVisible({ timeout: 5000 });
-				await expect(inviteDialog.locator('input[readonly]')).toHaveValue(
+				await flatCard.getByRole('button', { name: 'Voir détails' }).click();
+				// Flat detail dialog should open
+				const detailDialog = page.locator('[role="dialog"]');
+				await expect(detailDialog).toBeVisible({ timeout: 5000 });
+				// Click "Générer un code d'activation" since the flat is inactive
+				await detailDialog.getByRole('button', { name: "Générer un code d'activation" }).click();
+				// Activation URL should appear
+				await expect(detailDialog.locator('input[readonly]')).toHaveValue(
 					new RegExp(`/activate\\?flat=${flat.number}`),
 					{ timeout: 5000 }
 				);
 				// Close the dialog before moving to the next flat
 				await page.keyboard.press('Escape');
-				await expect(inviteDialog).not.toBeVisible({ timeout: 3000 });
+				await expect(detailDialog).not.toBeVisible({ timeout: 3000 });
 			}
 		});
 

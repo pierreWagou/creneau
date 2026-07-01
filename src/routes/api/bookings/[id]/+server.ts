@@ -1,14 +1,14 @@
 import { json } from '@sveltejs/kit';
 import { cancelBooking, updateBooking } from '$lib/server/bookings';
+import { requireAuth } from '$lib/server/guards';
 import { sseManager } from '$lib/server/sse';
 import type { RequestHandler } from './$types';
 
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
-	if (!locals.flat) {
-		return json({ error: 'Non autorisé' }, { status: 401 });
-	}
+	const guard = requireAuth(locals);
+	if (guard) return guard;
 
-	const bookingId = parseInt(params.id, 10);
+	const bookingId = Number(params.id);
 	if (Number.isNaN(bookingId)) {
 		return json({ error: 'Identifiant de réservation invalide' }, { status: 400 });
 	}
@@ -20,7 +20,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 			return json({ error: 'Champs startTime et endTime requis' }, { status: 400 });
 		}
 
-		const result = await updateBooking(bookingId, locals.flat.number, { startTime, endTime });
+		const result = await updateBooking(bookingId, locals.flat!.number, { startTime, endTime });
 
 		if (!result.success) {
 			return json({ error: result.error }, { status: result.status });
@@ -38,17 +38,16 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 };
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
-	if (!locals.flat) {
-		return json({ error: 'Non autorisé' }, { status: 401 });
-	}
+	const guard = requireAuth(locals);
+	if (guard) return guard;
 
-	const bookingId = parseInt(params.id, 10);
+	const bookingId = Number(params.id);
 	if (Number.isNaN(bookingId)) {
 		return json({ error: 'Identifiant de réservation invalide' }, { status: 400 });
 	}
 
 	try {
-		const result = await cancelBooking(bookingId, locals.flat.number, locals.flat.isAdmin);
+		const result = await cancelBooking(bookingId, locals.flat!.number, locals.flat!.isAdmin);
 
 		if (!result.success) {
 			return json({ error: result.error }, { status: result.status });

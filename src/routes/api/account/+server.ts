@@ -4,15 +4,15 @@ import { DISPLAY_NAME_MAX_LENGTH } from '$lib/constants';
 import { hashPin, validatePin, verifyPin } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
+import { requireAuth } from '$lib/server/guards';
 import type { RequestHandler } from './$types';
 
 /**
  * PATCH /api/account — Update display name
  */
 export const PATCH: RequestHandler = async ({ request, locals }) => {
-	if (!locals.flat) {
-		return json({ error: 'Non autorisé' }, { status: 401 });
-	}
+	const guard = requireAuth(locals);
+	if (guard) return guard;
 
 	try {
 		const body = await request.json();
@@ -30,7 +30,7 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
 			return json({ error: 'Aucun champ valide à mettre à jour' }, { status: 400 });
 		}
 
-		await db.update(flat).set(allowedFields).where(eq(flat.number, locals.flat.number));
+		await db.update(flat).set(allowedFields).where(eq(flat.number, locals.flat!.number));
 
 		return json({ success: true });
 	} catch (e) {
@@ -46,9 +46,8 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
  * POST /api/account — Change PIN
  */
 export const POST: RequestHandler = async ({ request, locals }) => {
-	if (!locals.flat) {
-		return json({ error: 'Non autorisé' }, { status: 401 });
-	}
+	const guard = requireAuth(locals);
+	if (guard) return guard;
 
 	try {
 		const { currentPin, newPin } = await request.json();
@@ -63,7 +62,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		}
 
 		// Fetch current pin hash
-		const existingFlat = await db.select().from(flat).where(eq(flat.number, locals.flat.number)).get();
+		const existingFlat = await db.select().from(flat).where(eq(flat.number, locals.flat!.number)).get();
 		if (!existingFlat?.pinHash) {
 			return json({ error: 'Appartement introuvable' }, { status: 404 });
 		}
@@ -76,7 +75,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 		// Hash and save new PIN
 		const newHash = await hashPin(newPin);
-		await db.update(flat).set({ pinHash: newHash }).where(eq(flat.number, locals.flat.number));
+		await db.update(flat).set({ pinHash: newHash }).where(eq(flat.number, locals.flat!.number));
 
 		return json({ success: true });
 	} catch (e) {

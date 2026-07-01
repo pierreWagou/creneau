@@ -26,3 +26,9 @@ export const ACTIVATION_CODE_LENGTH = 4;
 
 /** Maximum number of flats that can be created in a single bulk request */
 export const MAX_FLAT_BULK_SIZE = 100;
+
+/** Milliseconds per hour */
+export const MS_PER_HOUR = 3_600_000;
+
+/** Session duration in days */
+export const SESSION_DURATION_DAYS = 30;
