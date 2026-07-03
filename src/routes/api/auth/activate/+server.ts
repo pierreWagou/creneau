@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
+import { FLAT_NUMBER_REGEX } from '$lib/constants';
 import { createSession, hashPin, setSessionCookie, validatePin } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
@@ -14,8 +15,13 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			return json({ error: 'Champs obligatoires manquants' }, { status: 400 });
 		}
 
+		const normalizedFlat = flatNumber.trim().toUpperCase();
+		if (!FLAT_NUMBER_REGEX.test(normalizedFlat)) {
+			return json({ error: "Format d'appartement invalide (ex. A01, B12)" }, { status: 400 });
+		}
+
 		// Rate limiting
-		const { allowed, retryAfterMs } = checkRateLimit(`activate:${flatNumber}`);
+		const { allowed, retryAfterMs } = checkRateLimit(`activate:${normalizedFlat}`);
 		if (!allowed) {
 			return json({ error: rateLimitErrorMessage(retryAfterMs || 0) }, { status: 429 });
 		}
@@ -25,10 +31,10 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			return json({ error: pinError }, { status: 400 });
 		}
 
-		const existingFlat = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();
+		const existingFlat = await db.select().from(flat).where(eq(flat.number, normalizedFlat)).get();
 
 		if (!existingFlat || existingFlat.activationCode !== activationCode) {
-			recordFailedAttempt(`activate:${flatNumber}`);
+			recordFailedAttempt(`activate:${normalizedFlat}`);
 			return json({ error: "Numéro d'appartement ou code d'activation invalide" }, { status: 401 });
 		}
 
@@ -45,7 +51,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		}
 
 		// Success — reset rate limit
-		resetAttempts(`activate:${flatNumber}`);
+		resetAttempts(`activate:${normalizedFlat}`);
 
 		const pinHash = await hashPin(pin);
 		await db

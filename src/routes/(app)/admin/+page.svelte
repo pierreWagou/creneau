@@ -1,4 +1,6 @@
 <script lang="ts">
+	import ArrowLeftRight from '@lucide/svelte/icons/arrow-left-right';
+	import BookOpen from '@lucide/svelte/icons/book-open';
 	import Check from '@lucide/svelte/icons/check';
 	import ClipboardCopy from '@lucide/svelte/icons/clipboard-copy';
 	import Pencil from '@lucide/svelte/icons/pencil';
@@ -17,11 +19,12 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { Separator } from '$lib/components/ui/separator';
+	import { isValidFlatNumber, isValidSpotNumber } from '$lib/constants';
 
 	let { data } = $props();
 
 	// Dialog state
-	type AdminDialog = 'addSpot' | 'editSpot' | 'addFlat' | 'flatDetail' | null;
+	type AdminDialog = 'addSpot' | 'editSpot' | 'addFlat' | 'flatDetail' | 'swapSpot' | 'editFlat' | null;
 	let openDialog = $state<AdminDialog>(null);
 
 	// Form state
@@ -32,6 +35,31 @@
 	let editSpotDescription = $state('');
 	let flatSpotInputs = $state(['']);
 	let selectedFlat = $state<(typeof data.flats)[0] | null>(null);
+
+	// Swap state
+	let swapTarget = $state<(typeof data.spots)[0] | null>(null);
+	let swapFlatNumber = $state('');
+	let swapSpotNumber = $state('');
+	let swapLoading = $state(false);
+
+	// Edit flat state
+	let editFlatDisplayName = $state('');
+	let editFlatSpotInputs = $state<string[]>(['']);
+	let editFlatLoading = $state(false);
+
+	const swapFlatSpots = $derived(
+		swapFlatNumber
+			? data.spots.filter((s) => s.flatNumber === swapFlatNumber)
+			: []
+	);
+
+	$effect(() => {
+		if (swapFlatSpots.length === 1) {
+			swapSpotNumber = swapFlatSpots[0].number;
+		} else {
+			swapSpotNumber = '';
+		}
+	});
 
 	// Derived
 	const sharedSpots = $derived(data.spots.filter((s) => !s.flatNumber));
@@ -119,6 +147,60 @@
 		openDialog = 'flatDetail';
 	}
 
+	function openEditFlat(f: (typeof data.flats)[0]) {
+		selectedFlat = f;
+		editFlatDisplayName = f.displayName ?? '';
+		editFlatSpotInputs = getBoundSpots(f);
+		if (editFlatSpotInputs.length === 0) editFlatSpotInputs = [''];
+		openDialog = 'editFlat';
+	}
+
+	function addEditFlatSpot() {
+		editFlatSpotInputs = [...editFlatSpotInputs, ''];
+	}
+
+	function removeEditFlatSpot(index: number) {
+		if (editFlatSpotInputs.length <= 1) return;
+		editFlatSpotInputs = editFlatSpotInputs.filter((_, i) => i !== index);
+	}
+
+	function updateEditFlatSpot(index: number, value: string) {
+		editFlatSpotInputs = editFlatSpotInputs.map((s, i) => (i === index ? value : s));
+	}
+
+	const validEditFlatSpots = $derived(
+		editFlatSpotInputs.map((s) => s.trim()).filter((s) => s.length > 0)
+	);
+	const editFlatSpotsValid = $derived(validEditFlatSpots.length > 0 && validEditFlatSpots.every(isValidSpotNumber));
+
+	async function saveEditFlat() {
+		if (!selectedFlat || !editFlatSpotsValid) return;
+		editFlatLoading = true;
+		try {
+			const res = await fetch(`/api/admin/flats/${encodeURIComponent(selectedFlat.number)}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					displayName: editFlatDisplayName.trim() || null,
+					spotNumbers: validEditFlatSpots
+				})
+			});
+			if (res.ok) {
+				toast.success('Appartement mis à jour');
+				openDialog = null;
+				selectedFlat = null;
+				invalidateAll();
+			} else {
+				const result = await res.json();
+				toast.error(result.error || "Impossible de modifier l'appartement");
+			}
+		} catch {
+			toast.error("Erreur lors de la modification");
+		} finally {
+			editFlatLoading = false;
+		}
+	}
+
 	async function copyLink(f: (typeof data.flats)[0] | null) {
 		if (!f) return;
 		try {
@@ -179,6 +261,16 @@
 	}
 
 	const validFlatSpots = $derived(flatSpotInputs.map((s) => s.trim()).filter((s) => s.length > 0));
+	const normalizedNewFlat = $derived(newFlatNumber.trim().toUpperCase());
+	const newFlatValid = $derived(normalizedNewFlat.length > 0 && isValidFlatNumber(normalizedNewFlat));
+	const newFlatExists = $derived(data.flats.some((f) => f.number === normalizedNewFlat));
+	const newFlatSpotsValid = $derived(validFlatSpots.length > 0 && validFlatSpots.every(isValidSpotNumber));
+	const canAddFlat = $derived(newFlatValid && !newFlatExists && newFlatSpotsValid);
+
+	const normalizedNewSpot = $derived(newSpotNumber.trim());
+	const newSpotValid = $derived(normalizedNewSpot.length > 0 && isValidSpotNumber(normalizedNewSpot));
+	const newSpotExists = $derived(data.spots.some((s) => s.number === normalizedNewSpot));
+	const canAddSpot = $derived(newSpotValid && !newSpotExists);
 
 	function addFlatSpot() {
 		flatSpotInputs = [...flatSpotInputs, ''];
@@ -194,16 +286,16 @@
 	}
 
 	async function addFlat() {
-		if (!newFlatNumber.trim() || validFlatSpots.length === 0) return;
+		if (!canAddFlat) return;
 
 		const res = await fetch('/api/admin/flats', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ number: newFlatNumber.trim(), spotNumbers: validFlatSpots })
+			body: JSON.stringify({ number: normalizedNewFlat, spotNumbers: validFlatSpots })
 		});
 
 		if (res.ok) {
-			toast.success(`Appartement ${newFlatNumber.trim()} ajouté`);
+			toast.success(`Appartement ${normalizedNewFlat} ajouté`);
 			newFlatNumber = '';
 			flatSpotInputs = [''];
 			openDialog = null;
@@ -215,16 +307,16 @@
 	}
 
 	async function addSpot() {
-		if (!newSpotNumber.trim()) return;
+		if (!canAddSpot) return;
 
 		const res = await fetch('/api/spots', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ number: newSpotNumber.trim(), description: newSpotDescription.trim() || null })
+			body: JSON.stringify({ number: normalizedNewSpot, description: newSpotDescription.trim() || null })
 		});
 
 		if (res.ok) {
-			toast.success(`Place "${newSpotNumber}" ajoutée`);
+			toast.success(`Place "${normalizedNewSpot}" ajoutée`);
 			newSpotNumber = '';
 			newSpotDescription = '';
 			openDialog = null;
@@ -333,6 +425,42 @@
 		confirmAction = { type: 'rejectRequest', requestId };
 	}
 
+	function showSwapSpot(s: (typeof data.spots)[0]) {
+		swapTarget = s;
+		swapFlatNumber = '';
+		swapSpotNumber = '';
+		openDialog = 'swapSpot';
+	}
+
+	async function executeSwap() {
+		if (!swapTarget || !swapFlatNumber) return;
+		swapLoading = true;
+		try {
+			const res = await fetch('/api/admin/spots/swap', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					spotNumber: swapTarget.number,
+					flatNumber: swapFlatNumber,
+					targetSpotNumber: swapSpotNumber || undefined
+				})
+			});
+			if (res.ok) {
+				toast.success(`Place "${swapTarget.number}" échangée`);
+				openDialog = null;
+				swapTarget = null;
+				invalidateAll();
+			} else {
+				const result = await res.json();
+				toast.error(result.error || "Impossible d'échanger la place");
+			}
+		} catch {
+			toast.error("Erreur lors de l'échange");
+		} finally {
+			swapLoading = false;
+		}
+	}
+
 	async function approveRequest(requestId: number) {
 		approvingRequest = requestId;
 		try {
@@ -379,7 +507,12 @@
 </script>
 
 <div class="space-y-8">
-	<h2 class="page-title">Administration</h2>
+	<div class="flex items-center justify-between">
+		<h2 class="page-title">Administration</h2>
+		<a href="/admin/guide">
+			<Button size="sm"><BookOpen class="mr-1 h-4 w-4" />Guide admin</Button>
+		</a>
+	</div>
 
 	<!-- Demandes en attente -->
 	{#if pendingRequests.length > 0}
@@ -450,14 +583,19 @@
 								<p class="text-muted-foreground text-sm">{s.description}</p>
 							{/if}
 						</div>
-						<div class="flex items-center gap-1">
-							<Button size="sm" variant="ghost" onclick={() => showEditSpot(s)}>
-								<Pencil class="h-3.5 w-3.5" />
-							</Button>
-						<Button size="sm" variant="ghost" class="text-destructive hover:text-destructive" aria-label="Supprimer" onclick={() => confirmDeleteSpot(s.number)}>
-							<Trash2 class="h-3.5 w-3.5" />
+					<div class="flex items-center gap-1">
+						<Button size="sm" variant="ghost" onclick={() => showEditSpot(s)}>
+							<Pencil class="h-3.5 w-3.5" />
 						</Button>
-						</div>
+						{#if data.flats.length > 0}
+							<Button size="sm" variant="ghost" aria-label="Échanger" onclick={() => showSwapSpot(s)}>
+								<ArrowLeftRight class="h-3.5 w-3.5" />
+							</Button>
+						{/if}
+					<Button size="sm" variant="ghost" class="text-destructive hover:text-destructive" aria-label="Supprimer" onclick={() => confirmDeleteSpot(s.number)}>
+						<Trash2 class="h-3.5 w-3.5" />
+					</Button>
+					</div>
 					</div>
 				{/each}
 				</div>
@@ -579,6 +717,10 @@
 					{/if}
 				</div>
 
+				<Button size="sm" variant="outline" onclick={() => openEditFlat(selectedFlat!)}>
+					Modifier
+				</Button>
+
 				<!-- Invitation section (for non-active flats) -->
 				{#if state !== 'active'}
 					<Separator />
@@ -646,6 +788,70 @@
 	</Dialog.Content>
 </Dialog.Root>
 
+<!-- Dialog: Modifier un appartement -->
+<Dialog.Root
+	open={openDialog === 'editFlat'}
+	onOpenChange={(o) => {
+		if (!o) {
+			openDialog = null;
+			selectedFlat = null;
+		}
+	}}
+>
+	<Dialog.Content>
+		{#if selectedFlat}
+			<Dialog.Header>
+				<Dialog.Title>Modifier {selectedFlat.number}</Dialog.Title>
+				<Dialog.Description>Modifier le nom et les places assignées.</Dialog.Description>
+			</Dialog.Header>
+			<div class="space-y-4">
+				<div class="space-y-2">
+					<Label for="edit-flat-name">Nom d'affichage (optionnel)</Label>
+					<Input id="edit-flat-name" placeholder="ex. Jean, Famille Dupont" bind:value={editFlatDisplayName} />
+				</div>
+				<div class="space-y-2">
+					<Label>Place(s) assignée(s)</Label>
+					{#each editFlatSpotInputs as _, i}
+						<div class="space-y-1">
+							<div class="flex gap-2">
+								<Input
+									type="text"
+									placeholder="ex. 01"
+									value={editFlatSpotInputs[i]}
+									oninput={(e) => updateEditFlatSpot(i, e.currentTarget.value)}
+									class={editFlatSpotInputs[i] && !isValidSpotNumber(editFlatSpotInputs[i]) ? 'border-destructive' : ''}
+									required
+								/>
+								{#if editFlatSpotInputs.length > 1}
+									<Button
+										type="button"
+										variant="ghost"
+										size="icon"
+										class="shrink-0"
+										onclick={() => removeEditFlatSpot(i)}
+									>
+										<Trash2 class="h-4 w-4" />
+									</Button>
+								{/if}
+							</div>
+							{#if editFlatSpotInputs[i] && !isValidSpotNumber(editFlatSpotInputs[i])}
+								<p class="text-destructive text-xs">Format requis : 2 chiffres (ex. 01, 36)</p>
+							{/if}
+						</div>
+					{/each}
+					<Button type="button" variant="outline" size="sm" class="w-full" onclick={addEditFlatSpot}>
+						<Plus class="mr-1 h-4 w-4" />
+						Ajouter une place
+					</Button>
+				</div>
+				<Button class="w-full" onclick={saveEditFlat} disabled={!editFlatSpotsValid || editFlatLoading}>
+					{editFlatLoading ? 'Enregistrement...' : 'Enregistrer'}
+				</Button>
+			</div>
+		{/if}
+	</Dialog.Content>
+</Dialog.Root>
+
 <!-- Dialog: Ajouter une place -->
 <Dialog.Root
 	open={openDialog === 'addSpot'}
@@ -661,13 +867,23 @@
 		<div class="space-y-4">
 			<div class="space-y-2">
 				<Label for="spot-number">Numéro</Label>
-				<Input id="spot-number" placeholder="ex. 36" bind:value={newSpotNumber} />
+				<Input
+					id="spot-number"
+					placeholder="ex. 01"
+					bind:value={newSpotNumber}
+					class={newSpotNumber && !newSpotValid ? 'border-destructive' : ''}
+				/>
+				{#if newSpotNumber && !newSpotValid}
+					<p class="text-destructive text-xs">Format requis : 2 chiffres (ex. 01, 36)</p>
+				{:else if newSpotNumber && newSpotExists}
+					<p class="text-destructive text-xs">Cette place existe déjà</p>
+				{/if}
 			</div>
 			<div class="space-y-2">
 				<Label for="spot-desc">Description (optionnel)</Label>
 				<Input id="spot-desc" placeholder="ex. Place handicapé" bind:value={newSpotDescription} />
 			</div>
-			<Button class="w-full" onclick={addSpot} disabled={!newSpotNumber.trim()}>Ajouter</Button>
+			<Button class="w-full" onclick={addSpot} disabled={!canAddSpot}>Ajouter</Button>
 		</div>
 	</Dialog.Content>
 </Dialog.Root>
@@ -699,6 +915,76 @@
 	</Dialog.Content>
 </Dialog.Root>
 
+<!-- Dialog: Échanger une place -->
+<Dialog.Root
+	open={openDialog === 'swapSpot'}
+	onOpenChange={(o) => {
+		if (!o) {
+			openDialog = null;
+			swapTarget = null;
+		}
+	}}
+>
+	<Dialog.Content>
+		{#if swapTarget}
+			<Dialog.Header>
+				<Dialog.Title>Échanger la place {swapTarget.number}</Dialog.Title>
+				<Dialog.Description>Assigner cette place à un appartement existant.</Dialog.Description>
+			</Dialog.Header>
+			<div class="space-y-4">
+				<div class="space-y-2">
+					<Label for="swap-flat">Appartement</Label>
+					<select
+						id="swap-flat"
+						class="border-input bg-background text-foreground flex h-8 w-full rounded-md border px-2 text-sm"
+						bind:value={swapFlatNumber}
+					>
+						<option value="">Sélectionner un appartement...</option>
+						{#each data.flats as f}
+							<option value={f.number}>{f.number}{f.displayName ? ` — ${f.displayName}` : ''}</option>
+						{/each}
+					</select>
+				</div>
+
+				{#if swapFlatNumber && swapFlatSpots.length > 0}
+					<div class="space-y-2">
+						<Label for="swap-spot">Place à échanger</Label>
+						<select
+							id="swap-spot"
+							class="border-input bg-background text-foreground flex h-8 w-full rounded-md border px-2 text-sm"
+							bind:value={swapSpotNumber}
+						>
+							<option value="">Sélectionner une place...</option>
+							{#each swapFlatSpots as s}
+								<option value={s.number}>Place {s.number}{s.description ? ` — ${s.description}` : ''}</option>
+							{/each}
+						</select>
+					</div>
+				{/if}
+
+				{#if swapFlatNumber}
+					<div class="rounded-md bg-muted p-3 text-xs text-muted-foreground">
+						{#if swapSpotNumber}
+							La place <strong class="text-foreground">{swapTarget.number}</strong> sera assignée à <strong class="text-foreground">{swapFlatNumber}</strong>.
+							La place <strong class="text-foreground">{swapSpotNumber}</strong> deviendra partagée.
+						{:else}
+							La place <strong class="text-foreground">{swapTarget.number}</strong> sera assignée à <strong class="text-foreground">{swapFlatNumber}</strong>.
+						{/if}
+					</div>
+				{/if}
+
+				<Button
+					class="w-full"
+					onclick={executeSwap}
+					disabled={!swapFlatNumber || swapLoading}
+				>
+					{swapLoading ? 'Échange...' : 'Échanger'}
+				</Button>
+			</div>
+		{/if}
+	</Dialog.Content>
+</Dialog.Root>
+
 <!-- Dialog: Ajouter un appartement -->
 <Dialog.Root
 	open={openDialog === 'addFlat'}
@@ -714,29 +1000,46 @@
 		<div class="space-y-4">
 			<div class="space-y-2">
 				<Label for="flat-number">Numéro d'appartement</Label>
-				<Input id="flat-number" placeholder="ex. B12" bind:value={newFlatNumber} />
+				<Input
+					id="flat-number"
+					placeholder="ex. B12"
+					bind:value={newFlatNumber}
+					oninput={() => { newFlatNumber = newFlatNumber.toUpperCase(); }}
+					class={newFlatNumber && !newFlatValid ? 'border-destructive' : ''}
+				/>
+				{#if newFlatNumber && !newFlatValid}
+					<p class="text-destructive text-xs">Format requis : A01 ou B12</p>
+				{:else if newFlatNumber && newFlatExists}
+					<p class="text-destructive text-xs">Cet appartement existe déjà</p>
+				{/if}
 			</div>
 			<div class="space-y-2">
 				<Label>Place(s) assignée(s)</Label>
 				{#each flatSpotInputs as _, i}
-					<div class="flex gap-2">
-						<Input
-							type="text"
-							placeholder="ex. 01"
-							value={flatSpotInputs[i]}
-							oninput={(e) => updateFlatSpot(i, e.currentTarget.value)}
-							required
-						/>
-						{#if flatSpotInputs.length > 1}
-							<Button
-								type="button"
-								variant="ghost"
-								size="icon"
-								class="shrink-0"
-								onclick={() => removeFlatSpot(i)}
-							>
-								<Trash2 class="h-4 w-4" />
-							</Button>
+					<div class="space-y-1">
+						<div class="flex gap-2">
+							<Input
+								type="text"
+								placeholder="ex. 01"
+								value={flatSpotInputs[i]}
+								oninput={(e) => updateFlatSpot(i, e.currentTarget.value)}
+								class={flatSpotInputs[i] && !isValidSpotNumber(flatSpotInputs[i]) ? 'border-destructive' : ''}
+								required
+							/>
+							{#if flatSpotInputs.length > 1}
+								<Button
+									type="button"
+									variant="ghost"
+									size="icon"
+									class="shrink-0"
+									onclick={() => removeFlatSpot(i)}
+								>
+									<Trash2 class="h-4 w-4" />
+								</Button>
+							{/if}
+						</div>
+						{#if flatSpotInputs[i] && !isValidSpotNumber(flatSpotInputs[i])}
+							<p class="text-destructive text-xs">Format requis : 2 chiffres (ex. 01, 36)</p>
 						{/if}
 					</div>
 				{/each}
@@ -745,7 +1048,7 @@
 					Ajouter une place
 				</Button>
 			</div>
-			<Button class="w-full" onclick={addFlat} disabled={!newFlatNumber.trim() || validFlatSpots.length === 0}>Ajouter</Button>
+			<Button class="w-full" onclick={addFlat} disabled={!canAddFlat}>Ajouter</Button>
 		</div>
 	</Dialog.Content>
 </Dialog.Root>

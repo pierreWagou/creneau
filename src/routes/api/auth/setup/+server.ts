@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { FLAT_NUMBER_REGEX } from '$lib/constants';
 import { createSession, hashPin, setSessionCookie, validatePin } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
@@ -19,6 +20,11 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			return json({ error: 'Champs obligatoires manquants' }, { status: 400 });
 		}
 
+		const normalizedFlat = flatNumber.trim().toUpperCase();
+		if (!FLAT_NUMBER_REGEX.test(normalizedFlat)) {
+			return json({ error: "Format d'appartement invalide (ex. A01, B12)" }, { status: 400 });
+		}
+
 		const pinError = validatePin(pin);
 		if (pinError) {
 			return json({ error: pinError }, { status: 400 });
@@ -29,7 +35,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		const result = await db
 			.insert(flat)
 			.values({
-				number: flatNumber.trim(),
+				number: normalizedFlat,
 				displayName: displayName?.trim() || null,
 				pinHash,
 				isAdmin: true,

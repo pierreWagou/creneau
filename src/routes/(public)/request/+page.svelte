@@ -7,6 +7,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import { isValidFlatNumber, isValidSpotNumber } from '$lib/constants';
 
 	let flatNumber = $state('');
 	let spotInputs = $state(['']);
@@ -27,8 +28,11 @@
 		spotInputs = spotInputs.map((s, i) => (i === index ? value : s));
 	}
 
+	const normalizedFlat = $derived(flatNumber.trim().toUpperCase());
 	const validSpots = $derived(spotInputs.map((s) => s.trim()).filter((s) => s.length > 0));
-	const canSubmit = $derived(flatNumber.trim().length > 0 && validSpots.length > 0 && !loading);
+	const flatValid = $derived(normalizedFlat.length > 0 && isValidFlatNumber(normalizedFlat));
+	const spotsValid = $derived(validSpots.length > 0 && validSpots.every(isValidSpotNumber));
+	const canSubmit = $derived(flatValid && spotsValid && !loading);
 
 	async function handleSubmit() {
 		if (!canSubmit) return;
@@ -39,7 +43,7 @@
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					flatNumber: flatNumber.trim(),
+					flatNumber: normalizedFlat,
 					spotNumbers: validSpots,
 					requesterName: requesterName.trim() || undefined
 				})
@@ -60,6 +64,7 @@
 	}
 </script>
 
+<div class="mx-auto w-full max-w-sm">
 <Card.Root class="shadow-sm">
 	<Card.Header class="pb-2 text-center">
 		<div class="mx-auto mb-2">
@@ -81,27 +86,34 @@
 				</a>
 			</div>
 		{:else}
-			<form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="space-y-4">
-				<div class="space-y-2">
-					<Label for="flat">Numéro d'appartement</Label>
-					<Input
-						id="flat"
-						type="text"
-						placeholder="ex. B12"
-						bind:value={flatNumber}
-						required
-					/>
-				</div>
+		<form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="space-y-4">
+			<div class="space-y-2">
+				<Label for="flat">Numéro d'appartement</Label>
+				<Input
+					id="flat"
+					type="text"
+					placeholder="ex. B12"
+					bind:value={flatNumber}
+					oninput={() => { flatNumber = flatNumber.toUpperCase(); }}
+					class={flatNumber && !flatValid ? 'border-destructive' : ''}
+					required
+				/>
+				{#if flatNumber && !flatValid}
+					<p class="text-destructive text-xs">Format requis : A01 ou B12</p>
+				{/if}
+			</div>
 
-				<div class="space-y-2">
-					<Label>Places de parking</Label>
-					{#each spotInputs as _, i}
+			<div class="space-y-2">
+				<Label>Places de parking</Label>
+				{#each spotInputs as _, i}
+					<div class="space-y-1">
 						<div class="flex gap-2">
 							<Input
 								type="text"
-								placeholder="ex. 36"
+								placeholder="ex. 01"
 								value={spotInputs[i]}
 								oninput={(e) => updateSpot(i, e.currentTarget.value)}
+								class={spotInputs[i] && !isValidSpotNumber(spotInputs[i]) ? 'border-destructive' : ''}
 								required
 							/>
 							{#if spotInputs.length > 1}
@@ -116,12 +128,16 @@
 								</Button>
 							{/if}
 						</div>
-					{/each}
-					<Button type="button" variant="outline" size="sm" class="w-full" onclick={addSpot}>
-						<Plus class="mr-1 h-4 w-4" />
-						Ajouter une place
-					</Button>
-				</div>
+						{#if spotInputs[i] && !isValidSpotNumber(spotInputs[i])}
+							<p class="text-destructive text-xs">Format requis : 2 chiffres (ex. 01, 36)</p>
+						{/if}
+					</div>
+				{/each}
+				<Button type="button" variant="outline" size="sm" class="w-full" onclick={addSpot}>
+					<Plus class="mr-1 h-4 w-4" />
+					Ajouter une place
+				</Button>
+			</div>
 
 				<div class="space-y-2">
 					<Label for="name">Nom d'affichage <span class="text-muted-foreground">(optionnel)</span></Label>
@@ -145,3 +161,4 @@
 		</p>
 	</Card.Footer>
 </Card.Root>
+</div>

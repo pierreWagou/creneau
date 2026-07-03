@@ -5,7 +5,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { ACTIVATION_CODE_LENGTH, PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '$lib/constants';
+	import { ACTIVATION_CODE_LENGTH, isValidFlatNumber, PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '$lib/constants';
 
 	let { data } = $props();
 
@@ -16,8 +16,12 @@
 	let confirmPin = $state('');
 	let loading = $state(false);
 
+	const normalizedFlat = $derived(flatNumber.trim().toUpperCase());
+	const flatValid = $derived(normalizedFlat.length > 0 && isValidFlatNumber(normalizedFlat));
+	const canSubmit = $derived(flatValid && activationCode.trim().length > 0 && !loading);
+
 	async function handleActivate() {
-		if (!flatNumber || !activationCode || !pin) return;
+		if (!canSubmit) return;
 
 		if (pin !== confirmPin) {
 			toast.error('Les codes PIN ne correspondent pas');
@@ -40,7 +44,7 @@
 			const res = await fetch('/api/auth/activate', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ flatNumber, activationCode, displayName, pin })
+				body: JSON.stringify({ flatNumber: normalizedFlat, activationCode, displayName, pin })
 			});
 
 			const result = await res.json();
@@ -59,6 +63,7 @@
 	}
 </script>
 
+<div class="mx-auto w-full max-w-sm">
 <Card.Root class="shadow-sm">
 	<Card.Header class="pb-2 text-center">
 		<Card.Title class="text-2xl font-bold tracking-tight">Activation</Card.Title>
@@ -66,10 +71,21 @@
 	</Card.Header>
 	<Card.Content>
 		<form onsubmit={(e) => { e.preventDefault(); handleActivate(); }} class="space-y-4">
-			<div class="space-y-2">
-				<Label for="flat">Numéro d'appartement</Label>
-				<Input id="flat" type="text" placeholder="ex. B12" bind:value={flatNumber} required />
-			</div>
+		<div class="space-y-2">
+			<Label for="flat">Numéro d'appartement</Label>
+			<Input
+				id="flat"
+				type="text"
+				placeholder="ex. B12"
+				bind:value={flatNumber}
+				oninput={() => { flatNumber = flatNumber.toUpperCase(); }}
+				class={flatNumber && !flatValid ? 'border-destructive' : ''}
+				required
+			/>
+			{#if flatNumber && !flatValid}
+				<p class="text-destructive text-xs">Format requis : A01 ou B12</p>
+			{/if}
+		</div>
 			<div class="space-y-2">
 				<Label for="code">Code d'activation</Label>
 				<Input
@@ -112,7 +128,7 @@
 					required
 				/>
 			</div>
-			<Button type="submit" class="w-full" disabled={loading}>
+			<Button type="submit" class="w-full" disabled={!canSubmit}>
 				{loading ? 'Activation...' : 'Activer'}
 			</Button>
 		</form>
@@ -125,3 +141,4 @@
 		</p>
 	</Card.Footer>
 </Card.Root>
+</div>
