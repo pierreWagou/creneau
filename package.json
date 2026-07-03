@@ -49,7 +49,7 @@
 		"tailwindcss": "^4.2.4",
 		"tsx": "^4.0.0",
 		"typescript": "^6.0.2",
-		"vite": "^8.0.7",
+		"vite": "^8.0.16",
 		"vitest": "^4.1.6",
 		"vitepress": "^1.6.3"
 	},
