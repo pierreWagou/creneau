@@ -6,7 +6,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '$lib/constants';
+	import { isValidFlatNumber, PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '$lib/constants';
 
 	let flatNumber = $state('');
 	let displayName = $state('');
@@ -14,8 +14,12 @@
 	let confirmPin = $state('');
 	let loading = $state(false);
 
+	const normalizedFlat = $derived(flatNumber.trim().toUpperCase());
+	const flatValid = $derived(normalizedFlat.length > 0 && isValidFlatNumber(normalizedFlat));
+	const canSubmit = $derived(flatValid && !loading);
+
 	async function handleSetup() {
-		if (!flatNumber || !pin) return;
+		if (!canSubmit) return;
 
 		if (pin !== confirmPin) {
 			toast.error('Les codes PIN ne correspondent pas');
@@ -38,7 +42,7 @@
 			const res = await fetch('/api/auth/setup', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ flatNumber, displayName, pin })
+				body: JSON.stringify({ flatNumber: normalizedFlat, displayName, pin })
 			});
 
 			const result = await res.json();
@@ -68,10 +72,21 @@
 	</Card.Header>
 	<Card.Content>
 		<form onsubmit={(e) => { e.preventDefault(); handleSetup(); }} class="space-y-4">
-			<div class="space-y-2">
-				<Label for="flat">Numéro d'appartement</Label>
-				<Input id="flat" type="text" placeholder="ex. B12" bind:value={flatNumber} required />
-			</div>
+		<div class="space-y-2">
+			<Label for="flat">Numéro d'appartement</Label>
+			<Input
+				id="flat"
+				type="text"
+				placeholder="ex. B12"
+				bind:value={flatNumber}
+				oninput={() => { flatNumber = flatNumber.toUpperCase(); }}
+				class={flatNumber && !flatValid ? 'border-destructive' : ''}
+				required
+			/>
+			{#if flatNumber && !flatValid}
+				<p class="text-destructive text-xs">Format requis : A01 ou B12</p>
+			{/if}
+		</div>
 			<div class="space-y-2">
 				<Label for="name">Votre prénom (optionnel)</Label>
 				<Input id="name" type="text" placeholder="ex. Marc" bind:value={displayName} />
@@ -102,7 +117,7 @@
 					required
 				/>
 			</div>
-			<Button type="submit" class="w-full" disabled={loading}>
+			<Button type="submit" class="w-full" disabled={!canSubmit}>
 				{loading ? 'Configuration...' : 'Créer le compte administrateur'}
 			</Button>
 		</form>

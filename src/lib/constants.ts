@@ -32,3 +32,24 @@ export const MS_PER_HOUR = 3_600_000;
 
 /** Session duration in days */
 export const SESSION_DURATION_DAYS = 30;
+
+/** Flat number format: letter A/B + 2 digits (e.g. A01, B12) */
+export const FLAT_NUMBER_REGEX = /^[AB]\d{2}$/;
+
+/** Spot number format: 2 digits (e.g. 01, 36) */
+export const SPOT_NUMBER_REGEX = /^\d{2}$/;
+
+/** Check if a string is a valid flat number (A/B + 2 digits) */
+export function isValidFlatNumber(n: string): boolean {
+	return FLAT_NUMBER_REGEX.test(n.toUpperCase());
+}
+
+/** Check if a string is a valid spot number (2 digits) */
+export function isValidSpotNumber(n: string): boolean {
+	return SPOT_NUMBER_REGEX.test(n.trim());
+}
+
+/** Uppercase and trim a flat number */
+export function normalizeFlatNumber(n: string): string {
+	return n.trim().toUpperCase();
+}

@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
+import { FLAT_NUMBER_REGEX, SPOT_NUMBER_REGEX } from '$lib/constants';
 import { db } from '$lib/server/db';
 import { flat, flatRequest, spot } from '$lib/server/db/schema';
 import { checkRateLimit, rateLimitErrorMessage, recordFailedAttempt, resetAttempts } from '$lib/server/rate-limit';
@@ -13,11 +14,22 @@ export const POST: RequestHandler = async ({ request }) => {
 			return json({ error: "Numéro d'appartement et au moins une place requis" }, { status: 400 });
 		}
 
-		const trimmedFlat = flatNumber.trim();
+		const trimmedFlat = flatNumber.trim().toUpperCase();
+
+		if (!FLAT_NUMBER_REGEX.test(trimmedFlat)) {
+			return json({ error: "Format d'appartement invalide (ex. A01, B12)" }, { status: 400 });
+		}
+
 		const trimmedSpots = [...new Set(spotNumbers.map((s: unknown) => String(s).trim()).filter((s) => s.length > 0))];
 
 		if (trimmedSpots.length === 0) {
 			return json({ error: 'Aucun numéro de place valide' }, { status: 400 });
+		}
+
+		for (const s of trimmedSpots) {
+			if (!SPOT_NUMBER_REGEX.test(s)) {
+				return json({ error: `Format de place invalide : "${s}" (ex. 01, 36)` }, { status: 400 });
+			}
 		}
 
 		// Rate limit by flat number

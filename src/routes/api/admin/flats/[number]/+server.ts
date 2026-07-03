@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { and, eq, notInArray } from 'drizzle-orm';
+import { SPOT_NUMBER_REGEX } from '$lib/constants';
 import { db } from '$lib/server/db';
 import { flat, spot } from '$lib/server/db/schema';
 import { requireAdmin } from '$lib/server/guards';
@@ -25,6 +26,12 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
 			if (trimmedSpots.length === 0) {
 				return json({ error: 'Un appartement doit avoir au moins une place' }, { status: 400 });
+			}
+
+			for (const s of trimmedSpots) {
+				if (!SPOT_NUMBER_REGEX.test(s)) {
+					return json({ error: `Format de place invalide : "${s}" (ex. 01, 36)` }, { status: 400 });
+				}
 			}
 
 			// Verify flat exists
