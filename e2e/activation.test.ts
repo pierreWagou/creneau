@@ -15,15 +15,17 @@ test.describe
 			await navigateTo(page, '/admin');
 
 			// Create each test flat via the dialog
-			for (const flat of TEST_FLATS) {
+			for (let i = 0; i < TEST_FLATS.length; i++) {
+				const flat = TEST_FLATS[i];
 				// Click the "Ajouter" button (first match — page-level, not the one inside the dialog)
 				await page.getByRole('button', { name: 'Ajouter', exact: true }).first().click();
 
 				const dialog = page.locator('[role="dialog"]');
 				await dialog.waitFor();
 				await dialog.locator('[id="flat-number"]').fill(flat.number);
-				// Fill a spot number (required now)
-				await dialog.locator('input[placeholder="ex. 01"]').fill(`S${flat.number}`);
+				// Fill a valid 2-digit spot number
+				const spotNumber = String(10 + i).padStart(2, '0');
+				await dialog.locator('input[placeholder="ex. 01"]').fill(spotNumber);
 				await dialog.getByRole('button', { name: 'Ajouter', exact: true }).click();
 				// Wait for dialog to close and flat to appear
 				await expect(page.getByText(flat.number).first()).toBeVisible();
