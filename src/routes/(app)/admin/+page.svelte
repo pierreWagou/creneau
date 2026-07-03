@@ -379,7 +379,10 @@
 </script>
 
 <div class="space-y-8">
-	<h2 class="page-title">Administration</h2>
+	<div class="flex items-center justify-between">
+		<h2 class="page-title">Administration</h2>
+		<a href="/admin/guide" class="inline-link text-sm">Guide admin →</a>
+	</div>
 
 	<!-- Demandes en attente -->
 	{#if pendingRequests.length > 0}

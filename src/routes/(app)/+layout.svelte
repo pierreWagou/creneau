@@ -1,4 +1,5 @@
 <script lang="ts">
+	import BookOpen from '@lucide/svelte/icons/book-open';
 	import CalendarDays from '@lucide/svelte/icons/calendar-days';
 	import ChartBar from '@lucide/svelte/icons/chart-bar';
 	import CirclePlus from '@lucide/svelte/icons/circle-plus';
@@ -54,6 +55,11 @@
 				{#if data.flat.isAdmin}
 					<a href="/admin">
 						<Button variant="ghost" size="sm">Admin</Button>
+					</a>
+					<a href="/admin/guide">
+						<Button variant="ghost" size="sm" class="text-muted-foreground h-8 w-8 p-0">
+							<BookOpen class="h-4 w-4" />
+						</Button>
 					</a>
 				{/if}
 				<Button variant="ghost" size="sm" onclick={toggleMode} class="text-muted-foreground h-8 w-8 p-0">
