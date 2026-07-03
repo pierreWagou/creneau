@@ -60,6 +60,7 @@
 	}
 </script>
 
+<div class="mx-auto w-full max-w-sm">
 <Card.Root class="shadow-sm">
 	<Card.Header class="pb-2 text-center">
 		<div class="mx-auto mb-2">
@@ -145,3 +146,4 @@
 		</p>
 	</Card.Footer>
 </Card.Root>
+</div>

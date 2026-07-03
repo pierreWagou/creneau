@@ -4,6 +4,7 @@
 	import CirclePlus from '@lucide/svelte/icons/circle-plus';
 	import CircleUser from '@lucide/svelte/icons/circle-user';
 	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
+	import LifeBuoy from '@lucide/svelte/icons/life-buoy';
 	import Moon from '@lucide/svelte/icons/moon';
 	import Sun from '@lucide/svelte/icons/sun';
 	import { mode, toggleMode } from 'mode-watcher';
@@ -63,6 +64,11 @@
 					{/if}
 				</Button>
 				<AboutDialog />
+				<a href="/about">
+					<Button variant="ghost" size="sm" class="text-muted-foreground h-8 w-8 p-0">
+						<LifeBuoy class="h-4 w-4" />
+					</Button>
+				</a>
 				<a href="/account">
 					<Button variant="ghost" size="sm" class="text-foreground gap-1.5 font-semibold">
 						<CircleUser class="h-4 w-4" />
