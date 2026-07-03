@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ArrowLeftRight from '@lucide/svelte/icons/arrow-left-right';
 	import Check from '@lucide/svelte/icons/check';
 	import ClipboardCopy from '@lucide/svelte/icons/clipboard-copy';
 	import Pencil from '@lucide/svelte/icons/pencil';
@@ -21,7 +22,7 @@
 	let { data } = $props();
 
 	// Dialog state
-	type AdminDialog = 'addSpot' | 'editSpot' | 'addFlat' | 'flatDetail' | null;
+	type AdminDialog = 'addSpot' | 'editSpot' | 'addFlat' | 'flatDetail' | 'swapSpot' | null;
 	let openDialog = $state<AdminDialog>(null);
 
 	// Form state
@@ -32,6 +33,26 @@
 	let editSpotDescription = $state('');
 	let flatSpotInputs = $state(['']);
 	let selectedFlat = $state<(typeof data.flats)[0] | null>(null);
+
+	// Swap state
+	let swapTarget = $state<(typeof data.spots)[0] | null>(null);
+	let swapFlatNumber = $state('');
+	let swapSpotNumber = $state('');
+	let swapLoading = $state(false);
+
+	const swapFlatSpots = $derived(
+		swapFlatNumber
+			? data.spots.filter((s) => s.flatNumber === swapFlatNumber)
+			: []
+	);
+
+	$effect(() => {
+		if (swapFlatSpots.length === 1) {
+			swapSpotNumber = swapFlatSpots[0].number;
+		} else {
+			swapSpotNumber = '';
+		}
+	});
 
 	// Derived
 	const sharedSpots = $derived(data.spots.filter((s) => !s.flatNumber));
@@ -333,6 +354,42 @@
 		confirmAction = { type: 'rejectRequest', requestId };
 	}
 
+	function showSwapSpot(s: (typeof data.spots)[0]) {
+		swapTarget = s;
+		swapFlatNumber = '';
+		swapSpotNumber = '';
+		openDialog = 'swapSpot';
+	}
+
+	async function executeSwap() {
+		if (!swapTarget || !swapFlatNumber) return;
+		swapLoading = true;
+		try {
+			const res = await fetch('/api/admin/spots/swap', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					spotNumber: swapTarget.number,
+					flatNumber: swapFlatNumber,
+					targetSpotNumber: swapSpotNumber || undefined
+				})
+			});
+			if (res.ok) {
+				toast.success(`Place "${swapTarget.number}" échangée`);
+				openDialog = null;
+				swapTarget = null;
+				invalidateAll();
+			} else {
+				const result = await res.json();
+				toast.error(result.error || "Impossible d'échanger la place");
+			}
+		} catch {
+			toast.error("Erreur lors de l'échange");
+		} finally {
+			swapLoading = false;
+		}
+	}
+
 	async function approveRequest(requestId: number) {
 		approvingRequest = requestId;
 		try {
@@ -453,14 +510,19 @@
 								<p class="text-muted-foreground text-sm">{s.description}</p>
 							{/if}
 						</div>
-						<div class="flex items-center gap-1">
-							<Button size="sm" variant="ghost" onclick={() => showEditSpot(s)}>
-								<Pencil class="h-3.5 w-3.5" />
-							</Button>
-						<Button size="sm" variant="ghost" class="text-destructive hover:text-destructive" aria-label="Supprimer" onclick={() => confirmDeleteSpot(s.number)}>
-							<Trash2 class="h-3.5 w-3.5" />
+					<div class="flex items-center gap-1">
+						<Button size="sm" variant="ghost" onclick={() => showEditSpot(s)}>
+							<Pencil class="h-3.5 w-3.5" />
 						</Button>
-						</div>
+						{#if data.flats.length > 0}
+							<Button size="sm" variant="ghost" aria-label="Échanger" onclick={() => showSwapSpot(s)}>
+								<ArrowLeftRight class="h-3.5 w-3.5" />
+							</Button>
+						{/if}
+					<Button size="sm" variant="ghost" class="text-destructive hover:text-destructive" aria-label="Supprimer" onclick={() => confirmDeleteSpot(s.number)}>
+						<Trash2 class="h-3.5 w-3.5" />
+					</Button>
+					</div>
 					</div>
 				{/each}
 				</div>
@@ -697,6 +759,76 @@
 					<Input id="edit-spot-desc" placeholder="ex. Place handicapé" bind:value={editSpotDescription} />
 				</div>
 				<Button class="w-full" onclick={saveEditSpot}>Enregistrer</Button>
+			</div>
+		{/if}
+	</Dialog.Content>
+</Dialog.Root>
+
+<!-- Dialog: Échanger une place -->
+<Dialog.Root
+	open={openDialog === 'swapSpot'}
+	onOpenChange={(o) => {
+		if (!o) {
+			openDialog = null;
+			swapTarget = null;
+		}
+	}}
+>
+	<Dialog.Content>
+		{#if swapTarget}
+			<Dialog.Header>
+				<Dialog.Title>Échanger la place {swapTarget.number}</Dialog.Title>
+				<Dialog.Description>Assigner cette place à un appartement existant.</Dialog.Description>
+			</Dialog.Header>
+			<div class="space-y-4">
+				<div class="space-y-2">
+					<Label for="swap-flat">Appartement</Label>
+					<select
+						id="swap-flat"
+						class="border-input bg-background text-foreground flex h-8 w-full rounded-md border px-2 text-sm"
+						bind:value={swapFlatNumber}
+					>
+						<option value="">Sélectionner un appartement...</option>
+						{#each data.flats as f}
+							<option value={f.number}>{f.number}{f.displayName ? ` — ${f.displayName}` : ''}</option>
+						{/each}
+					</select>
+				</div>
+
+				{#if swapFlatNumber && swapFlatSpots.length > 0}
+					<div class="space-y-2">
+						<Label for="swap-spot">Place à échanger</Label>
+						<select
+							id="swap-spot"
+							class="border-input bg-background text-foreground flex h-8 w-full rounded-md border px-2 text-sm"
+							bind:value={swapSpotNumber}
+						>
+							<option value="">Sélectionner une place...</option>
+							{#each swapFlatSpots as s}
+								<option value={s.number}>Place {s.number}{s.description ? ` — ${s.description}` : ''}</option>
+							{/each}
+						</select>
+					</div>
+				{/if}
+
+				{#if swapFlatNumber}
+					<div class="rounded-md bg-muted p-3 text-xs text-muted-foreground">
+						{#if swapSpotNumber}
+							La place <strong class="text-foreground">{swapTarget.number}</strong> sera assignée à <strong class="text-foreground">{swapFlatNumber}</strong>.
+							La place <strong class="text-foreground">{swapSpotNumber}</strong> deviendra partagée.
+						{:else}
+							La place <strong class="text-foreground">{swapTarget.number}</strong> sera assignée à <strong class="text-foreground">{swapFlatNumber}</strong>.
+						{/if}
+					</div>
+				{/if}
+
+				<Button
+					class="w-full"
+					onclick={executeSwap}
+					disabled={!swapFlatNumber || swapLoading}
+				>
+					{swapLoading ? 'Échange...' : 'Échanger'}
+				</Button>
 			</div>
 		{/if}
 	</Dialog.Content>
