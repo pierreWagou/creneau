@@ -22,7 +22,7 @@
 	let { data } = $props();
 
 	// Dialog state
-	type AdminDialog = 'addSpot' | 'editSpot' | 'addFlat' | 'flatDetail' | 'swapSpot' | null;
+	type AdminDialog = 'addSpot' | 'editSpot' | 'addFlat' | 'flatDetail' | 'swapSpot' | 'editFlat' | null;
 	let openDialog = $state<AdminDialog>(null);
 
 	// Form state
@@ -39,6 +39,11 @@
 	let swapFlatNumber = $state('');
 	let swapSpotNumber = $state('');
 	let swapLoading = $state(false);
+
+	// Edit flat state
+	let editFlatDisplayName = $state('');
+	let editFlatSpotInputs = $state<string[]>(['']);
+	let editFlatLoading = $state(false);
 
 	const swapFlatSpots = $derived(
 		swapFlatNumber
@@ -138,6 +143,59 @@
 	function openFlatDetail(f: (typeof data.flats)[0]) {
 		selectedFlat = f;
 		openDialog = 'flatDetail';
+	}
+
+	function openEditFlat(f: (typeof data.flats)[0]) {
+		selectedFlat = f;
+		editFlatDisplayName = f.displayName ?? '';
+		editFlatSpotInputs = getBoundSpots(f);
+		if (editFlatSpotInputs.length === 0) editFlatSpotInputs = [''];
+		openDialog = 'editFlat';
+	}
+
+	function addEditFlatSpot() {
+		editFlatSpotInputs = [...editFlatSpotInputs, ''];
+	}
+
+	function removeEditFlatSpot(index: number) {
+		if (editFlatSpotInputs.length <= 1) return;
+		editFlatSpotInputs = editFlatSpotInputs.filter((_, i) => i !== index);
+	}
+
+	function updateEditFlatSpot(index: number, value: string) {
+		editFlatSpotInputs = editFlatSpotInputs.map((s, i) => (i === index ? value : s));
+	}
+
+	const validEditFlatSpots = $derived(
+		editFlatSpotInputs.map((s) => s.trim()).filter((s) => s.length > 0)
+	);
+
+	async function saveEditFlat() {
+		if (!selectedFlat || validEditFlatSpots.length === 0) return;
+		editFlatLoading = true;
+		try {
+			const res = await fetch(`/api/admin/flats/${encodeURIComponent(selectedFlat.number)}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					displayName: editFlatDisplayName.trim() || null,
+					spotNumbers: validEditFlatSpots
+				})
+			});
+			if (res.ok) {
+				toast.success('Appartement mis à jour');
+				openDialog = null;
+				selectedFlat = null;
+				invalidateAll();
+			} else {
+				const result = await res.json();
+				toast.error(result.error || "Impossible de modifier l'appartement");
+			}
+		} catch {
+			toast.error("Erreur lors de la modification");
+		} finally {
+			editFlatLoading = false;
+		}
 	}
 
 	async function copyLink(f: (typeof data.flats)[0] | null) {
@@ -644,6 +702,10 @@
 					{/if}
 				</div>
 
+				<Button size="sm" variant="outline" onclick={() => openEditFlat(selectedFlat!)}>
+					Modifier
+				</Button>
+
 				<!-- Invitation section (for non-active flats) -->
 				{#if state !== 'active'}
 					<Separator />
@@ -705,6 +767,64 @@
 				<Separator />
 				<Button size="sm" variant="destructive" class="w-full" onclick={() => confirmDeleteFlat(selectedFlat!.number)}>
 					Supprimer l'appartement
+				</Button>
+			</div>
+		{/if}
+	</Dialog.Content>
+</Dialog.Root>
+
+<!-- Dialog: Modifier un appartement -->
+<Dialog.Root
+	open={openDialog === 'editFlat'}
+	onOpenChange={(o) => {
+		if (!o) {
+			openDialog = null;
+			selectedFlat = null;
+		}
+	}}
+>
+	<Dialog.Content>
+		{#if selectedFlat}
+			<Dialog.Header>
+				<Dialog.Title>Modifier {selectedFlat.number}</Dialog.Title>
+				<Dialog.Description>Modifier le nom et les places assignées.</Dialog.Description>
+			</Dialog.Header>
+			<div class="space-y-4">
+				<div class="space-y-2">
+					<Label for="edit-flat-name">Nom d'affichage (optionnel)</Label>
+					<Input id="edit-flat-name" placeholder="ex. Jean, Famille Dupont" bind:value={editFlatDisplayName} />
+				</div>
+				<div class="space-y-2">
+					<Label>Place(s) assignée(s)</Label>
+					{#each editFlatSpotInputs as _, i}
+						<div class="flex gap-2">
+							<Input
+								type="text"
+								placeholder="ex. 01"
+								value={editFlatSpotInputs[i]}
+								oninput={(e) => updateEditFlatSpot(i, e.currentTarget.value)}
+								required
+							/>
+							{#if editFlatSpotInputs.length > 1}
+								<Button
+									type="button"
+									variant="ghost"
+									size="icon"
+									class="shrink-0"
+									onclick={() => removeEditFlatSpot(i)}
+								>
+									<Trash2 class="h-4 w-4" />
+								</Button>
+							{/if}
+						</div>
+					{/each}
+					<Button type="button" variant="outline" size="sm" class="w-full" onclick={addEditFlatSpot}>
+						<Plus class="mr-1 h-4 w-4" />
+						Ajouter une place
+					</Button>
+				</div>
+				<Button class="w-full" onclick={saveEditFlat} disabled={validEditFlatSpots.length === 0 || editFlatLoading}>
+					{editFlatLoading ? 'Enregistrement...' : 'Enregistrer'}
 				</Button>
 			</div>
 		{/if}
