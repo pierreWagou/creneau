@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { FLAT_NUMBER_REGEX } from '$lib/constants';
 import { createSession, hashPin, setSessionCookie, validatePin } from '$lib/server/auth';
+import { setFlatEmails, setFlatPhones, validateEmails, validatePhones } from '$lib/server/contacts';
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
 import type { RequestHandler } from './$types';
@@ -13,7 +14,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			return json({ error: "L'application est déjà configurée" }, { status: 409 });
 		}
 
-		const { flatNumber, displayName, pin } = await request.json();
+		const { flatNumber, displayName, pin, emails, phones } = await request.json();
 
 		// Validate input
 		if (!flatNumber || !pin) {
@@ -30,20 +31,36 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			return json({ error: pinError }, { status: 400 });
 		}
 
+		const validatedEmails = validateEmails(emails);
+		if (typeof validatedEmails === 'string') {
+			return json({ error: validatedEmails }, { status: 400 });
+		}
+
+		const validatedPhones = validatePhones(phones);
+		if (typeof validatedPhones === 'string') {
+			return json({ error: validatedPhones }, { status: 400 });
+		}
+
 		// Create admin flat (already active, no activation code)
 		const pinHash = await hashPin(pin);
 		const result = await db
 			.insert(flat)
 			.values({
 				number: normalizedFlat,
+				status: 'active',
 				displayName: displayName?.trim() || null,
 				pinHash,
 				isAdmin: true,
-				isActive: true,
 				activatedAt: new Date().toISOString()
 			})
 			.returning()
 			.get();
+
+		// Insert emails and phones
+		await Promise.all([
+			setFlatEmails(db, normalizedFlat, validatedEmails),
+			setFlatPhones(db, normalizedFlat, validatedPhones)
+		]);
 
 		// Create session and set cookie
 		const sessionId = await createSession(result.number);

@@ -409,12 +409,12 @@
 </script>
 
 <div class="mx-auto max-w-md space-y-4">
-	<h2 class="page-title">Réserver une place</h2>
+	<h2 class="page-title">Réserver une place de parking</h2>
 
 	<!-- Date selection -->
 	<Card.Root>
 		<Card.Header>
-			<Card.Title>Quand avez-vous besoin de la place ?</Card.Title>
+			<Card.Title>Quand avez-vous besoin de la place de parking ?</Card.Title>
 			<p class="text-muted-foreground text-sm">Sélectionnez un jour ou une plage de dates</p>
 		</Card.Header>
 		<Card.Content class="space-y-4">
@@ -424,7 +424,7 @@
 					<Tabs.Root bind:value={selectedSpot}>
 						<Tabs.List>
 							{#each data.spots as s}
-								<Tabs.Trigger value={s.number}>Place {s.number}</Tabs.Trigger>
+								<Tabs.Trigger value={s.number}>{s.number}</Tabs.Trigger>
 							{/each}
 						</Tabs.List>
 					</Tabs.Root>
@@ -732,14 +732,14 @@
 					{/if}
 					{#if data.spots.length > 1}
 						<p>
-							<span class="font-medium">Place :</span>
+							<span class="font-medium">Place de parking :</span>
 							{data.spots.find((s: { number: string }) => s.number === selectedSpot)?.number}
 						</p>
 					{/if}
 				</div>
 
 				<div class="space-y-2">
-					<Label for="note">Note (optionnel)</Label>
+					<Label for="note">Note</Label>
 					<Input id="note" type="text" placeholder="ex. livraison prévue" bind:value={note} />
 				</div>
 

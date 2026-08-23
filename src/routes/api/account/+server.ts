@@ -2,14 +2,19 @@ import { json } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { DISPLAY_NAME_MAX_LENGTH } from '$lib/constants';
 import { hashPin, validatePin, verifyPin } from '$lib/server/auth';
+import {
+	getFlatEmails,
+	getFlatPhones,
+	setFlatEmails,
+	setFlatPhones,
+	validateEmails,
+	validatePhones
+} from '$lib/server/contacts';
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
 import { requireAuth } from '$lib/server/guards';
 import type { RequestHandler } from './$types';
 
-/**
- * PATCH /api/account — Update display name
- */
 export const PATCH: RequestHandler = async ({ request, locals }) => {
 	const guard = requireAuth(locals);
 	if (guard) return guard;
@@ -21,18 +26,46 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
 		if ('displayName' in body) {
 			const name = body.displayName?.trim() || null;
 			if (name && name.length > DISPLAY_NAME_MAX_LENGTH) {
-				return json({ error: `Le nom ne peut pas dépasser ${DISPLAY_NAME_MAX_LENGTH} caractères` }, { status: 400 });
+				return json({ error: `Le nom ne doit pas dépasser ${DISPLAY_NAME_MAX_LENGTH} caractères` }, { status: 400 });
 			}
 			allowedFields.displayName = name;
 		}
 
-		if (Object.keys(allowedFields).length === 0) {
-			return json({ error: 'Aucun champ valide à mettre à jour' }, { status: 400 });
+		// Handle email updates
+		if ('emails' in body) {
+			const validatedEmails = validateEmails(body.emails);
+			if (typeof validatedEmails === 'string') {
+				return json({ error: validatedEmails }, { status: 400 });
+			}
+			await setFlatEmails(db, locals.flat!.number, validatedEmails);
 		}
 
-		await db.update(flat).set(allowedFields).where(eq(flat.number, locals.flat!.number));
+		// Handle phone updates
+		if ('phones' in body) {
+			const validatedPhones = validatePhones(body.phones);
+			if (typeof validatedPhones === 'string') {
+				return json({ error: validatedPhones }, { status: 400 });
+			}
+			await setFlatPhones(db, locals.flat!.number, validatedPhones);
+		}
 
-		return json({ success: true });
+		if (Object.keys(allowedFields).length > 0) {
+			await db.update(flat).set(allowedFields).where(eq(flat.number, locals.flat!.number));
+		}
+
+		const updated = await db.select().from(flat).where(eq(flat.number, locals.flat!.number)).get();
+		const [emails, phones] = await Promise.all([
+			getFlatEmails(db, locals.flat!.number),
+			getFlatPhones(db, locals.flat!.number)
+		]);
+
+		return json({
+			flat: {
+				...updated,
+				emails,
+				phones
+			}
+		});
 	} catch (e) {
 		if (e instanceof SyntaxError) {
 			return json({ error: 'Requête invalide' }, { status: 400 });
@@ -42,9 +75,6 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
 	}
 };
 
-/**
- * POST /api/account — Change PIN
- */
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const guard = requireAuth(locals);
 	if (guard) return guard;
@@ -53,7 +83,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		const { currentPin, newPin } = await request.json();
 
 		if (!currentPin || !newPin) {
-			return json({ error: 'PIN actuel et nouveau PIN requis' }, { status: 400 });
+			return json({ error: 'Champs obligatoires manquants' }, { status: 400 });
 		}
 
 		const pinError = validatePin(newPin);
@@ -61,21 +91,20 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			return json({ error: pinError }, { status: 400 });
 		}
 
-		// Fetch current pin hash
-		const existingFlat = await db.select().from(flat).where(eq(flat.number, locals.flat!.number)).get();
-		if (!existingFlat?.pinHash) {
-			return json({ error: 'Appartement introuvable' }, { status: 404 });
-		}
-
 		// Verify current PIN
-		const valid = await verifyPin(currentPin, existingFlat.pinHash);
-		if (!valid) {
-			return json({ error: 'PIN actuel incorrect' }, { status: 400 });
+		const existing = await db.select().from(flat).where(eq(flat.number, locals.flat!.number)).get();
+		if (!existing?.pinHash) {
+			return json({ error: 'Aucun PIN configuré' }, { status: 400 });
 		}
 
-		// Hash and save new PIN
-		const newHash = await hashPin(newPin);
-		await db.update(flat).set({ pinHash: newHash }).where(eq(flat.number, locals.flat!.number));
+		const valid = await verifyPin(currentPin, existing.pinHash);
+		if (!valid) {
+			return json({ error: 'PIN actuel incorrect' }, { status: 401 });
+		}
+
+		// Update PIN
+		const pinHash = await hashPin(newPin);
+		await db.update(flat).set({ pinHash }).where(eq(flat.number, locals.flat!.number));
 
 		return json({ success: true });
 	} catch (e) {

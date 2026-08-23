@@ -14,6 +14,15 @@ test.describe
 
 			await page.fill('[id="flat"]', ADMIN_FLAT);
 			await page.fill('[id="name"]', 'Admin');
+
+			// Add an email (required)
+			await page.locator('input[type="email"]').fill('admin@test.com');
+			await page.keyboard.press('Enter');
+
+			// Add a phone (required)
+			await page.locator('input[type="tel"]').fill('+33612345678');
+			await page.keyboard.press('Enter');
+
 			await page.fill('[id="pin"]', ADMIN_PIN);
 			await page.fill('[id="pin-confirm"]', ADMIN_PIN);
 			await page.click('button[type="submit"]');
@@ -38,7 +47,7 @@ test.describe
 
 			// Go to admin page and open the add spot dialog
 			await navigateTo(page, '/admin');
-			const btn = page.getByRole('button', { name: 'Ajouter une place' });
+			const btn = page.getByRole('button', { name: 'Ajouter', exact: true }).first();
 			await btn.click();
 
 			// Fill spot number in the dialog

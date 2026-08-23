@@ -7,6 +7,10 @@ import { booking, flat, spot } from '$lib/server/db/schema';
 import { DAY_END, DAY_START } from '$lib/types';
 import type { PageServerLoad } from './$types';
 
+function roundToTenth(n: number): number {
+	return Math.round(n * 10) / 10;
+}
+
 function computeHours(bookings: { startTime: string; endTime: string }[]): number {
 	return bookings.reduce((sum, b) => {
 		const ms = new Date(b.endTime).getTime() - new Date(b.startTime).getTime();
@@ -30,7 +34,7 @@ function computeRanking(
 	}
 
 	return Array.from(grouped.entries())
-		.map(([flatNumber, { displayName, hours }]) => ({ flatNumber, displayName, hours: Math.round(hours * 10) / 10 }))
+		.map(([flatNumber, { displayName, hours }]) => ({ flatNumber, displayName, hours: roundToTenth(hours) }))
 		.filter((e) => e.hours > 0)
 		.sort((a, b) => b.hours - a.hours);
 }
@@ -48,12 +52,12 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	const now = new Date().toISOString();
 	const upcomingBookings = userBookings.filter((b) => b.endTime > now);
-	const totalHours = Math.round(computeHours(userBookings) * 10) / 10;
+	const totalHours = roundToTenth(computeHours(userBookings));
 
 	const monthStart = format(startOfMonth(new Date()), "yyyy-MM-dd'T'HH:mm:ss");
 	const monthEnd = format(endOfMonth(new Date()), "yyyy-MM-dd'T'HH:mm:ss");
 	const userMonthBookings = userBookings.filter((b) => b.startTime >= monthStart && b.startTime <= monthEnd);
-	const monthHours = Math.round(computeHours(userMonthBookings) * 10) / 10;
+	const monthHours = roundToTenth(computeHours(userMonthBookings));
 
 	// --- Building stats ---
 	const allBookingsWithFlat = await db

@@ -41,3 +41,7 @@ run = "npm run release:patch"
 [tasks."release:minor"]
 description = "Bump minor version, commit, tag, and push"
 run = "npm run release:minor"
+
+[tasks."release:major"]
+description = "Bump major version, commit, tag, and push"
+run = "npm run release:major"

@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
-import { SPOT_NUMBER_REGEX } from '$lib/constants';
+import { formatSpotNumber, SPOT_NUMBER_REGEX } from '$lib/constants';
 import { db } from '$lib/server/db';
 import { spot } from '$lib/server/db/schema';
 import { requireAdmin } from '$lib/server/guards';
@@ -14,18 +14,18 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		const { number, description } = await request.json();
 
 		if (!number) {
-			return json({ error: 'Numéro de la place requis' }, { status: 400 });
+			return json({ error: 'Numéro de la place de parking requis' }, { status: 400 });
 		}
 
-		const spotNumber = number.trim();
+		const spotNumber = formatSpotNumber(number.trim());
 		if (!SPOT_NUMBER_REGEX.test(spotNumber)) {
-			return json({ error: 'Format de place invalide (ex. 01, 36)' }, { status: 400 });
+			return json({ error: 'Format de place de parking invalide (ex. 01, 36)' }, { status: 400 });
 		}
 
 		// Check spot doesn't already exist
 		const existingSpot = await db.select().from(spot).where(eq(spot.number, spotNumber)).get();
 		if (existingSpot) {
-			return json({ error: 'Cette place existe déjà' }, { status: 409 });
+			return json({ error: 'Cette place de parking existe déjà' }, { status: 409 });
 		}
 
 		const result = await db

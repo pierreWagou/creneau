@@ -24,32 +24,32 @@ export const MAX_BOOKING_HOURS = 168;
 /** Length of generated activation codes (characters) */
 export const ACTIVATION_CODE_LENGTH = 4;
 
-/** Maximum number of flats that can be created in a single bulk request */
-export const MAX_FLAT_BULK_SIZE = 100;
-
 /** Milliseconds per hour */
 export const MS_PER_HOUR = 3_600_000;
 
 /** Session duration in days */
 export const SESSION_DURATION_DAYS = 30;
 
+/** Maximum number of emails or phones per flat */
+export const MAX_CONTACTS_PER_TYPE = 5;
+
 /** Flat number format: letter A/B + 2 digits (e.g. A01, B12) */
 export const FLAT_NUMBER_REGEX = /^[AB]\d{2}$/;
 
-/** Spot number format: 2 digits (e.g. 01, 36) */
-export const SPOT_NUMBER_REGEX = /^\d{2}$/;
+/** Spot number format: 1 or 2 digits (e.g. 3, 01, 36) */
+export const SPOT_NUMBER_REGEX = /^\d{1,2}$/;
 
 /** Check if a string is a valid flat number (A/B + 2 digits) */
 export function isValidFlatNumber(n: string): boolean {
 	return FLAT_NUMBER_REGEX.test(n.toUpperCase());
 }
 
-/** Check if a string is a valid spot number (2 digits) */
+/** Check if a string is a valid spot number (1-2 digits) */
 export function isValidSpotNumber(n: string): boolean {
 	return SPOT_NUMBER_REGEX.test(n.trim());
 }
 
-/** Uppercase and trim a flat number */
-export function normalizeFlatNumber(n: string): string {
-	return n.trim().toUpperCase();
+/** Format spot number for display: pad single digits with leading zero */
+export function formatSpotNumber(n: string): string {
+	return n.trim().padStart(2, '0');
 }

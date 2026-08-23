@@ -6,7 +6,7 @@ import { requireAdmin } from '$lib/server/guards';
 import type { RequestHandler } from './$types';
 
 /**
- * POST — Reset an active flat (Actif → Inactif)
+ * POST — Reset an active flat (active → inactive)
  * Clears PIN, activation code, sessions. Requires confirmation.
  */
 export const POST: RequestHandler = async ({ params, request, locals }) => {
@@ -38,15 +38,15 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 			return json({ error: 'Appartement introuvable' }, { status: 404 });
 		}
 
-		if (!existing.isActive) {
+		if (existing.status !== 'active') {
 			return json({ error: "Cet appartement n'est pas actif" }, { status: 400 });
 		}
 
-		// Reset to Inactif state
+		// Reset to inactive state
 		await db
 			.update(flat)
 			.set({
-				isActive: false,
+				status: 'inactive',
 				pinHash: null,
 				activationCode: null,
 				activationCodeExpiresAt: null,

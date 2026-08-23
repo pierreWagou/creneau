@@ -17,8 +17,9 @@ test.describe
 			// Create each test flat via the dialog
 			for (let i = 0; i < TEST_FLATS.length; i++) {
 				const flat = TEST_FLATS[i];
-				// Click the "Ajouter" button (first match — page-level, not the one inside the dialog)
-				await page.getByRole('button', { name: 'Ajouter', exact: true }).first().click();
+				// Click the "Ajouter" button in the Appartements card (not the spots card)
+				const flatsCard = page.locator('[data-slot="card"]').filter({ hasText: 'Appartements' });
+				await flatsCard.getByRole('button', { name: 'Ajouter', exact: true }).click();
 
 				const dialog = page.locator('[role="dialog"]');
 				await dialog.waitFor();
@@ -26,6 +27,14 @@ test.describe
 				// Fill a valid 2-digit spot number
 				const spotNumber = String(10 + i).padStart(2, '0');
 				await dialog.locator('input[placeholder="ex. 01"]').fill(spotNumber);
+				await dialog.locator('input[placeholder="ex. 01"]').press('Enter');
+				// Fill email
+				await dialog.locator('input[type="email"]').fill(`${flat.number.toLowerCase()}@test.com`);
+				await dialog.locator('input[type="email"]').press('Enter');
+				// Fill phone
+				await dialog.locator('input[type="tel"]').fill(`+3361234${String(i).padStart(2, '0')}78`);
+				await dialog.locator('input[type="tel"]').press('Enter');
+				// Click the main "Ajouter" button to submit the flat
 				await dialog.getByRole('button', { name: 'Ajouter', exact: true }).click();
 				// Wait for dialog to close and flat to appear
 				await expect(page.getByText(flat.number).first()).toBeVisible();
@@ -36,10 +45,20 @@ test.describe
 				const flatCard = page.locator('div.rounded-md.border').filter({ hasText: flat.number }).first();
 				await flatCard.getByRole('button', { name: 'Voir détails' }).click();
 				// Flat detail dialog should open
-				const detailDialog = page.locator('[role="dialog"]');
+				const detailDialog = page.locator('[role="dialog"]').filter({ hasText: 'Appartement' });
 				await expect(detailDialog).toBeVisible({ timeout: 5000 });
 				// Click "Générer un code d'activation" since the flat is inactive
 				await detailDialog.getByRole('button', { name: "Générer un code d'activation" }).click();
+				// Wait for the activation code to be generated (toast confirms success)
+				await expect(page.locator('[data-sonner-toast]').filter({ hasText: 'activation' }).first()).toBeVisible({
+					timeout: 5000
+				});
+				// Close the dialog — data refresh updated page data but dialog still has stale data
+				await page.keyboard.press('Escape');
+				await expect(detailDialog).not.toBeVisible({ timeout: 3000 });
+				// Re-open detail dialog with fresh data
+				await flatCard.getByRole('button', { name: 'Voir détails' }).click();
+				await expect(detailDialog).toBeVisible({ timeout: 5000 });
 				// Activation URL should appear
 				await expect(detailDialog.locator('input[readonly]')).toHaveValue(
 					new RegExp(`/activate\\?flat=${flat.number}`),

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CarFront from '@lucide/svelte/icons/car-front';
 	import { format, isPast, isSameDay, isSameMonth, parseISO } from 'date-fns';
 	import { fr } from 'date-fns/locale';
 	import { onDestroy, onMount } from 'svelte';
@@ -94,7 +95,7 @@
 			<Card.Content class="py-8 text-center">
 				<p class="text-muted-foreground">Vous n'avez aucune réservation.</p>
 				<a href="/book">
-					<Button class="mt-4">Réserver une place</Button>
+					<Button class="mt-4">Réserver une place de parking</Button>
 				</a>
 			</Card.Content>
 		</Card.Root>
@@ -109,13 +110,13 @@
 						<div class="flex items-start justify-between gap-3">
 							<div class="min-w-0 space-y-1">
 								<p class="font-medium capitalize">{formatMainLine(booking.startTime, booking.endTime)}</p>
-								<p class="text-muted-foreground text-sm">
-																	{formatCreatedAt(booking.createdAt)} · Place {booking.spotNumber}{#if booking.note} · {booking.note}{/if}
-								</p>
-							</div>
-							<div class="flex shrink-0 items-center gap-2">
-								<Badge variant="outline">{formatDuration(booking.startTime, booking.endTime)}</Badge>
-								<Button variant="destructive" size="sm" onclick={() => confirmCancel(booking.id)}>Annuler</Button>
+							<p class="text-muted-foreground text-sm">
+																{formatCreatedAt(booking.createdAt)} · <span class="inline-flex items-center gap-1"><CarFront class="h-3 w-3" />{booking.spotNumber}</span>{#if booking.note} · {booking.note}{/if}
+							</p>
+						</div>
+						<div class="flex shrink-0 items-center gap-2">
+							<Badge variant="outline">{formatDuration(booking.startTime, booking.endTime)}</Badge>
+							<Button variant="destructive" size="sm" onclick={() => confirmCancel(booking.id)}>Annuler</Button>
 							</div>
 						</div>
 					</Card.Content>
@@ -133,10 +134,10 @@
 						<div class="flex items-start justify-between gap-3">
 							<div class="min-w-0 space-y-1">
 								<p class="font-medium capitalize">{formatMainLine(booking.startTime, booking.endTime)}</p>
-								<p class="text-muted-foreground text-sm">
-																	{formatCreatedAt(booking.createdAt)} · Place {booking.spotNumber}{#if booking.note} · {booking.note}{/if}
-								</p>
-							</div>
+							<p class="text-muted-foreground text-sm">
+																{formatCreatedAt(booking.createdAt)} · <span class="inline-flex items-center gap-1"><CarFront class="h-3 w-3" />{booking.spotNumber}</span>{#if booking.note} · {booking.note}{/if}
+							</p>
+						</div>
 							<Badge variant="outline">{formatDuration(booking.startTime, booking.endTime)}</Badge>
 						</div>
 					</Card.Content>
@@ -160,7 +161,7 @@
 		</AlertDialog.Header>
 		<AlertDialog.Footer>
 			<AlertDialog.Cancel>Non</AlertDialog.Cancel>
-			<AlertDialog.Action onclick={executeCancelBooking}>Annuler la réservation</AlertDialog.Action>
+			<AlertDialog.Action variant="destructive" onclick={executeCancelBooking}>Annuler la réservation</AlertDialog.Action>
 		</AlertDialog.Footer>
 	</AlertDialog.Content>
 </AlertDialog.Root>

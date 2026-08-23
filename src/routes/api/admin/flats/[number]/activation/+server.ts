@@ -8,7 +8,7 @@ import { requireAdmin } from '$lib/server/guards';
 import type { RequestHandler } from './$types';
 
 /**
- * POST — Generate an activation code (Inactif → En attente)
+ * POST — Generate an activation code (inactive → pending activation)
  */
 export const POST: RequestHandler = async ({ params, locals }) => {
 	const guard = requireAdmin(locals);
@@ -22,7 +22,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 			return json({ error: 'Appartement introuvable' }, { status: 404 });
 		}
 
-		if (existing.isActive) {
+		if (existing.status === 'active') {
 			return json({ error: 'Cet appartement est déjà activé' }, { status: 409 });
 		}
 
@@ -43,7 +43,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 };
 
 /**
- * DELETE — Revoke an activation code (En attente → Inactif)
+ * DELETE — Revoke an activation code (pending activation → inactive)
  */
 export const DELETE: RequestHandler = async ({ params, locals }) => {
 	const guard = requireAdmin(locals);
@@ -57,7 +57,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 			return json({ error: 'Appartement introuvable' }, { status: 404 });
 		}
 
-		if (existing.isActive) {
+		if (existing.status === 'active') {
 			return json({ error: 'Cet appartement est déjà activé' }, { status: 409 });
 		}
 

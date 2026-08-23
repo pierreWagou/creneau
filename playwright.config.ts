@@ -26,6 +26,14 @@ export default defineConfig({
 			use: { ...devices['Desktop Chrome'] }
 		},
 		{
+			name: 'admin',
+			testMatch: /admin\.test\.ts/,
+			dependencies: ['main'],
+			fullyParallel: false,
+			retries: 0,
+			use: { ...devices['Desktop Chrome'] }
+		},
+		{
 			name: 'main',
 			testMatch: /booking|calendar|drag|auth/,
 			dependencies: ['activation'],
@@ -34,7 +42,7 @@ export default defineConfig({
 		}
 	],
 	webServer: {
-		command: 'DATABASE_URL=file:data/test.db npm run dev -- --port 5174',
+		command: 'npx tsx e2e/setup-db.ts && DATABASE_URL=file:data/test.db npm run dev -- --port 5174',
 		port: 5174,
 		reuseExistingServer: false
 	}

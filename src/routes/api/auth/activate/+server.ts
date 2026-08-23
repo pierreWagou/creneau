@@ -38,7 +38,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			return json({ error: "Numéro d'appartement ou code d'activation invalide" }, { status: 401 });
 		}
 
-		if (existingFlat.isActive) {
+		if (existingFlat.status === 'active') {
 			return json({ error: 'Cet appartement a déjà été activé' }, { status: 409 });
 		}
 
@@ -57,9 +57,9 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		await db
 			.update(flat)
 			.set({
+				status: 'active',
 				displayName: displayName || null,
 				pinHash,
-				isActive: true,
 				activatedAt: new Date().toISOString(),
 				activationCode: null,
 				activationCodeExpiresAt: null

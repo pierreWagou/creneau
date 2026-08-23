@@ -27,7 +27,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		.get();
 
 	if (!targetSpot) {
-		return json({ error: 'Place introuvable' }, { status: 404 });
+		return json({ error: 'Place de parking introuvable' }, { status: 404 });
 	}
 
 	try {

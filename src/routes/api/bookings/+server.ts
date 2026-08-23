@@ -26,7 +26,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			.get();
 
 		if (!targetSpot) {
-			return json({ error: "Cette place n'est pas disponible pour réservation" }, { status: 400 });
+			return json({ error: "Cette place de parking n'est pas disponible pour réservation" }, { status: 400 });
 		}
 
 		const result = await createBooking({

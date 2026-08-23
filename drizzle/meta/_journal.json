@@ -43,6 +43,55 @@
       "when": 1782929041166,
       "tag": "0005_icy_scarecrow",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1784301397193,
+      "tag": "0006_talented_vermin",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1784304154401,
+      "tag": "0007_chief_nick_fury",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1784333097286,
+      "tag": "0008_refactor_flat_lifecycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1784400000000,
+      "tag": "0009_spot_number_normalization",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1784486400000,
+      "tag": "0010_request_conflicts",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1784490000000,
+      "tag": "0011_requested_spots_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1784500000000,
+      "tag": "0012_request_tables",
+      "breakpoints": true
     }
   ]
 }

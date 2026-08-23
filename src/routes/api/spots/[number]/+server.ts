@@ -19,7 +19,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
 		const existing = await db.select().from(spot).where(eq(spot.number, spotNumber)).get();
 		if (!existing) {
-			return json({ error: 'Place introuvable' }, { status: 404 });
+			return json({ error: 'Place de parking introuvable' }, { status: 404 });
 		}
 
 		const updated = await db
@@ -52,7 +52,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 	try {
 		const existing = await db.select().from(spot).where(eq(spot.number, spotNumber)).get();
 		if (!existing) {
-			return json({ error: 'Place introuvable' }, { status: 404 });
+			return json({ error: 'Place de parking introuvable' }, { status: 404 });
 		}
 
 		await db.delete(spot).where(eq(spot.number, spotNumber));

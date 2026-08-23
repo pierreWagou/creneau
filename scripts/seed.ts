@@ -13,7 +13,18 @@ import { createClient } from '@libsql/client';
 import { hash } from '@node-rs/argon2';
 import { drizzle } from 'drizzle-orm/libsql';
 import { migrate } from 'drizzle-orm/libsql/migrator';
-import { booking, flat, spot } from '../src/lib/server/db/schema.js';
+import {
+	booking,
+	flat,
+	flatEmail,
+	flatPhone,
+	request,
+	requestEmail,
+	requestPhone,
+	requestSpot,
+	spot
+} from '../src/lib/server/db/schema.js';
+import { formatPhone } from '../src/lib/utils/phone.js';
 
 // ---------------------------------------------------------------------------
 // DB setup
@@ -32,8 +43,45 @@ client.execute('PRAGMA foreign_keys = ON');
 
 const db = drizzle(client);
 
-// Run all migrations so the schema is up to date
+// Disable FK checks during migration — migration 0012 rebuilds the flat table
+// (DROP + recreate) which fails with FKs enabled
+client.execute('PRAGMA foreign_keys = OFF');
 await migrate(db, { migrationsFolder: resolve('drizzle') });
+client.execute('PRAGMA foreign_keys = ON');
+
+// Migration 0012 may partially fail on fresh DBs (Drizzle breakpoint issue).
+// Ensure request junction tables exist as a fallback.
+const ensureTable = async (sql: string) => {
+	try {
+		await client.execute(sql);
+	} catch {
+		// table already exists
+	}
+};
+await ensureTable(
+	'CREATE TABLE IF NOT EXISTS request_spot (request_id integer NOT NULL, spot_number text NOT NULL, PRIMARY KEY(request_id, spot_number), FOREIGN KEY (request_id) REFERENCES request(id) ON UPDATE no action ON DELETE cascade)'
+);
+await ensureTable(
+	'CREATE TABLE IF NOT EXISTS request_email (request_id integer NOT NULL, email text NOT NULL, PRIMARY KEY(request_id, email), FOREIGN KEY (request_id) REFERENCES request(id) ON UPDATE no action ON DELETE cascade)'
+);
+await ensureTable(
+	'CREATE TABLE IF NOT EXISTS request_phone (request_id integer NOT NULL, phone text NOT NULL, PRIMARY KEY(request_id, phone), FOREIGN KEY (request_id) REFERENCES request(id) ON UPDATE no action ON DELETE cascade)'
+);
+// Also ensure the flat table was rebuilt without reviewed_by/reviewed_at
+const flatInfo = await client.execute("SELECT sql FROM sqlite_master WHERE name='flat' AND type='table'");
+const flatSql = flatInfo.rows[0]?.sql as string | undefined;
+if (flatSql && (flatSql.includes('reviewed_by') || flatSql.includes('reviewed_at'))) {
+	await client.execute('PRAGMA foreign_keys = OFF');
+	await client.execute(
+		"CREATE TABLE IF NOT EXISTS __new_flat2 (number text PRIMARY KEY NOT NULL, status text DEFAULT 'inactive' NOT NULL, activation_code text, activation_code_expires_at text, display_name text, pin_hash text, is_admin integer DEFAULT false NOT NULL, activated_at text, created_at text DEFAULT (datetime('now')) NOT NULL)"
+	);
+	await client.execute(
+		'INSERT OR IGNORE INTO __new_flat2 SELECT number, status, activation_code, activation_code_expires_at, display_name, pin_hash, is_admin, activated_at, created_at FROM flat'
+	);
+	await client.execute('DROP TABLE flat');
+	await client.execute('ALTER TABLE __new_flat2 RENAME TO flat');
+	await client.execute('PRAGMA foreign_keys = ON');
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -64,24 +112,52 @@ const pinHash = await hash('1234');
 
 const flats: (typeof flat.$inferInsert)[] = [
 	// Admins
-	{ number: 'A00', displayName: 'Gardien A', pinHash, isAdmin: true, isActive: true, activatedAt: dt(-60, 10) },
-	{ number: 'B00', displayName: 'Gardien B', pinHash, isAdmin: true, isActive: true, activatedAt: dt(-60, 10) },
+	{ number: 'A00', status: 'active', displayName: 'Gardien A', pinHash, isAdmin: true, activatedAt: dt(-60, 10) },
+	{ number: 'B00', status: 'active', displayName: 'Gardien B', pinHash, isAdmin: true, activatedAt: dt(-60, 10) },
 	// Active residents — staircase A
-	{ number: 'A01', displayName: 'Dupont', pinHash, isAdmin: false, isActive: true, activatedAt: dt(-45, 9) },
-	{ number: 'A02', displayName: 'Martin', pinHash, isAdmin: false, isActive: true, activatedAt: dt(-40, 11) },
-	{ number: 'A03', displayName: 'Bernard', pinHash, isAdmin: false, isActive: true, activatedAt: dt(-30, 14) },
-	{ number: 'A04', displayName: 'Petit', pinHash, isAdmin: false, isActive: true, activatedAt: dt(-20, 8) },
+	{ number: 'A01', status: 'active', displayName: 'Dupont', pinHash, activatedAt: dt(-45, 9) },
+	{ number: 'A02', status: 'active', displayName: 'Martin', pinHash, activatedAt: dt(-40, 11) },
+	{ number: 'A03', status: 'active', displayName: 'Bernard', pinHash, activatedAt: dt(-30, 14) },
+	{ number: 'A04', status: 'active', displayName: 'Petit', pinHash, activatedAt: dt(-20, 8) },
 	// Active residents — staircase B
-	{ number: 'B01', displayName: 'Durand', pinHash, isAdmin: false, isActive: true, activatedAt: dt(-35, 10) },
-	{ number: 'B02', displayName: 'Leroy', pinHash, isAdmin: false, isActive: true, activatedAt: dt(-25, 16) },
-	{ number: 'B03', displayName: 'Moreau', pinHash, isAdmin: false, isActive: true, activatedAt: dt(-15, 9) },
+	{ number: 'B01', status: 'active', displayName: 'Durand', pinHash, activatedAt: dt(-35, 10) },
+	{ number: 'B02', status: 'active', displayName: 'Leroy', pinHash, activatedAt: dt(-25, 16) },
+	{ number: 'B03', status: 'active', displayName: 'Moreau', pinHash, activatedAt: dt(-15, 9) },
 	// Inactive (no PIN, not activated)
-	{ number: 'A05', displayName: null, pinHash: null, isAdmin: false, isActive: false },
-	{ number: 'B05', displayName: null, pinHash: null, isAdmin: false, isActive: false }
+	{ number: 'A05', status: 'inactive', displayName: null, pinHash: null },
+	{ number: 'B05', status: 'inactive', displayName: null, pinHash: null }
 ];
 
 console.log('Inserting flats…');
 await db.insert(flat).values(flats).onConflictDoNothing();
+
+// ---------------------------------------------------------------------------
+// Contacts (flat_email + flat_phone)
+// ---------------------------------------------------------------------------
+
+console.log('Inserting contacts…');
+const contacts: { flatNumber: string; email: string; phone: string }[] = [
+	{ flatNumber: 'A00', email: 'gardien.a@example.com', phone: formatPhone('06 00 00 00 01') },
+	{ flatNumber: 'B00', email: 'gardien.b@example.com', phone: formatPhone('06 00 00 00 02') },
+	{ flatNumber: 'A01', email: 'dupont@example.com', phone: formatPhone('06 12 34 56 01') },
+	{ flatNumber: 'A02', email: 'martin@example.com', phone: formatPhone('06 12 34 56 02') },
+	{ flatNumber: 'A03', email: 'bernard@example.com', phone: formatPhone('06 12 34 56 03') },
+	{ flatNumber: 'A04', email: 'petit@example.com', phone: formatPhone('06 12 34 56 04') },
+	{ flatNumber: 'B01', email: 'durand@example.com', phone: formatPhone('06 12 34 56 05') },
+	{ flatNumber: 'B02', email: 'leroy@example.com', phone: formatPhone('06 12 34 56 06') },
+	{ flatNumber: 'B03', email: 'moreau@example.com', phone: formatPhone('06 12 34 56 07') },
+	{ flatNumber: 'A05', email: 'a05@example.com', phone: formatPhone('06 12 34 56 08') },
+	{ flatNumber: 'B05', email: 'b05@example.com', phone: formatPhone('06 12 34 56 09') }
+];
+
+await db
+	.insert(flatEmail)
+	.values(contacts.map((c) => ({ flatNumber: c.flatNumber, email: c.email })))
+	.onConflictDoNothing();
+await db
+	.insert(flatPhone)
+	.values(contacts.map((c) => ({ flatNumber: c.flatNumber, phone: c.phone })))
+	.onConflictDoNothing();
 
 // ---------------------------------------------------------------------------
 // Bound spots — one per flat (inserted after flats to satisfy FK)
@@ -132,6 +208,36 @@ if (existingCount === 0) {
 	await db.insert(booking).values(bookings);
 } else {
 	console.log(`  Skipping bookings — ${existingCount} already present.`);
+}
+
+// ---------------------------------------------------------------------------
+// Pending requests — one OK, one conflicting
+// ---------------------------------------------------------------------------
+
+console.log('Inserting pending requests…');
+const existingRequests = await db.$count(request);
+if (existingRequests === 0) {
+	const reqRows = await db
+		.insert(request)
+		.values([
+			{ flatNumber: 'A06', requesterName: 'Nouveau A', status: 'pending' },
+			{ flatNumber: 'B06', requesterName: 'Nouveau B', status: 'pending' }
+		])
+		.returning();
+
+	const [reqA06, reqB06] = reqRows;
+
+	// Request A06 — spot 12 (new, no conflict)
+	await db.insert(requestSpot).values([{ requestId: reqA06.id, spotNumber: '12' }]);
+	await db.insert(requestEmail).values([{ requestId: reqA06.id, email: 'a06@example.com' }]);
+	await db.insert(requestPhone).values([{ requestId: reqA06.id, phone: formatPhone('+33612345610') }]);
+
+	// Request B06 — spot 03 (conflicts with A01)
+	await db.insert(requestSpot).values([{ requestId: reqB06.id, spotNumber: '03' }]);
+	await db.insert(requestEmail).values([{ requestId: reqB06.id, email: 'b06@example.com' }]);
+	await db.insert(requestPhone).values([{ requestId: reqB06.id, phone: formatPhone('+33612345611') }]);
+} else {
+	console.log(`  Skipping requests — ${existingRequests} already present.`);
 }
 
 console.log('Done. Seed DB ready at', DB_PATH.replace('file:', ''));

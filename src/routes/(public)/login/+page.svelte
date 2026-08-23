@@ -99,7 +99,7 @@
 	<Card.Content>
 		<form onsubmit={(e) => { e.preventDefault(); handleLogin(); }} class="space-y-4">
 			<div class="space-y-2">
-				<Label for="flat">Numéro d'appartement</Label>
+				<Label for="flat">Numéro d'appartement <span class="text-destructive">*</span></Label>
 				{#if flats.length > 0}
 				<Combobox.Root
 					type="single"
@@ -153,7 +153,7 @@
 				{/if}
 			</div>
 			<div class="space-y-2">
-				<Label for="pin">Code PIN</Label>
+				<Label for="pin">Code PIN <span class="text-destructive">*</span></Label>
 				<Input
 					id="pin"
 					type="password"

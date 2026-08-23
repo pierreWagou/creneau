@@ -414,7 +414,7 @@
 			<p class="text-muted-foreground">Aucune place de parking configurée.</p>
 			{#if data.flat.isAdmin}
 				<p class="text-muted-foreground mt-2 text-sm">
-					Allez dans <a href="/admin" class="inline-link">Admin</a> pour ajouter des places.
+					Allez dans <a href="/admin" class="inline-link">Admin</a> pour ajouter des places de parking.
 				</p>
 			{/if}
 		</div>

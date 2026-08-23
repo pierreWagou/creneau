@@ -18,7 +18,10 @@ SvelteKit (Svelte 5 runes) + SQLite (Drizzle ORM) + Tailwind CSS v4 + shadcn-sve
 - Booking still has an integer `id` (needed for DELETE/PATCH URLs)
 - `booking` and `session` FKs cascade on delete
 - `spot.flatNumber` FK uses `SET NULL` on flat delete (spot becomes shared)
-- `flat_request.reviewedBy` FK has no explicit cascade
+- `flat_email` and `flat_phone` are junction tables with composite PKs (`flatNumber` + `email`/`phone`)
+- Contacts cascade on flat delete via FK
+- Requests use a separate `request` table with `request_spot`, `request_email`, `request_phone` junction tables
+- `request.reviewedBy` is a plain text column (no FK — self-reference causes circular type issues)
 
 ### API Conventions
 
@@ -26,6 +29,40 @@ SvelteKit (Svelte 5 runes) + SQLite (Drizzle ORM) + Tailwind CSS v4 + shadcn-sve
 - All POST/PATCH/DELETE handlers that call `request.json()` must catch `SyntaxError` and return `400`
 - Error response format: `json({ error: "..." }, { status: N })`
 - Rate limiting on login + activation (5 attempts / 15 min lockout per flat)
+- Spot reassignment: `PATCH /api/admin/flats/:number` accepts `force: true` to confirm a spot conflict swap; returns `409` with `conflicts` array if unforced
+
+### Button Rules
+
+| Pattern | Variant | Use case |
+|---------|---------|----------|
+| A. Solid bg | `default` | Primary submit, main CTAs, add buttons (blue) |
+| B. Soft red bg | `destructive` | Delete, cancel, revoke, reject (AlertDialog confirmations) |
+| C. Border + hover | `outline` | Secondary actions, toggle, modify, copy |
+| D. No bg + hover | `ghost` | Inline remove icons, nav links, view details |
+| E. Custom color | `ghost/outline` + manual | Symmetric action pairs (approve/reject in list rows) |
+
+- **List rows** → `ghost` (lightweight)
+- **Dialog actions** → `outline` (prominent, consistent with other dialog buttons)
+- Inline trash icons: always `variant="ghost" size="icon-sm"`
+- Colored text on hover: add `hover:text-{color}` to override ghost/outline's `hover:text-foreground`
+- Hover bg: use `hover:!bg-{color}/10` (important prefix overrides variant's `hover:bg-muted`)
+
+### Catppuccin Palette
+
+CSS variables in `src/app.css` `@layer base` mapped to Tailwind via `--color-*`:
+
+| Token | Light | Dark | Use |
+|-------|-------|------|-----|
+| `primary` | Blue `#1e66f5` | `#89b4fa` | Buttons, links, focus |
+| `secondary` | Surface0 `#ccd0da` | `#313244` | Secondary UI |
+| `accent` | Lavender `#7287fd` | `#b4befe` | Accent, purple substitute |
+| `destructive` | Red `#d20f39` | `#f38ba8` | Delete, cancel, errors |
+| `success` | Green `#40a02b` | `#a6e3a1` | Approve, active |
+| `warning` | Yellow `#df8e1d` | `#f9e2af` | Warnings |
+| `info` | Teal `#179299` | `#94e2d5` | Informational |
+| `booking-busy` | Peach `#fe640b` | `#fab387` | Bookings, pending |
+
+Use `text-success`, `bg-success/10`, `border-success/30`, etc. Never use hardcoded Tailwind colors (`green-600`, `red-500`).
 
 ### Validation
 
@@ -43,7 +80,7 @@ SvelteKit (Svelte 5 runes) + SQLite (Drizzle ORM) + Tailwind CSS v4 + shadcn-sve
 
 - Shared constants in `src/lib/constants.ts`
 - Shared types in `src/lib/types.ts`
-- Server utilities in `src/lib/server/` (auth, bookings, availability, sse, rate-limit, db)
+- Server utilities in `src/lib/server/` (auth, bookings, availability, sse, rate-limit, db, contacts)
 - Time utilities in `src/lib/utils/time.ts`
 
 ### Git & CI
@@ -107,13 +144,14 @@ src/
 │   │   ├── auth.ts          # PIN hashing, sessions, validatePin()
 │   │   ├── bookings.ts      # CRUD + validation
 │   │   ├── availability.ts  # Timeline computation (pure function)
+│   │   ├── contacts.ts      # Email/phone validation + CRUD helpers
 │   │   ├── sse.ts           # SSE broadcaster
 │   │   └── rate-limit.ts    # In-memory rate limiter
-│   ├── constants.ts         # PIN_MIN_LENGTH, PIN_MAX_LENGTH, DISPLAY_NAME_MAX_LENGTH, CALENDAR_LOOKAHEAD_MONTHS, ACTIVATION_CODE_TTL_MS, MAX_BOOKING_HOURS, ACTIVATION_CODE_LENGTH, MAX_FLAT_BULK_SIZE, MS_PER_HOUR, SESSION_DURATION_DAYS
+│   ├── constants.ts         # PIN_MIN_LENGTH, PIN_MAX_LENGTH, DISPLAY_NAME_MAX_LENGTH, CALENDAR_LOOKAHEAD_MONTHS, ACTIVATION_CODE_TTL_MS, MAX_BOOKING_HOURS, ACTIVATION_CODE_LENGTH, MAX_CONTACTS_PER_TYPE, MS_PER_HOUR, SESSION_DURATION_DAYS
 │   ├── types.ts             # SessionFlat, BookingWithFlat, SpotTimeline, DAY_START/DAY_END
 │   └── utils/time.ts        # padH, getHourFromISO, formatDateISO, formatDuration, TIME_BLOCKS
 ├── routes/
-│   ├── (auth)/              # Login, activate, setup, request (unauthenticated)
+│   ├── (public)/             # Login, activate, setup, request (unauthenticated)
 │   ├── (app)/               # Authenticated pages (calendar, book, my-bookings, stats, account, admin)
 │   └── api/                 # REST endpoints + SSE
 ├── app.css                  # Theme + @layer components (semantic classes) + @layer base (global form styles)
@@ -123,7 +161,9 @@ src/
 ## Key Decisions
 
 - Setup wizard: first visitor creates admin (no secrets in config, accepts race condition for homeserver)
-- Flat lifecycle: Inactif → En attente (24h activation code) → Actif / Expiré (code TTL elapsed → back to Inactif via admin reset)
+- Flat lifecycle: Demande → Inactif → En attente (24h activation code) → Actif / Expiré (code TTL elapsed → back to Inactif via admin reset)
+- Contacts: normalized into `flat_email` and `flat_phone` junction tables (not JSON arrays)
+- Requests: stored in a separate `request` table with `request_spot`, `request_email`, `request_phone` junction tables
 - Calendar: @event-calendar/core with drag/drop (own bookings only, future only)
 - Stats: visible to all users (transparent building data)
 - QR codes: generated client-side with `qrcode` package, "C" logo overlay

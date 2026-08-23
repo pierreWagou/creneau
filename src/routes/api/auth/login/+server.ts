@@ -22,7 +22,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 		const existingFlat = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();
 
-		if (!existingFlat?.isActive || !existingFlat.pinHash) {
+		if (existingFlat?.status !== 'active' || !existingFlat.pinHash) {
 			recordFailedAttempt(flatNumber);
 			return json({ error: "Numéro d'appartement ou PIN invalide" }, { status: 401 });
 		}

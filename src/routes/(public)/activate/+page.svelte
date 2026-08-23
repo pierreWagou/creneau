@@ -72,7 +72,7 @@
 	<Card.Content>
 		<form onsubmit={(e) => { e.preventDefault(); handleActivate(); }} class="space-y-4">
 		<div class="space-y-2">
-			<Label for="flat">Numéro d'appartement</Label>
+			<Label for="flat">Numéro d'appartement <span class="text-destructive">*</span></Label>
 			<Input
 				id="flat"
 				type="text"
@@ -83,11 +83,11 @@
 				required
 			/>
 			{#if flatNumber && !flatValid}
-				<p class="text-destructive text-xs">Format requis : A01 ou B12</p>
+				<p class="text-destructive text-xs">Format requis : ex. A01 ou B12</p>
 			{/if}
 		</div>
 			<div class="space-y-2">
-				<Label for="code">Code d'activation</Label>
+				<Label for="code">Code d'activation <span class="text-destructive">*</span></Label>
 				<Input
 					id="code"
 					type="text"
@@ -99,11 +99,11 @@
 				/>
 			</div>
 			<div class="space-y-2">
-				<Label for="name">Nom d'affichage (optionnel)</Label>
+				<Label for="name">Nom d'affichage</Label>
 				<Input id="name" type="text" placeholder="ex. Jean, Famille Dupont" bind:value={displayName} />
 			</div>
 			<div class="space-y-2">
-				<Label for="pin">Choisir un code PIN</Label>
+				<Label for="pin">Choisir un code PIN <span class="text-destructive">*</span></Label>
 				<Input
 					id="pin"
 					type="password"
@@ -116,7 +116,7 @@
 			/>
 		</div>
 		<div class="space-y-2">
-			<Label for="pin-confirm">Confirmer le PIN</Label>
+			<Label for="pin-confirm">Confirmer le PIN <span class="text-destructive">*</span></Label>
 			<Input
 				id="pin-confirm"
 				type="password"

@@ -71,18 +71,19 @@ src/
 │   │   ├── sse.ts            # Server-Sent Events broadcaster
 │   │   ├── rate-limit.ts     # In-memory rate limiter
 │   │   └── db/
-│   │       ├── schema.ts     # Drizzle schema (flat, spot, booking, session, flat_request)
+│   │       ├── schema.ts     # Drizzle schema (flat, spot, booking, session, request)
 │   │       └── index.ts      # DB connection, migrations, session cleanup
 │   └── components/
 │       ├── ui/               # shadcn-svelte components
 │       ├── qr-code.svelte   # QR code generator with logo
 │       └── logo.svelte      # App logo
 ├── routes/
-│   ├── (auth)/
+│   ├── (public)/
 │   │   ├── login/            # PIN login
 │   │   ├── activate/         # First-time activation via invitation link
 │   │   ├── setup/            # First-time admin setup wizard
-│   │   └── request/          # Public flat access request form
+│   │   ├── request/          # Public flat access request form
+│   │   └── about/            # Public about/landing page
 │   ├── (app)/
 │   │   ├── book/             # Booking page (date + time selection)
 │   │   ├── calendar/         # Interactive week/day calendar view
@@ -90,6 +91,7 @@ src/
 │   │   ├── stats/            # Usage stats & leaderboard
 │   │   ├── account/          # Account settings (display name, PIN change)
 │   │   └── admin/            # Admin: manage flats, spots, requests
+│   │       └── guide/        # Admin guide
 │   └── api/                  # REST endpoints + SSE
 ├── scripts/
 │   ├── seed.ts               # Database seeding (generates drizzle/seed.db)

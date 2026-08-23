@@ -1,3 +1,4 @@
+import { MS_PER_HOUR } from '$lib/constants';
 import {
 	type AvailableSlot,
 	type BookingWithFlat,
@@ -14,7 +15,7 @@ import { getBookingsInRange } from './bookings';
 // Constants
 // ============================================================
 
-const MS_PER_DAY = 86400000;
+const MS_PER_DAY = MS_PER_HOUR * 24;
 const BRIDGE_TOLERANCE_MS = 1000;
 
 // ============================================================

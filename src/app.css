@@ -22,6 +22,9 @@
 	--color-accent: hsl(var(--accent));
 	--color-accent-foreground: hsl(var(--accent-foreground));
 	--color-booking-busy: hsl(var(--booking-busy));
+	--color-success: hsl(var(--success));
+	--color-warning: hsl(var(--warning));
+	--color-info: hsl(var(--info));
 	--color-destructive: hsl(var(--destructive));
 	--color-destructive-foreground: hsl(var(--destructive-foreground));
 	--color-ring: hsl(var(--ring));
@@ -51,6 +54,9 @@
 		--accent: 239 84% 67%; /* Lavender #7287fd */
 		--accent-foreground: 220 23% 95%;
 		--booking-busy: 22 99% 52%; /* Peach #fe640b */
+		--success: 130 65% 40%; /* Green #40a02b */
+		--warning: 45 88% 56%; /* Yellow #df8e1d */
+		--info: 178 62% 40%; /* Teal #179299 */
 		--destructive: 347 87% 44%; /* Red #d20f39 */
 		--destructive-foreground: 220 23% 95%;
 		--ring: 220 91% 54%;
@@ -76,6 +82,9 @@
 		--accent: 232 97% 85%; /* Lavender #b4befe */
 		--accent-foreground: 240 21% 15%;
 		--booking-busy: 23 92% 75%; /* Peach #fab387 */
+		--success: 130 55% 71%; /* Green #a6e3a1 */
+		--warning: 47 95% 79%; /* Yellow #f9e2af */
+		--info: 174 57% 73%; /* Teal #94e2d5 */
 		--destructive: 343 81% 75%; /* Red #f38ba8 */
 		--destructive-foreground: 240 21% 15%;
 		--ring: 217 92% 76%;
@@ -136,15 +145,35 @@
 		@apply bg-primary h-2 rounded transition-all duration-300;
 	}
 
-	/* Flat state badges */
+	/* Flat state badges — Catppuccin palette */
 	.flat-badge-active {
-		@apply bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200;
+		background-color: hsl(var(--success) / 0.15) !important;
+		color: hsl(var(--success)) !important;
 	}
 	.flat-badge-pending {
-		@apply bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200;
+		background-color: hsl(var(--booking-busy) / 0.15) !important;
+		color: hsl(var(--booking-busy)) !important;
 	}
 	.flat-badge-expired {
-		@apply bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200;
+		background-color: hsl(var(--destructive) / 0.15) !important;
+		color: hsl(var(--destructive)) !important;
+	}
+	.flat-badge-request {
+		background-color: hsl(var(--primary) / 0.15) !important;
+		color: hsl(var(--primary)) !important;
+	}
+	.flat-badge-warning {
+		background-color: hsl(var(--warning) / 0.15) !important;
+		color: hsl(var(--warning)) !important;
+	}
+	.flat-badge-inactive {
+		background-color: hsl(var(--muted) / 0.5) !important;
+		color: hsl(var(--muted-foreground)) !important;
+	}
+
+	/* Nested dialog visual hierarchy */
+	[data-nested-open] {
+		filter: blur(calc(var(--bits-dialog-nested-count) * 1px));
 	}
 
 	/* Inline links (in body text) */

@@ -30,20 +30,20 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		// Validate the shared spot exists and is actually shared
 		const sharedSpot = await db.select().from(spot).where(eq(spot.number, spotNumber)).get();
 		if (!sharedSpot) {
-			return json({ error: 'Place introuvable' }, { status: 404 });
+			return json({ error: 'Place de parking introuvable' }, { status: 404 });
 		}
 		if (sharedSpot.flatNumber !== null) {
-			return json({ error: "Cette place n'est pas partagée" }, { status: 400 });
+			return json({ error: "Cette place de parking n'est pas partagée" }, { status: 400 });
 		}
 
 		// If a target spot is specified, validate it belongs to the flat
 		if (targetSpotNumber) {
 			const targetSpot = await db.select().from(spot).where(eq(spot.number, targetSpotNumber)).get();
 			if (!targetSpot) {
-				return json({ error: 'Place cible introuvable' }, { status: 404 });
+				return json({ error: 'Place de parking cible introuvable' }, { status: 404 });
 			}
 			if (targetSpot.flatNumber !== flatNumber) {
-				return json({ error: "Cette place n'est pas assignée à cet appartement" }, { status: 400 });
+				return json({ error: "Cette place de parking n'est pas assignée à cet appartement" }, { status: 400 });
 			}
 
 			// Atomic swap: unbind target, bind shared

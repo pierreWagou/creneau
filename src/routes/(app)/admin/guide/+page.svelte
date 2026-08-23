@@ -15,7 +15,7 @@
 	<div class="flex flex-col items-center gap-3 py-6 text-center">
 		<Logo class="h-12 w-12" />
 		<h1 class="text-2xl font-bold tracking-tight">Guide administrateur</h1>
-		<p class="text-muted-foreground text-sm">Comment gérer les résidents, les places et les accès</p>
+		<p class="text-muted-foreground text-sm">Comment gérer les résidents, les places de parking et les accès</p>
 	</div>
 
 	<!-- Ajouter un appartement -->
@@ -31,15 +31,15 @@
 			<ol class="text-muted-foreground space-y-3">
 				<li class="flex items-start gap-3">
 					<span class="bg-primary text-primary-foreground flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">1</span>
-					<span>Dans <strong class="text-foreground">Admin</strong>, cliquez sur <strong class="text-foreground">« Ajouter un appartement »</strong></span>
+					<span>Dans <strong class="text-foreground">Admin</strong>, cliquez sur <strong class="text-foreground">« Ajouter »</strong></span>
 				</li>
 				<li class="flex items-start gap-3">
 					<span class="bg-primary text-primary-foreground flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">2</span>
-					<span>Entrez le <strong class="text-foreground">numéro d'appartement</strong> et les <strong class="text-foreground">numéros de places</strong> associées</span>
+					<span>Entrez le <strong class="text-foreground">numéro d'appartement</strong> et les <strong class="text-foreground">numéros de places de parking</strong> associées</span>
 				</li>
 				<li class="flex items-start gap-3">
 					<span class="bg-primary text-primary-foreground flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">3</span>
-					<span>Cliquez sur l'appartement puis <strong class="text-foreground">« Générer le lien d'activation »</strong></span>
+					<span>Cliquez sur l'appartement puis <strong class="text-foreground">« Générer un code d'activation »</strong></span>
 				</li>
 				<li class="flex items-start gap-3">
 					<span class="bg-primary text-primary-foreground flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">4</span>
@@ -47,16 +47,16 @@
 				</li>
 			</ol>
 			<div class="rounded-md bg-muted p-3 text-xs">
-				<p class="text-muted-foreground">Les résidents peuvent aussi demander la création de leur appartement via le formulaire d'accès. Ces demandes apparaissent dans Admin et doivent être approuvées.</p>
+				<p class="text-muted-foreground">Les résidents peuvent aussi demander la création de leur appartement via le formulaire d'accès. Ces demandes apparaissent dans la liste des appartements avec un badge bleu « Demande » et peuvent être approuvées ou rejetées directement depuis la ligne.</p>
 			</div>
 		</Card.Content>
 	</Card.Root>
 
 	<!-- Révoquer l'accès -->
-	<Card.Root class="border-t-2 border-orange-600 dark:border-orange-400">
+	<Card.Root class="border-t-2 border-booking-busy">
 		<Card.Header>
 			<Card.Title class="flex items-center gap-2">
-				<UserX class="h-5 w-5 text-orange-600 dark:text-orange-400" />
+				<UserX class="h-5 w-5 text-booking-busy" />
 				Révoquer l'accès
 			</Card.Title>
 			<Card.Description>Désactiver un compte résident</Card.Description>
@@ -64,15 +64,15 @@
 		<Card.Content class="space-y-3 text-sm">
 			<ol class="text-muted-foreground space-y-3">
 				<li class="flex items-start gap-3">
-					<span class="bg-orange-600 dark:bg-orange-400 text-background flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">1</span>
+					<span class="bg-booking-busy text-background flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">1</span>
 					<span>Dans <strong class="text-foreground">Admin</strong>, cliquez sur l'appartement concerné</span>
 				</li>
 				<li class="flex items-start gap-3">
-					<span class="bg-orange-600 dark:bg-orange-400 text-background flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">2</span>
+					<span class="bg-booking-busy text-background flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">2</span>
 					<span>Cliquez sur <strong class="text-foreground">« Réinitialiser »</strong> et confirmez</span>
 				</li>
 				<li class="flex items-start gap-3">
-					<span class="bg-orange-600 dark:bg-orange-400 text-background flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">3</span>
+					<span class="bg-booking-busy text-background flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">3</span>
 					<span>Le PIN est effacé, les sessions fermées, le compte revient en état <strong class="text-foreground">Inactif</strong></span>
 				</li>
 			</ol>
@@ -82,34 +82,65 @@
 		</Card.Content>
 	</Card.Root>
 
-	<!-- Gérer la place partagée -->
-	<Card.Root class="border-t-2 border-yellow-600 dark:border-yellow-400">
+	<!-- Gérer les coordonnées -->
+	<Card.Root class="border-t-2 border-success">
 		<Card.Header>
 			<Card.Title class="flex items-center gap-2">
-				<MapPin class="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
-				Gérer la place partagée
+				<Mail class="h-5 w-5 text-success" />
+				Gérer les coordonnées
 			</Card.Title>
-			<Card.Description>Description et échanges</Card.Description>
+			<Card.Description>Emails et téléphones de chaque résident</Card.Description>
 		</Card.Header>
 		<Card.Content class="space-y-3 text-sm">
 			<ul class="text-muted-foreground space-y-2">
 				<li class="flex items-start gap-2">
-					<span class="mt-0.5 text-yellow-600 dark:text-yellow-400">•</span>
-					<span>Vous pouvez mettre à jour la <strong class="text-foreground">description</strong> pour l'identifier</span>
+					<span class="mt-0.5 text-success">•</span>
+					<span>Ouvrez les détails d'un appartement puis cliquez sur <strong class="text-foreground">« Modifier »</strong></span>
 				</li>
 				<li class="flex items-start gap-2">
-					<span class="mt-0.5 text-yellow-600 dark:text-yellow-400">•</span>
-					<span>Si un résident a besoin de cette place, elle peut être <strong class="text-foreground">échangée</strong> avec la place assignée à son appartement</span>
+					<span class="mt-0.5 text-success">•</span>
+					<span>Ajoutez ou supprimez des <strong class="text-foreground">emails</strong> et <strong class="text-foreground">téléphones</strong> — chaque modification est sauvegardée immédiatement</span>
+				</li>
+				<li class="flex items-start gap-2">
+					<span class="mt-0.5 text-success">•</span>
+					<span>Un appartement doit avoir <strong class="text-foreground">au moins 1 email et 1 téléphone</strong></span>
+				</li>
+			</ul>
+		</Card.Content>
+	</Card.Root>
+
+	<!-- Gérer la place partagée -->
+	<Card.Root class="border-t-2 border-warning">
+		<Card.Header>
+			<Card.Title class="flex items-center gap-2">
+				<MapPin class="h-5 w-5 text-warning" />
+			Gérer les places de parking
+		</Card.Title>
+			<Card.Description>Places de parking assignées, échanges et réaffectation</Card.Description>
+		</Card.Header>
+		<Card.Content class="space-y-3 text-sm">
+			<ul class="text-muted-foreground space-y-2">
+				<li class="flex items-start gap-2">
+					<span class="mt-0.5 text-warning">•</span>
+					<span>Ajoutez ou supprimez des places de parking depuis <strong class="text-foreground">Modifier</strong> — chaque modification est sauvegardée immédiatement</span>
+				</li>
+				<li class="flex items-start gap-2">
+					<span class="mt-0.5 text-warning">•</span>
+					<span>Si la place de parking demandée est déjà attribuée à un autre appartement, un <strong class="text-foreground">dialogue de confirmation</strong> propose de la réaffecter</span>
+				</li>
+				<li class="flex items-start gap-2">
+					<span class="mt-0.5 text-warning">•</span>
+					<span>La réaffectation est impossible si elle laisserait l'autre appartement <strong class="text-foreground">sans place de parking</strong></span>
 				</li>
 			</ul>
 		</Card.Content>
 	</Card.Root>
 
 	<!-- Administrateurs -->
-	<Card.Root class="border-t-2 border-purple-600 dark:border-purple-400">
+	<Card.Root class="border-t-2 border-accent">
 		<Card.Header>
 			<Card.Title class="flex items-center gap-2">
-				<Shield class="h-5 w-5 text-purple-600 dark:text-purple-400" />
+				<Shield class="h-5 w-5 text-accent" />
 				Administrateurs
 			</Card.Title>
 			<Card.Description>Gérer les droits d'administration</Card.Description>
@@ -117,15 +148,15 @@
 		<Card.Content class="space-y-3 text-sm">
 			<ul class="text-muted-foreground space-y-2">
 				<li class="flex items-start gap-2">
-					<span class="mt-0.5 text-purple-600 dark:text-purple-400">•</span>
-					<span>Promouvoir un résident en admin : cliquez sur l'appartement puis activez le toggle <strong class="text-foreground">« Admin »</strong></span>
+					<span class="mt-0.5 text-accent">•</span>
+					<span>Promouvoir un résident en admin : cliquez sur l'appartement puis activez le toggle <strong class="text-foreground">« Rendre admin »</strong></span>
 				</li>
 				<li class="flex items-start gap-2">
-					<span class="mt-0.5 text-purple-600 dark:text-purple-400">•</span>
+					<span class="mt-0.5 text-accent">•</span>
 					<span>Rétrograder un admin : même procédure, désactivez le toggle</span>
 				</li>
 				<li class="flex items-start gap-2">
-					<span class="mt-0.5 text-purple-600 dark:text-purple-400">•</span>
+					<span class="mt-0.5 text-accent">•</span>
 					<span>Un admin ne peut <strong class="text-foreground">pas se supprimer</strong> ni se réinitialiser lui-même</span>
 				</li>
 			</ul>
