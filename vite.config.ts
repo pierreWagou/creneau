@@ -12,7 +12,7 @@ export default defineConfig({
 	},
 	plugins: [tailwindcss(), sveltekit()],
 	server: {
-		host: true // listen on all interfaces so the dev server is reachable on the local network
+		host: '0.0.0.0' // listen on all interfaces so the dev server is reachable on the local network
 	},
 	test: {
 		include: ['src/**/*.test.ts']

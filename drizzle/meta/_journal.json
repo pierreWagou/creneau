@@ -92,6 +92,20 @@
       "when": 1784500000000,
       "tag": "0012_request_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1790442290737,
+      "tag": "0013_flat_pending_backfill",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1790619041842,
+      "tag": "0014_spot_status",
+      "breakpoints": true
     }
   ]
 }

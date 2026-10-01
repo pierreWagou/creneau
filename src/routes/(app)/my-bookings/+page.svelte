@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CarFront from '@lucide/svelte/icons/car-front';
+import Trash2 from '@lucide/svelte/icons/trash-2';
 	import { format, isPast, isSameDay, isSameMonth, parseISO } from 'date-fns';
 	import { fr } from 'date-fns/locale';
 	import { onDestroy, onMount } from 'svelte';
@@ -116,7 +117,7 @@
 						</div>
 						<div class="flex shrink-0 items-center gap-2">
 							<Badge variant="outline">{formatDuration(booking.startTime, booking.endTime)}</Badge>
-							<Button variant="destructive" size="sm" onclick={() => confirmCancel(booking.id)}>Annuler</Button>
+							<Button variant="default" size="sm" class="bg-destructive text-white hover:bg-destructive/80 dark:text-[#1e1e2e]" onclick={() => confirmCancel(booking.id)}>Annuler</Button>
 							</div>
 						</div>
 					</Card.Content>
@@ -154,14 +155,21 @@
 		if (!o) cancellingBookingId = null;
 	}}
 >
-	<AlertDialog.Content>
+	<AlertDialog.Content class="sm:p-6">
 		<AlertDialog.Header>
-			<AlertDialog.Title>Annuler la réservation</AlertDialog.Title>
-			<AlertDialog.Description>Êtes-vous sûr de vouloir annuler cette réservation ?</AlertDialog.Description>
+			<div class="flex items-center gap-3">
+				<div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-destructive/20 bg-destructive/10 text-destructive">
+					<Trash2 class="h-6 w-6" />
+				</div>
+				<div class="min-w-0">
+					<AlertDialog.Title>Annuler la réservation</AlertDialog.Title>
+					<AlertDialog.Description>Êtes-vous sûr de vouloir annuler cette réservation ?</AlertDialog.Description>
+				</div>
+			</div>
 		</AlertDialog.Header>
-		<AlertDialog.Footer>
+		<AlertDialog.Footer class="bg-transparent border-t-0">
 			<AlertDialog.Cancel>Non</AlertDialog.Cancel>
-			<AlertDialog.Action variant="destructive" onclick={executeCancelBooking}>Annuler la réservation</AlertDialog.Action>
+			<AlertDialog.Action variant="default" class="bg-destructive text-white hover:bg-destructive/80 dark:text-[#1e1e2e]" onclick={executeCancelBooking}>Annuler la réservation</AlertDialog.Action>
 		</AlertDialog.Footer>
 	</AlertDialog.Content>
 </AlertDialog.Root>

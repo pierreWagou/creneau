@@ -4,13 +4,17 @@ import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 export const spot = sqliteTable('spot', {
 	number: text('number').primaryKey(),
 	flatNumber: text('flat_number').references(() => flat.number, { onDelete: 'set null' }),
+	// Lifecycle: shared (pool, bookable) · assigned (a lot's, ⟺ flatNumber set) · unassigned (limbo to route)
+	status: text('status', { enum: ['shared', 'assigned', 'unassigned'] })
+		.notNull()
+		.default('unassigned'),
 	description: text('description'),
 	createdAt: text('created_at').notNull().default(sql`(datetime('now'))`)
 });
 
 export const flat = sqliteTable('flat', {
 	number: text('number').primaryKey(),
-	status: text('status', { enum: ['inactive', 'active'] })
+	status: text('status', { enum: ['inactive', 'pending', 'active'] })
 		.notNull()
 		.default('inactive'),
 	activationCode: text('activation_code'),

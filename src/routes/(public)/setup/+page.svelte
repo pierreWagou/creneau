@@ -1,16 +1,20 @@
 <script lang="ts">
-	import Plus from '@lucide/svelte/icons/plus';
+	import Mail from '@lucide/svelte/icons/mail';
+	import Phone from '@lucide/svelte/icons/phone';
 	import ShieldCheck from '@lucide/svelte/icons/shield-check';
-	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
+	import FlatContactList from '$lib/components/flat-contact-list.svelte';
+	import FlatTextField from '$lib/components/flat-text-field.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { Separator } from '$lib/components/ui/separator';
-	import { isValidFlatNumber, MAX_CONTACTS_PER_TYPE, PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '$lib/constants';
+	import ValidationTip from '$lib/components/validation-tip.svelte';
+	import { isValidFlatNumber, PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '$lib/constants';
 	import { displayPhone, formatPhone } from '$lib/utils/phone';
+	import { isValidEmail, isValidPhone } from '$lib/validation';
 
 	let flatNumber = $state('');
 	let displayName = $state('');
@@ -20,42 +24,17 @@
 
 	let emails = $state<string[]>([]);
 	let phones = $state<string[]>([]);
-	let newEmail = $state('');
-	let newPhone = $state('');
 
 	const normalizedFlat = $derived(flatNumber.trim().toUpperCase());
 	const flatValid = $derived(normalizedFlat.length > 0 && isValidFlatNumber(normalizedFlat));
-	const emailValid = $derived(newEmail.length === 0 || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail));
-	const phoneValid = $derived(newPhone.length === 0 || /^[\d\s\-+()]+$/.test(newPhone));
-	const canAddEmail = $derived(emailValid && newEmail.trim().length > 0 && emails.length < MAX_CONTACTS_PER_TYPE);
-	const canAddPhone = $derived(phoneValid && newPhone.trim().length > 0 && phones.length < MAX_CONTACTS_PER_TYPE);
 	const canSubmit = $derived(flatValid && emails.length > 0 && phones.length > 0 && !loading);
-
-	function addEmail() {
-		if (!canAddEmail) return;
-		const trimmed = newEmail.trim();
-		if (!emails.includes(trimmed)) {
-			emails = [...emails, trimmed];
-		}
-		newEmail = '';
-	}
-
-	function removeEmail(index: number) {
-		emails = emails.filter((_, i) => i !== index);
-	}
-
-	function addPhone() {
-		if (!canAddPhone) return;
-		const formatted = formatPhone(newPhone.trim());
-		if (!phones.includes(formatted)) {
-			phones = [...phones, formatted];
-		}
-		newPhone = '';
-	}
-
-	function removePhone(index: number) {
-		phones = phones.filter((_, i) => i !== index);
-	}
+	const missingFields = $derived(
+		[
+			!flatValid && "Numéro d'appartement invalide",
+			emails.length === 0 && 'Au moins un e-mail valide',
+			phones.length === 0 && 'Au moins un téléphone valide'
+		].filter((r): r is string => r !== false)
+	);
 
 	async function handleSetup() {
 		if (!canSubmit) return;
@@ -111,87 +90,50 @@
 	</Card.Header>
 	<Card.Content>
 		<form onsubmit={(e) => { e.preventDefault(); handleSetup(); }} class="space-y-4">
-		<div class="space-y-2">
-			<Label for="flat">Numéro d'appartement <span class="text-destructive">*</span></Label>
-			<Input
-				id="flat"
-				type="text"
+			<FlatTextField
+				label="Numéro d'appartement"
 				placeholder="ex. B12"
+				uppercase
 				bind:value={flatNumber}
-				oninput={() => { flatNumber = flatNumber.toUpperCase(); }}
-				class={flatNumber && !flatValid ? 'border-destructive' : ''}
-				required
 			/>
-			{#if flatNumber && !flatValid}
-				<p class="text-destructive text-xs">Format requis : ex. A01 ou B12</p>
-			{/if}
-		</div>
-			<div class="space-y-2">
-				<Label for="name">Votre prénom</Label>
-				<Input id="name" type="text" placeholder="ex. Marc" bind:value={displayName} />
-			</div>
+			<FlatTextField
+				label="Votre prénom"
+				placeholder="ex. Marc"
+				required={false}
+				bind:value={displayName}
+			/>
 
 			<Separator />
 
-			<div class="space-y-2">
-				<Label>Emails <span class="text-destructive">*</span></Label>
-				{#each emails as email, i}
-					<div class="flex items-center gap-2">
-						<span class="flex-1 text-sm">{email}</span>
-						<Button type="button" variant="ghost" size="icon-sm" class="text-destructive hover:text-destructive hover:!bg-destructive/10" onclick={() => removeEmail(i)}>
-							<Trash2 class="h-3.5 w-3.5" />
-						</Button>
-					</div>
-				{/each}
-				{#if emails.length < MAX_CONTACTS_PER_TYPE}
-					<div class="flex gap-2">
-						<Input
-							type="email"
-							placeholder="ex. dupont@email.com"
-							bind:value={newEmail}
-							class={!emailValid && newEmail.length > 0 ? 'border-destructive' : ''}
-							onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addEmail(); } }}
-						/>
-						<Button type="button" size="sm" variant="default" class="shrink-0" disabled={!canAddEmail} onclick={addEmail}>
-							<Plus class="h-4 w-4" />
-						</Button>
-					</div>
-					{#if newEmail.length > 0 && !emailValid}
-						<p class="text-destructive text-xs">Email invalide</p>
-					{/if}
-				{/if}
-			</div>
+			<FlatContactList
+				title="Emails"
+				icon={Mail}
+				items={emails}
+				placeholder="ex. dupont@email.com"
+				inputType="email"
+				invalidMessage="Email invalide"
+				addLabel="Ajouter un e-mail"
+				minItems={0}
+				validate={isValidEmail}
+				onChange={(e) => (emails = e)}
+			/>
 
 			<Separator />
 
-			<div class="space-y-2">
-				<Label>Téléphones <span class="text-destructive">*</span></Label>
-				{#each phones as phone, i}
-					<div class="flex items-center gap-2">
-						<span class="flex-1 text-sm">{displayPhone(phone)}</span>
-						<Button type="button" variant="ghost" size="icon-sm" class="text-destructive hover:text-destructive hover:!bg-destructive/10" onclick={() => removePhone(i)}>
-							<Trash2 class="h-3.5 w-3.5" />
-						</Button>
-					</div>
-				{/each}
-				{#if phones.length < MAX_CONTACTS_PER_TYPE}
-					<div class="flex gap-2">
-						<Input
-							type="tel"
-							placeholder="+33 6 12 34 56 78"
-							bind:value={newPhone}
-							class={!phoneValid && newPhone.length > 0 ? 'border-destructive' : ''}
-							onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addPhone(); } }}
-						/>
-						<Button type="button" size="sm" variant="default" class="shrink-0" disabled={!canAddPhone} onclick={addPhone}>
-							<Plus class="h-4 w-4" />
-						</Button>
-					</div>
-					{#if newPhone.length > 0 && !phoneValid}
-						<p class="text-destructive text-xs">Téléphone invalide</p>
-					{/if}
-				{/if}
-			</div>
+			<FlatContactList
+				title="Téléphones"
+				icon={Phone}
+				items={phones}
+				placeholder="+33 6 12 34 56 78"
+				inputType="tel"
+				invalidMessage="Téléphone invalide"
+				addLabel="Ajouter un téléphone"
+				minItems={0}
+				validate={isValidPhone}
+				format={formatPhone}
+				display={displayPhone}
+				onChange={(p) => (phones = p)}
+			/>
 
 			<Separator />
 
@@ -221,9 +163,21 @@
 					required
 				/>
 			</div>
-			<Button type="submit" class="w-full" disabled={!canSubmit}>
-				{loading ? 'Configuration...' : 'Créer le compte administrateur'}
-			</Button>
+			{#if !canSubmit}
+				<ValidationTip
+					show={missingFields.length > 0}
+					title="Éléments manquants :"
+					items={missingFields}
+				>
+					<Button type="submit" class="w-full" disabled>
+						{loading ? 'Configuration...' : 'Créer le compte administrateur'}
+					</Button>
+				</ValidationTip>
+			{:else}
+				<Button type="submit" class="w-full" disabled={loading}>
+					{loading ? 'Configuration...' : 'Créer le compte administrateur'}
+				</Button>
+			{/if}
 		</form>
 	</Card.Content>
 </Card.Root>

@@ -23,7 +23,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 		const normalizedFlat = flatNumber.trim().toUpperCase();
 		if (!FLAT_NUMBER_REGEX.test(normalizedFlat)) {
-			return json({ error: "Format d'appartement invalide (ex. A01, B12)" }, { status: 400 });
+			return json({ error: 'Format de lot invalide (ex. A01, B12)' }, { status: 400 });
 		}
 
 		const pinError = validatePin(pin);

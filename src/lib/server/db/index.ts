@@ -21,6 +21,10 @@ await client.execute('PRAGMA journal_mode = WAL');
 
 export const db = drizzle(client, { schema });
 
+/** Transaction handle (inferred) — helpers accept db or tx so endpoints can wrap writes */
+export type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+export type DbOrTx = typeof db | DbTransaction;
+
 // --- Migration ---
 // Disable foreign keys so migration 0012's DROP TABLE flat works
 await client.execute('PRAGMA foreign_keys = OFF');

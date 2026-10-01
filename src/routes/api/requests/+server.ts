@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { FLAT_NUMBER_REGEX, formatSpotNumber, SPOT_NUMBER_REGEX } from '$lib/constants';
 import { validateEmails, validatePhones } from '$lib/server/contacts';
 import { db } from '$lib/server/db';
-import { flat, request, requestEmail, requestPhone, requestSpot } from '$lib/server/db/schema';
+import { flat, request, requestEmail, requestPhone, requestSpot, spot } from '$lib/server/db/schema';
 import { checkRateLimit, rateLimitErrorMessage, recordFailedAttempt, resetAttempts } from '$lib/server/rate-limit';
 import type { RequestHandler } from './$types';
 
@@ -12,13 +12,13 @@ export const POST: RequestHandler = async ({ request: req }) => {
 		const { flatNumber, spotNumbers, requesterName, emails, phones } = await req.json();
 
 		if (!flatNumber || !Array.isArray(spotNumbers) || spotNumbers.length === 0) {
-			return json({ error: "Numéro d'appartement et au moins une place de parking requise" }, { status: 400 });
+			return json({ error: 'Numéro de lot et au moins une place de parking requise' }, { status: 400 });
 		}
 
 		const trimmedFlat = flatNumber.trim().toUpperCase();
 
 		if (!FLAT_NUMBER_REGEX.test(trimmedFlat)) {
-			return json({ error: "Format d'appartement invalide (ex. A01, B12)" }, { status: 400 });
+			return json({ error: 'Format de lot invalide (ex. A01, B12)' }, { status: 400 });
 		}
 
 		const trimmedSpots = [
@@ -35,6 +35,14 @@ export const POST: RequestHandler = async ({ request: req }) => {
 			}
 		}
 
+		// Refuse unknown spots — the building's spots are created by admins first
+		for (const s of trimmedSpots) {
+			const known = await db.select().from(spot).where(eq(spot.number, s)).get();
+			if (!known) {
+				return json({ error: `Place « ${s} » inexistante` }, { status: 400 });
+			}
+		}
+
 		// Rate limit by flat number
 		const rateLimitKey = `request:${trimmedFlat}`;
 		const { allowed, retryAfterMs } = checkRateLimit(rateLimitKey);
@@ -46,7 +54,7 @@ export const POST: RequestHandler = async ({ request: req }) => {
 		const existingFlat = await db.select().from(flat).where(eq(flat.number, trimmedFlat)).get();
 		if (existingFlat) {
 			recordFailedAttempt(rateLimitKey);
-			return json({ error: 'Cet appartement existe déjà dans le système' }, { status: 409 });
+			return json({ error: 'Ce lot existe déjà dans le système' }, { status: 409 });
 		}
 
 		// Success — reset rate limit

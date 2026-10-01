@@ -24,13 +24,13 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 		if (existingFlat?.status !== 'active' || !existingFlat.pinHash) {
 			recordFailedAttempt(flatNumber);
-			return json({ error: "Numéro d'appartement ou PIN invalide" }, { status: 401 });
+			return json({ error: 'Numéro de lot ou PIN invalide' }, { status: 401 });
 		}
 
 		const valid = await verifyPin(pin, existingFlat.pinHash);
 		if (!valid) {
 			recordFailedAttempt(flatNumber);
-			return json({ error: "Numéro d'appartement ou PIN invalide" }, { status: 401 });
+			return json({ error: 'Numéro de lot ou PIN invalide' }, { status: 401 });
 		}
 
 		// Success — reset rate limit

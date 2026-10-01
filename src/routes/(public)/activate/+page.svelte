@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
+	import EditableField from '$lib/components/editable-field.svelte';
+	import FlatDetailView from '$lib/components/flat-detail-view.svelte';
+	import FlatPinForm from '$lib/components/flat-pin-form.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
-	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
-	import { ACTIVATION_CODE_LENGTH, isValidFlatNumber, PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '$lib/constants';
+	import ValidationTip from '$lib/components/validation-tip.svelte';
+	import { ACTIVATION_CODE_LENGTH, isValidFlatNumber } from '$lib/constants';
 
 	let { data } = $props();
 
@@ -15,28 +17,108 @@
 	let pin = $state('');
 	let confirmPin = $state('');
 	let loading = $state(false);
+	let pinFormValid = $state(false);
+	// PINs are never prefilled: editor open by default, collapses on commit
+	let pinEditing = $state(true);
 
 	const normalizedFlat = $derived(flatNumber.trim().toUpperCase());
 	const flatValid = $derived(normalizedFlat.length > 0 && isValidFlatNumber(normalizedFlat));
-	const canSubmit = $derived(flatValid && activationCode.trim().length > 0 && !loading);
+
+	// Local pencil flows (draft-only, no server call pre-activation).
+	// Input drafts live inside FlatDetailView and are seeded from state on start.
+	// Editor open by default iff no prefilled number (bare /activate link)
+	let numberEditing = $state(!data.prefill.flat);
+	const numberEdit = $derived({
+		editing: numberEditing,
+		saving: false,
+		onStart: () => {
+			numberEditing = true;
+		},
+		onCommit: (v: string) => {
+			flatNumber = v.trim().toUpperCase();
+			// New number = new flat context: drop the stale name, lookup refills it if known
+			displayName = '';
+			numberEditing = false;
+		},
+		onCancel: () => {
+			numberEditing = false;
+		}
+	});
+
+	// Invitation code pencil flow (classic field: open by default when empty).
+	// Editor open on first paint iff no prefilled code (bare /activate link).
+	let codeDraft = $state('');
+	let codeInitial = $state('');
+	let codeEditing = $state(!data.prefill.code);
+	// Focus on pencil-open only, never on mount (same rule as FlatPinForm).
+	let codeAutofocus = $state(false);
+
+	function startCodeEdit() {
+		codeDraft = activationCode;
+		codeInitial = activationCode;
+		codeEditing = true;
+		codeAutofocus = true;
+	}
+
+	function commitCodeEdit() {
+		activationCode = codeDraft.trim().toUpperCase();
+		codeEditing = false;
+		codeAutofocus = false;
+	}
+
+	function cancelCodeEdit() {
+		codeEditing = false;
+		codeAutofocus = false;
+	}
+
+	let nameEditing = $state(false);
+	const nameEdit = $derived({
+		editing: nameEditing,
+		saving: false,
+		onStart: () => {
+			nameEditing = true;
+		},
+		onCommit: (v: string) => {
+			displayName = v;
+			nameEditing = false;
+		},
+		onCancel: () => {
+			nameEditing = false;
+		}
+	});
+
+	// Auto-resolve the display name as the number is typed (debounced).
+	// 200 → sync to source of truth; 404/error → keep current value (never wipe while typing).
+	let lookupId = 0;
+	$effect(() => {
+		const target = normalizedFlat;
+		if (!flatValid || nameEditing) return;
+		const id = ++lookupId;
+		const timer = setTimeout(async () => {
+			try {
+				const res = await fetch(`/api/flats/${encodeURIComponent(target)}`);
+				if (id !== lookupId) return;
+				if (!res.ok) return;
+				const data = await res.json();
+				if (id !== lookupId || nameEditing) return;
+				displayName = data.displayName ?? '';
+			} catch {
+				// Offline/transient failure: keep current value
+			}
+		}, 300);
+		return () => clearTimeout(timer);
+	});
+	const canSubmit = $derived(flatValid && activationCode.trim().length > 0 && pinFormValid && !loading);
+	const missingFields = $derived(
+		[
+			!flatValid && "Numéro d'appartement invalide",
+			!activationCode.trim() && "Code d'activation manquant",
+			!pinFormValid && 'Code PIN invalide'
+		].filter((r): r is string => r !== false)
+	);
 
 	async function handleActivate() {
 		if (!canSubmit) return;
-
-		if (pin !== confirmPin) {
-			toast.error('Les codes PIN ne correspondent pas');
-			return;
-		}
-
-		if (pin.length < PIN_MIN_LENGTH || pin.length > PIN_MAX_LENGTH) {
-			toast.error(`Le PIN doit contenir ${PIN_MIN_LENGTH} à ${PIN_MAX_LENGTH} chiffres`);
-			return;
-		}
-
-		if (!/^\d+$/.test(pin)) {
-			toast.error('Le PIN ne doit contenir que des chiffres');
-			return;
-		}
 
 		loading = true;
 
@@ -70,68 +152,69 @@
 		<Card.Description>Entrez le code d'activation fourni par l'administrateur de votre immeuble.</Card.Description>
 	</Card.Header>
 	<Card.Content>
-		<form onsubmit={(e) => { e.preventDefault(); handleActivate(); }} class="space-y-4">
-		<div class="space-y-2">
-			<Label for="flat">Numéro d'appartement <span class="text-destructive">*</span></Label>
-			<Input
-				id="flat"
-				type="text"
-				placeholder="ex. B12"
-				bind:value={flatNumber}
-				oninput={() => { flatNumber = flatNumber.toUpperCase(); }}
-				class={flatNumber && !flatValid ? 'border-destructive' : ''}
-				required
-			/>
-			{#if flatNumber && !flatValid}
-				<p class="text-destructive text-xs">Format requis : ex. A01 ou B12</p>
+		<div class="space-y-4">
+			<FlatDetailView
+				number={normalizedFlat}
+				displayName={displayName.trim() || null}
+				{nameEdit}
+				{numberEdit}
+				securityOnly
+			>
+				{#snippet security()}
+					<div class="space-y-4">
+						<div>
+							<p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Invitation</p>
+							<div class="rounded-xl border border-border p-4">
+								<EditableField
+									editing={codeEditing}
+									editLabel="Modifier le code"
+									onStart={startCodeEdit}
+									bind:value={codeDraft}
+									initial={codeInitial}
+									placeholder="ex. K7X9"
+									ariaLabel="Code d'activation"
+									maxlength={ACTIVATION_CODE_LENGTH}
+									mono
+									inputClass="text-sm font-semibold"
+									committable={codeDraft.trim().length > 0}
+									autofocus={codeAutofocus}
+									onCommit={commitCodeEdit}
+									onCancel={cancelCodeEdit}
+								>
+									{#snippet display()}
+										{#if activationCode}
+											<span class="block truncate font-mono text-sm font-semibold">{activationCode}</span>
+										{:else}
+											<span class="block text-sm text-muted-foreground">—</span>
+										{/if}
+									{/snippet}
+								</EditableField>
+							</div>
+						</div>
+						<FlatPinForm
+							collectOnly
+							bind:editing={pinEditing}
+							bind:newPin={pin}
+							bind:confirmPin={confirmPin}
+							bind:valid={pinFormValid}
+						/>
+					</div>
+				{/snippet}
+			</FlatDetailView>
+			{#if !canSubmit}
+				<ValidationTip
+					show={missingFields.length > 0}
+					title="Éléments manquants :"
+					items={missingFields}
+				>
+					<Button class="w-full" disabled>Activer</Button>
+				</ValidationTip>
+			{:else}
+				<Button class="w-full" disabled={loading} onclick={handleActivate}>
+					{loading ? 'Activation...' : 'Activer'}
+				</Button>
 			{/if}
 		</div>
-			<div class="space-y-2">
-				<Label for="code">Code d'activation <span class="text-destructive">*</span></Label>
-				<Input
-					id="code"
-					type="text"
-					placeholder="ex. K7X9"
-					maxlength={ACTIVATION_CODE_LENGTH}
-					class="uppercase"
-					bind:value={activationCode}
-					required
-				/>
-			</div>
-			<div class="space-y-2">
-				<Label for="name">Nom d'affichage</Label>
-				<Input id="name" type="text" placeholder="ex. Jean, Famille Dupont" bind:value={displayName} />
-			</div>
-			<div class="space-y-2">
-				<Label for="pin">Choisir un code PIN <span class="text-destructive">*</span></Label>
-				<Input
-					id="pin"
-					type="password"
-					inputmode="numeric"
-					pattern="[0-9]*"
-				maxlength={PIN_MAX_LENGTH}
-				placeholder="{PIN_MIN_LENGTH} à {PIN_MAX_LENGTH} chiffres"
-				bind:value={pin}
-				required
-			/>
-		</div>
-		<div class="space-y-2">
-			<Label for="pin-confirm">Confirmer le PIN <span class="text-destructive">*</span></Label>
-			<Input
-				id="pin-confirm"
-				type="password"
-				inputmode="numeric"
-				pattern="[0-9]*"
-				maxlength={PIN_MAX_LENGTH}
-				placeholder="{PIN_MIN_LENGTH} à {PIN_MAX_LENGTH} chiffres"
-				bind:value={confirmPin}
-					required
-				/>
-			</div>
-			<Button type="submit" class="w-full" disabled={!canSubmit}>
-				{loading ? 'Activation...' : 'Activer'}
-			</Button>
-		</form>
 	</Card.Content>
 	<Card.Footer class="flex-col gap-2">
 		<p class="text-muted-foreground text-sm">

@@ -43,6 +43,15 @@ export async function getSessionCookie(page: Page): Promise<string> {
 	return session ? `session=${session.value}` : '';
 }
 
+/** Pre-create spots via the admin API and pool them (idempotent — 409s ignored).
+ *  Creation lands spots unassigned; requests and picker adds need them shared. */
+export async function ensureSpots(page: Page, numbers: string[]) {
+	for (const number of numbers) {
+		await page.request.post('/api/spots', { data: { number } });
+		await page.request.patch(`/api/spots/${number}`, { data: { status: 'shared' } });
+	}
+}
+
 export async function createBookingViaAPI(
 	request: APIRequestContext,
 	cookies: string,

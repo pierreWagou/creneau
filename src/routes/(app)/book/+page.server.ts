@@ -1,5 +1,5 @@
 import { addMonths, endOfMonth, format, startOfMonth } from 'date-fns';
-import { isNull } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { CALENDAR_LOOKAHEAD_MONTHS } from '$lib/constants';
 import { getCalendarStatuses } from '$lib/server/availability';
 import { db } from '$lib/server/db';
@@ -13,8 +13,8 @@ export const load: PageServerLoad = async ({ url }) => {
 	const prefilledEndHour = url.searchParams.get('endHour') || '';
 	const prefilledSpot = url.searchParams.get('spot');
 
-	// Only load shared spots (not bound to any flat)
-	const spots = await db.select().from(spot).where(isNull(spot.flatNumber)).all();
+	// Only load shared pool spots (limbo and assigned spots are not bookable)
+	const spots = await db.select().from(spot).where(eq(spot.status, 'shared')).all();
 
 	// Load calendar statuses for the lookahead period (for cell coloring)
 	const now = new Date();

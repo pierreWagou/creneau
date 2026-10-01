@@ -12,14 +12,16 @@ test.describe
 		test('creates admin account via setup wizard', async ({ page }) => {
 			await navigateTo(page, '/setup');
 
-			await page.fill('[id="flat"]', ADMIN_FLAT);
-			await page.fill('[id="name"]', 'Admin');
+			await page.getByPlaceholder('ex. B12').fill(ADMIN_FLAT);
+			await page.getByPlaceholder('ex. Marc').fill('Admin');
 
 			// Add an email (required)
+			await page.getByRole('button', { name: 'Ajouter un e-mail' }).click();
 			await page.locator('input[type="email"]').fill('admin@test.com');
 			await page.keyboard.press('Enter');
 
 			// Add a phone (required)
+			await page.getByRole('button', { name: 'Ajouter un téléphone' }).click();
 			await page.locator('input[type="tel"]').fill('+33612345678');
 			await page.keyboard.press('Enter');
 
@@ -46,19 +48,28 @@ test.describe
 			await page.waitForURL('/calendar');
 
 			// Go to admin page and open the add spot dialog
-			await navigateTo(page, '/admin');
-			const btn = page.getByRole('button', { name: 'Ajouter', exact: true }).first();
-			await btn.click();
+			await navigateTo(page, '/admin/spots');
+			await page.getByRole('button', { name: 'Ajouter une place' }).click();
 
 			// Fill spot number in the dialog
 			const dialog = page.locator('[role="dialog"]');
 			await dialog.waitFor({ timeout: 5000 });
-			await dialog.locator('[id="spot-number"]').fill(TEST_SPOT);
+			await dialog.getByPlaceholder('ex. 01').fill(TEST_SPOT);
 			await dialog.getByRole('button', { name: 'Ajouter' }).click();
 
-			// Wait for data to refresh and verify spot appears
+			// New spots land unassigned — pool 36 so bookings (and later specs) can use it
 			await page.waitForTimeout(1500);
 			await page.reload();
-			await expect(page.getByText(TEST_SPOT).first()).toBeVisible();
+			const waitingCard = page.locator('[data-slot="card"]').filter({ hasText: 'En attente' });
+			await waitingCard.getByRole('button', { name: /Voir la place 36/ }).click();
+			const spotDrawer = page.locator('[role="dialog"]').last();
+			await expect(spotDrawer).toBeVisible();
+			await spotDrawer.getByRole('button', { name: 'Mettre en commun' }).click();
+			await expect(page.locator('[data-sonner-toast]').filter({ hasText: 'mise en commun' })).toBeVisible();
+			await page.keyboard.press('Escape');
+
+			// Verify spot appears in the shared mosaic
+			const sharedCard = page.locator('[data-slot="card"]').filter({ hasText: 'Places de parking' });
+			await expect(sharedCard.getByText(TEST_SPOT).first()).toBeVisible({ timeout: 5000 });
 		});
 	});

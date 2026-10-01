@@ -26,14 +26,15 @@ test.describe
 
 			// Go to account page
 			await navigateTo(page, '/account');
+			await page.getByRole('tab', { name: 'Sécurité' }).click();
+			await page.waitForTimeout(500); // let tab content settle before interacting
 
-			// Fill PIN change form
-			await page.fill('[id="current-pin"]', FLAT.pin);
-			await page.fill('[id="new-pin"]', '5678');
-			await page.fill('[id="confirm-pin"]', '5678');
-
-			// Submit PIN change
-			await page.locator('button:text("Modifier le PIN")').click();
+			// Fill PIN change form (shared FlatPinForm: pencil opens, ✓ submits)
+			await page.getByRole('button', { name: 'Modifier le PIN' }).click();
+			await page.getByPlaceholder('PIN actuel').fill(FLAT.pin);
+			await page.getByPlaceholder('Nouveau PIN', { exact: true }).fill('5678');
+			await page.getByPlaceholder('Confirmation nouveau PIN').fill('5678');
+			await page.getByRole('button', { name: 'Valider' }).click();
 
 			// Verify success
 			await expect(page.locator('[data-sonner-toast]')).toBeVisible({ timeout: 5000 });

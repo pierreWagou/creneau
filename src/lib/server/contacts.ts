@@ -1,14 +1,12 @@
 import { eq } from 'drizzle-orm';
 import { MAX_CONTACTS_PER_TYPE } from '$lib/constants';
 import { formatPhone } from '$lib/utils/phone';
+import { isValidEmail, isValidPhone } from '$lib/validation';
 
 export { formatPhone } from '$lib/utils/phone';
 
-import type { db } from './db';
+import type { DbOrTx, db } from './db';
 import { flatEmail, flatPhone } from './db/schema';
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_REGEX = /^[\d\s\-+()]+$/;
 
 export function validateEmails(emails: unknown): string[] | string {
 	if (!Array.isArray(emails)) return 'Les emails doivent être un tableau';
@@ -18,7 +16,7 @@ export function validateEmails(emails: unknown): string[] | string {
 		return `Maximum ${MAX_CONTACTS_PER_TYPE} emails autorisés`;
 	}
 	for (const email of trimmed) {
-		if (!EMAIL_REGEX.test(email)) return `Email invalide : "${email}"`;
+		if (!isValidEmail(email)) return `Email invalide : "${email}"`;
 	}
 	return trimmed;
 }
@@ -32,7 +30,7 @@ export function validatePhones(phones: unknown): string[] | string {
 	}
 	const formatted = [...new Set(raw.map(formatPhone))];
 	for (const phone of formatted) {
-		if (!PHONE_REGEX.test(phone)) return `Téléphone invalide : "${phone}"`;
+		if (!isValidPhone(phone)) return `Téléphone invalide : "${phone}"`;
 	}
 	return formatted;
 }
@@ -47,14 +45,14 @@ export async function getFlatPhones(database: typeof db, flatNumber: string): Pr
 	return rows.map((r) => r.phone);
 }
 
-export async function setFlatEmails(database: typeof db, flatNumber: string, emails: string[]): Promise<void> {
+export async function setFlatEmails(database: DbOrTx, flatNumber: string, emails: string[]): Promise<void> {
 	await database.delete(flatEmail).where(eq(flatEmail.flatNumber, flatNumber));
 	if (emails.length > 0) {
 		await database.insert(flatEmail).values(emails.map((email) => ({ flatNumber, email })));
 	}
 }
 
-export async function setFlatPhones(database: typeof db, flatNumber: string, phones: string[]): Promise<void> {
+export async function setFlatPhones(database: DbOrTx, flatNumber: string, phones: string[]): Promise<void> {
 	await database.delete(flatPhone).where(eq(flatPhone.flatNumber, flatNumber));
 	if (phones.length > 0) {
 		await database.insert(flatPhone).values(phones.map((phone) => ({ flatNumber, phone })));

@@ -4,6 +4,7 @@ import { formatSpotNumber, SPOT_NUMBER_REGEX } from '$lib/constants';
 import { db } from '$lib/server/db';
 import { spot } from '$lib/server/db/schema';
 import { requireAdmin } from '$lib/server/guards';
+import { detectStrands, strandErrorMessage } from '$lib/server/rebind';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -11,7 +12,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	if (guard) return guard;
 
 	try {
-		const { number, description } = await request.json();
+		const { number, description, force } = await request.json();
 
 		if (!number) {
 			return json({ error: 'Numéro de la place de parking requis' }, { status: 400 });
@@ -25,12 +26,37 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		// Check spot doesn't already exist
 		const existingSpot = await db.select().from(spot).where(eq(spot.number, spotNumber)).get();
 		if (existingSpot) {
-			return json({ error: 'Cette place de parking existe déjà' }, { status: 409 });
+			// Unbound spot: pure duplicate, nothing to reassign
+			if (!existingSpot.flatNumber) {
+				return json({ error: 'Cette place de parking existe déjà' }, { status: 409 });
+			}
+			// Bound spot: route through the conflict dialog unless forced
+			if (force !== true) {
+				return json(
+					{
+						error: 'Conflit de place de parking',
+						conflicts: [{ spotNumber, currentFlat: existingSpot.flatNumber }]
+					},
+					{ status: 409 }
+				);
+			}
+			// Force: refuse to strand the holder with 0 spots (all-or-nothing, no writes before this point)
+			const strands = await detectStrands(db, [{ spotNumber, currentFlat: existingSpot.flatNumber }]);
+			if (strands.length > 0) {
+				return json({ error: strandErrorMessage(strands[0]) }, { status: 409 });
+			}
+			const unbound = await db
+				.update(spot)
+				.set({ flatNumber: null, status: 'shared', description: description || existingSpot.description })
+				.where(eq(spot.number, spotNumber))
+				.returning()
+				.get();
+			return json({ spot: unbound }, { status: 200 });
 		}
 
 		const result = await db
 			.insert(spot)
-			.values({ number: spotNumber, description: description || null })
+			.values({ number: spotNumber, description: description || null, status: 'unassigned' })
 			.returning()
 			.get();
 

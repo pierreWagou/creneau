@@ -15,9 +15,10 @@ SvelteKit (Svelte 5 runes) + SQLite (Drizzle ORM) + Tailwind CSS v4 + shadcn-sve
 ### Data Model
 
 - Natural keys: `flat.number` and `spot.number` are text primary keys (no artificial integer IDs)
+- Spot lifecycle `shared | assigned | unassigned` (invariant: `assigned ⟺ flatNumber` set; only `shared` is bookable). Creation lands `unassigned`; unbind paths land `shared`; all binds set `assigned` via `rebind.ts`
 - Booking still has an integer `id` (needed for DELETE/PATCH URLs)
 - `booking` and `session` FKs cascade on delete
-- `spot.flatNumber` FK uses `SET NULL` on flat delete (spot becomes shared)
+- `spot.flatNumber` FK uses `SET NULL` on flat delete (endpoint explicitly lands freed spots `shared` first — FK alone would strand statuses)
 - `flat_email` and `flat_phone` are junction tables with composite PKs (`flatNumber` + `email`/`phone`)
 - Contacts cascade on flat delete via FK
 - Requests use a separate `request` table with `request_spot`, `request_email`, `request_phone` junction tables
@@ -36,10 +37,11 @@ SvelteKit (Svelte 5 runes) + SQLite (Drizzle ORM) + Tailwind CSS v4 + shadcn-sve
 | Pattern | Variant | Use case |
 |---------|---------|----------|
 | A. Solid bg | `default` | Primary submit, main CTAs, add buttons (blue) |
-| B. Soft red bg | `destructive` | Delete, cancel, revoke, reject (AlertDialog confirmations) |
+| B. Solid red bg | `default` + `bg-destructive text-white dark:text-[#1e1e2e] hover:bg-destructive/80` | Delete, cancel, revoke, reject, logout |
+| B2. Solid green bg | `default` + `bg-success text-white dark:text-[#1e1e2e] hover:bg-success/80` | Approve |
 | C. Border + hover | `outline` | Secondary actions, toggle, modify, copy |
 | D. No bg + hover | `ghost` | Inline remove icons, nav links, view details |
-| E. Custom color | `ghost/outline` + manual | Symmetric action pairs (approve/reject in list rows) |
+| E. Custom color | `ghost/outline` + manual | Symmetric action pairs (approve/reject in list rows — stay tinted by design, not solid) |
 
 - **List rows** → `ghost` (lightweight)
 - **Dialog actions** → `outline` (prominent, consistent with other dialog buttons)
@@ -161,7 +163,7 @@ src/
 ## Key Decisions
 
 - Setup wizard: first visitor creates admin (no secrets in config, accepts race condition for homeserver)
-- Flat lifecycle: Demande → Inactif → En attente (24h activation code) → Actif / Expiré (code TTL elapsed → back to Inactif via admin reset)
+- Flat state machine (XState v5 `flat-machine.ts`, writes in `flat-state.ts`): stored `inactive → pending → active`; transitions are `invite` (generate/refresh), `revoke` (→ inactive), `consume` (activation → active). Expiry is a lazy system transition (`reapExpiredInvitations()` on admin load, activate-410, send-guard): dead codes return flats to `inactive`; no `expired` state anywhere. Requests live separately (`pending/approved/rejected`); approval creates an `inactive`, codeless flat
 - Contacts: normalized into `flat_email` and `flat_phone` junction tables (not JSON arrays)
 - Requests: stored in a separate `request` table with `request_spot`, `request_email`, `request_phone` junction tables
 - Calendar: @event-calendar/core with drag/drop (own bookings only, future only)

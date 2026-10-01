@@ -24,6 +24,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			displayName: flatInfo.displayName,
 			isAdmin: flatInfo.isAdmin,
 			activatedAt: flatInfo.activatedAt,
+			createdAt: flatInfo.createdAt,
 			emails,
 			phones
 		},

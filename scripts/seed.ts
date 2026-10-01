@@ -11,6 +11,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { createClient } from '@libsql/client';
 import { hash } from '@node-rs/argon2';
+import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/libsql';
 import { migrate } from 'drizzle-orm/libsql/migrator';
 import {
@@ -97,13 +98,6 @@ function dt(dayOffset: number, hour: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// Spot
-// ---------------------------------------------------------------------------
-
-console.log('Inserting spot…');
-await db.insert(spot).values({ number: '36' }).onConflictDoNothing();
-
-// ---------------------------------------------------------------------------
 // Flats
 // ---------------------------------------------------------------------------
 
@@ -123,9 +117,32 @@ const flats: (typeof flat.$inferInsert)[] = [
 	{ number: 'B01', status: 'active', displayName: 'Durand', pinHash, activatedAt: dt(-35, 10) },
 	{ number: 'B02', status: 'active', displayName: 'Leroy', pinHash, activatedAt: dt(-25, 16) },
 	{ number: 'B03', status: 'active', displayName: 'Moreau', pinHash, activatedAt: dt(-15, 9) },
+	{ number: 'B04', status: 'active', displayName: 'Garnier', pinHash, activatedAt: dt(-10, 10) },
+	// Active with multiple spots (movable-conflict demo)
+	{ number: 'A07', status: 'active', displayName: 'Fontaine', pinHash, activatedAt: dt(-5, 10) },
 	// Inactive (no PIN, not activated)
 	{ number: 'A05', status: 'inactive', displayName: null, pinHash: null },
-	{ number: 'B05', status: 'inactive', displayName: null, pinHash: null }
+	{ number: 'B05', status: 'inactive', displayName: null, pinHash: null },
+	// Inactive without spots (empty-state demo)
+	{ number: 'B08', status: 'inactive', displayName: null, pinHash: null },
+	// Pending with a valid invitation code
+	{
+		number: 'B07',
+		status: 'pending',
+		displayName: 'Lambert',
+		pinHash: null,
+		activationCode: 'ABCD',
+		activationCodeExpiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString()
+	},
+	// Pending with an expired code (lazy-reap demo: returns to inactive on next admin load)
+	{
+		number: 'A08',
+		status: 'pending',
+		displayName: 'Girard',
+		pinHash: null,
+		activationCode: 'WXYZ',
+		activationCodeExpiresAt: new Date(Date.now() - 3600 * 1000).toISOString()
+	}
 ];
 
 console.log('Inserting flats…');
@@ -146,8 +163,13 @@ const contacts: { flatNumber: string; email: string; phone: string }[] = [
 	{ flatNumber: 'B01', email: 'durand@example.com', phone: formatPhone('06 12 34 56 05') },
 	{ flatNumber: 'B02', email: 'leroy@example.com', phone: formatPhone('06 12 34 56 06') },
 	{ flatNumber: 'B03', email: 'moreau@example.com', phone: formatPhone('06 12 34 56 07') },
+	{ flatNumber: 'B04', email: 'garnier@example.com', phone: formatPhone('06 12 34 56 26') },
 	{ flatNumber: 'A05', email: 'a05@example.com', phone: formatPhone('06 12 34 56 08') },
-	{ flatNumber: 'B05', email: 'b05@example.com', phone: formatPhone('06 12 34 56 09') }
+	{ flatNumber: 'B05', email: 'b05@example.com', phone: formatPhone('06 12 34 56 09') },
+	{ flatNumber: 'A07', email: 'fontaine@example.com', phone: formatPhone('06 12 34 56 20') },
+	{ flatNumber: 'B07', email: 'lambert@example.com', phone: formatPhone('06 12 34 56 21') },
+	{ flatNumber: 'A08', email: 'girard@example.com', phone: formatPhone('06 12 34 56 22') },
+	{ flatNumber: 'B08', email: 'b08@example.com', phone: formatPhone('06 12 34 56 23') }
 ];
 
 await db
@@ -160,24 +182,45 @@ await db
 	.onConflictDoNothing();
 
 // ---------------------------------------------------------------------------
-// Bound spots — one per flat (inserted after flats to satisfy FK)
+// Spots — exhaustive 01–50 (the picker needs the full list), bound map merged
+// in so re-runs can't leave bound spots shared via onConflictDoNothing skips.
+// Inserted after flats to satisfy the spot.flat_number FK.
 // ---------------------------------------------------------------------------
 
-console.log('Inserting bound spots…');
-const boundSpots: (typeof spot.$inferInsert)[] = [
-	{ number: '01', flatNumber: 'A00' },
-	{ number: '02', flatNumber: 'B00' },
-	{ number: '03', flatNumber: 'A01' },
-	{ number: '04', flatNumber: 'A02' },
-	{ number: '05', flatNumber: 'A03' },
-	{ number: '06', flatNumber: 'A04' },
-	{ number: '07', flatNumber: 'B01' },
-	{ number: '08', flatNumber: 'B02' },
-	{ number: '09', flatNumber: 'B03' },
-	{ number: '10', flatNumber: 'A05' },
-	{ number: '11', flatNumber: 'B05' }
-];
-await db.insert(spot).values(boundSpots).onConflictDoNothing();
+console.log('Inserting spots…');
+const boundMap: Record<string, string> = {
+	'01': 'A00',
+	'02': 'B00',
+	'03': 'A01',
+	'04': 'A02',
+	'05': 'A03',
+	'06': 'A04',
+	'07': 'B01',
+	'08': 'B02',
+	'09': 'B03',
+	'10': 'A05',
+	'11': 'B05',
+	'12': 'A07',
+	'13': 'A07',
+	'14': 'B07',
+	'15': 'A08',
+	'16': 'B08',
+	'17': 'B04',
+	'18': 'B04'
+};
+const allSpots: (typeof spot.$inferInsert)[] = Array.from({ length: 50 }, (_, i) => {
+	const number = String(i + 1).padStart(2, '0');
+	const flatNumber = boundMap[number] ?? null;
+	return {
+		number,
+		flatNumber,
+		// Only 36 circulates in the pool; the rest waits for explicit routing.
+		// (50 is the historical limbo demo — same state, kept explicit below.)
+		status: flatNumber ? 'assigned' : number === '36' ? 'shared' : 'unassigned',
+		description: number === '36' ? 'Place réservée aux personnes handicapées' : null
+	};
+});
+await db.insert(spot).values(allSpots).onConflictDoNothing();
 
 // ---------------------------------------------------------------------------
 // Bookings — spot 36, past 2 weeks + next 2 weeks
@@ -215,29 +258,34 @@ if (existingCount === 0) {
 // ---------------------------------------------------------------------------
 
 console.log('Inserting pending requests…');
-const existingRequests = await db.$count(request);
-if (existingRequests === 0) {
-	const reqRows = await db
+// Per-request idempotency (flatNumber guard) so re-runs add missing fixtures
+// without duplicating: A06 movable conflict, B06 strand conflict,
+// B09 clean, B10 mixed (strand 14 + free 41).
+const requestFixtures = [
+	{ flatNumber: 'A06', requesterName: 'Nouveau A', spots: ['12'], email: 'a06@example.com', phone: '+33612345610' },
+	{ flatNumber: 'B06', requesterName: 'Nouveau B', spots: ['03'], email: 'b06@example.com', phone: '+33612345611' },
+	{ flatNumber: 'B09', requesterName: 'Nouveau C', spots: ['40'], email: 'b09@example.com', phone: '+33612345624' },
+	{
+		flatNumber: 'B10',
+		requesterName: 'Nouveau D',
+		spots: ['14', '41'],
+		email: 'b10@example.com',
+		phone: '+33612345625'
+	}
+];
+for (const fx of requestFixtures) {
+	const already = await db.select().from(request).where(eq(request.flatNumber, fx.flatNumber)).get();
+	if (already) {
+		console.log(`  Skipping request ${fx.flatNumber} — already present.`);
+		continue;
+	}
+	const [row] = await db
 		.insert(request)
-		.values([
-			{ flatNumber: 'A06', requesterName: 'Nouveau A', status: 'pending' },
-			{ flatNumber: 'B06', requesterName: 'Nouveau B', status: 'pending' }
-		])
+		.values([{ flatNumber: fx.flatNumber, requesterName: fx.requesterName, status: 'pending' }])
 		.returning();
-
-	const [reqA06, reqB06] = reqRows;
-
-	// Request A06 — spot 12 (new, no conflict)
-	await db.insert(requestSpot).values([{ requestId: reqA06.id, spotNumber: '12' }]);
-	await db.insert(requestEmail).values([{ requestId: reqA06.id, email: 'a06@example.com' }]);
-	await db.insert(requestPhone).values([{ requestId: reqA06.id, phone: formatPhone('+33612345610') }]);
-
-	// Request B06 — spot 03 (conflicts with A01)
-	await db.insert(requestSpot).values([{ requestId: reqB06.id, spotNumber: '03' }]);
-	await db.insert(requestEmail).values([{ requestId: reqB06.id, email: 'b06@example.com' }]);
-	await db.insert(requestPhone).values([{ requestId: reqB06.id, phone: formatPhone('+33612345611') }]);
-} else {
-	console.log(`  Skipping requests — ${existingRequests} already present.`);
+	await db.insert(requestSpot).values(fx.spots.map((spotNumber) => ({ requestId: row.id, spotNumber })));
+	await db.insert(requestEmail).values([{ requestId: row.id, email: fx.email }]);
+	await db.insert(requestPhone).values([{ requestId: row.id, phone: formatPhone(fx.phone) }]);
 }
 
 console.log('Done. Seed DB ready at', DB_PATH.replace('file:', ''));

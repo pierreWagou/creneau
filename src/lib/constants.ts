@@ -33,6 +33,9 @@ export const SESSION_DURATION_DAYS = 30;
 /** Maximum number of emails or phones per flat */
 export const MAX_CONTACTS_PER_TYPE = 5;
 
+/** Flats per page in the admin list (server-side pagination) */
+export const FLATS_PAGE_SIZE = 10;
+
 /** Flat number format: letter A/B + 2 digits (e.g. A01, B12) */
 export const FLAT_NUMBER_REGEX = /^[AB]\d{2}$/;
 

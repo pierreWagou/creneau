@@ -43,17 +43,17 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				return json({ error: 'Place de parking cible introuvable' }, { status: 404 });
 			}
 			if (targetSpot.flatNumber !== flatNumber) {
-				return json({ error: "Cette place de parking n'est pas assignée à cet appartement" }, { status: 400 });
+				return json({ error: "Cette place de parking n'est pas assignée à ce lot" }, { status: 400 });
 			}
 
-			// Atomic swap: unbind target, bind shared
+			// Atomic swap: unbind target (lands shared), bind shared
 			await db.transaction(async (tx) => {
-				await tx.update(spot).set({ flatNumber: null }).where(eq(spot.number, targetSpotNumber));
-				await tx.update(spot).set({ flatNumber }).where(eq(spot.number, spotNumber));
+				await tx.update(spot).set({ flatNumber: null, status: 'shared' }).where(eq(spot.number, targetSpotNumber));
+				await tx.update(spot).set({ flatNumber, status: 'assigned' }).where(eq(spot.number, spotNumber));
 			});
 		} else {
 			// No target spot — just bind the shared spot
-			await db.update(spot).set({ flatNumber }).where(eq(spot.number, spotNumber));
+			await db.update(spot).set({ flatNumber, status: 'assigned' }).where(eq(spot.number, spotNumber));
 		}
 
 		return json({ success: true });

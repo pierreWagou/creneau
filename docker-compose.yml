@@ -9,6 +9,11 @@ services:
       - NODE_ENV=production
       - DATABASE_URL=file:/app/data/creneau.db
       - SEED_ON_INIT=true
+      - SMTP_HOST=stalwart
+      - SMTP_PORT=465
+      - SMTP_USER=pierrewagou
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_FROM=noreply-creneau@wagou.fr
     restart: unless-stopped
 
 volumes:

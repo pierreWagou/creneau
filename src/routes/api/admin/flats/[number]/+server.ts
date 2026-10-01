@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { and, eq, notInArray } from 'drizzle-orm';
 import { formatSpotNumber, SPOT_NUMBER_REGEX } from '$lib/constants';
+import { hashPin, validatePin } from '$lib/server/auth';
 import {
 	getFlatEmails,
 	getFlatPhones,
@@ -12,6 +13,7 @@ import {
 import { db } from '$lib/server/db';
 import { flat, spot } from '$lib/server/db/schema';
 import { requireAdmin } from '$lib/server/guards';
+import { bindSpotsToFlat, detectConflicts, detectStrands, strandErrorMessage } from '$lib/server/rebind';
 import type { RequestHandler } from './$types';
 
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
@@ -26,6 +28,12 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
 		if ('isAdmin' in updates) allowedFields.isAdmin = updates.isAdmin;
 		if ('displayName' in updates) allowedFields.displayName = updates.displayName?.trim() || null;
+
+		if ('pin' in updates) {
+			const pinError = validatePin(String(updates.pin ?? ''));
+			if (pinError) return json({ error: pinError }, { status: 400 });
+			allowedFields.pinHash = await hashPin(String(updates.pin));
+		}
 
 		// Handle email updates
 		if ('emails' in updates) {
@@ -52,7 +60,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 			const force = updates.force === true;
 
 			if (trimmedSpots.length === 0) {
-				return json({ error: 'Un appartement doit avoir au moins une place de parking' }, { status: 400 });
+				return json({ error: 'Un lot doit avoir au moins une place de parking' }, { status: 400 });
 			}
 
 			for (const s of trimmedSpots) {
@@ -64,58 +72,30 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 			// Verify flat exists
 			const existingFlat = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();
 			if (!existingFlat) {
-				return json({ error: 'Appartement introuvable' }, { status: 404 });
+				return json({ error: 'Lot introuvable' }, { status: 404 });
 			}
 
 			// Check for conflicts before doing anything
-			if (!force) {
-				const conflicts: { spotNumber: string; currentFlat: string }[] = [];
-				for (const spotNum of trimmedSpots) {
-					const existingSpot = await db.select().from(spot).where(eq(spot.number, spotNum)).get();
-					if (existingSpot?.flatNumber && existingSpot.flatNumber !== flatNumber) {
-						conflicts.push({ spotNumber: spotNum, currentFlat: existingSpot.flatNumber });
-					}
-				}
-				if (conflicts.length > 0) {
-					return json({ error: 'Conflit de place de parking', conflicts }, { status: 409 });
-				}
-			} else {
-				// Force: check that reassignment won't leave any source flat with 0 spots
-				for (const spotNum of trimmedSpots) {
-					const existingSpot = await db.select().from(spot).where(eq(spot.number, spotNum)).get();
-					if (existingSpot?.flatNumber && existingSpot.flatNumber !== flatNumber) {
-						const sourceFlatSpots = await db
-							.select()
-							.from(spot)
-							.where(eq(spot.flatNumber, existingSpot.flatNumber))
-							.all();
-						if (sourceFlatSpots.length <= 1) {
-							return json(
-								{
-									error: `Impossible de réaffecter la place de parking ${spotNum} — l'appartement ${existingSpot.flatNumber} n'aurait plus de place de parking`
-								},
-								{ status: 409 }
-							);
-						}
-					}
+			const conflicts = await detectConflicts(db, trimmedSpots, flatNumber);
+			if (conflicts.length > 0 && !force) {
+				return json({ error: 'Conflit de place de parking', conflicts }, { status: 409 });
+			}
+			// Force: refuse to strand any source flat with 0 spots
+			if (force) {
+				const strands = await detectStrands(db, conflicts);
+				if (strands.length > 0) {
+					return json({ error: strandErrorMessage(strands[0]) }, { status: 409 });
 				}
 			}
 
-			// Unbind spots no longer in the list
-			await db
-				.update(spot)
-				.set({ flatNumber: null })
-				.where(and(eq(spot.flatNumber, flatNumber), notInArray(spot.number, trimmedSpots)));
-
-			// Bind new/existing spots
-			for (const spotNum of trimmedSpots) {
-				const existingSpot = await db.select().from(spot).where(eq(spot.number, spotNum)).get();
-				if (existingSpot) {
-					await db.update(spot).set({ flatNumber }).where(eq(spot.number, spotNum));
-				} else {
-					await db.insert(spot).values({ number: spotNum, flatNumber });
-				}
-			}
+			// Unbind removed spots + bind all, atomically
+			await db.transaction(async (tx) => {
+				await tx
+					.update(spot)
+					.set({ flatNumber: null, status: 'shared' })
+					.where(and(eq(spot.flatNumber, flatNumber), notInArray(spot.number, trimmedSpots)));
+				await bindSpotsToFlat(tx, trimmedSpots, flatNumber);
+			});
 		}
 
 		if (Object.keys(allowedFields).length > 0) {
@@ -142,11 +122,16 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 	const flatNumber = params.number;
 
 	if (flatNumber === locals.flat!.number) {
-		return json({ error: 'Impossible de supprimer votre propre appartement' }, { status: 400 });
+		return json({ error: 'Impossible de supprimer votre propre lot' }, { status: 400 });
 	}
 
 	try {
-		await db.delete(flat).where(eq(flat.number, flatNumber));
+		// Freed spots land shared (preserves the pre-status implicit landing),
+		// atomically with the delete so no stale assigned status survives the FK set-null.
+		await db.transaction(async (tx) => {
+			await tx.update(spot).set({ flatNumber: null, status: 'shared' }).where(eq(spot.flatNumber, flatNumber));
+			await tx.delete(flat).where(eq(flat.number, flatNumber));
+		});
 		return json({ success: true });
 	} catch (e) {
 		console.error('[DELETE /api/admin/flats/:number]', e);

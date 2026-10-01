@@ -35,11 +35,11 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	try {
 		const existing = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();
 		if (!existing) {
-			return json({ error: 'Appartement introuvable' }, { status: 404 });
+			return json({ error: 'Lot introuvable' }, { status: 404 });
 		}
 
 		if (existing.status !== 'active') {
-			return json({ error: "Cet appartement n'est pas actif" }, { status: 400 });
+			return json({ error: "Ce lot n'est pas actif" }, { status: 400 });
 		}
 
 		// Reset to inactive state

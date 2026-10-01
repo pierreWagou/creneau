@@ -145,30 +145,29 @@
 		@apply bg-primary h-2 rounded transition-all duration-300;
 	}
 
-	/* Flat state badges — Catppuccin palette */
+	/* Flat state badges — Catppuccin palette (TRIAL: solid recipe mirroring the pills) */
 	.flat-badge-active {
-		background-color: hsl(var(--success) / 0.15) !important;
-		color: hsl(var(--success)) !important;
+		background-color: hsl(var(--success)) !important;
+		color: #1e1e2e !important;
 	}
 	.flat-badge-pending {
-		background-color: hsl(var(--booking-busy) / 0.15) !important;
-		color: hsl(var(--booking-busy)) !important;
-	}
-	.flat-badge-expired {
-		background-color: hsl(var(--destructive) / 0.15) !important;
-		color: hsl(var(--destructive)) !important;
+		background-color: hsl(var(--booking-busy)) !important;
+		color: #1e1e2e !important;
 	}
 	.flat-badge-request {
-		background-color: hsl(var(--primary) / 0.15) !important;
-		color: hsl(var(--primary)) !important;
+		background-color: hsl(var(--primary)) !important;
+		color: white !important;
+	}
+	.dark .flat-badge-request {
+		color: #1e1e2e !important;
 	}
 	.flat-badge-warning {
-		background-color: hsl(var(--warning) / 0.15) !important;
-		color: hsl(var(--warning)) !important;
+		background-color: hsl(var(--warning)) !important;
+		color: #1e1e2e !important;
 	}
 	.flat-badge-inactive {
-		background-color: hsl(var(--muted) / 0.5) !important;
-		color: hsl(var(--muted-foreground)) !important;
+		background-color: hsl(var(--muted-foreground)) !important;
+		color: #1e1e2e !important;
 	}
 
 	/* Nested dialog visual hierarchy */
@@ -180,6 +179,14 @@
 	.inline-link {
 		@apply text-primary underline transition-colors hover:text-primary/80;
 	}
+
+	/* Dialog section cards */
+	.dialog-section {
+		@apply bg-muted/50 rounded-lg p-3 space-y-2;
+	}
+	.dialog-section-label {
+		@apply text-xs font-medium text-muted-foreground uppercase tracking-wide;
+	}
 }
 
 @layer base {
@@ -190,6 +197,11 @@
 		background-color: hsl(var(--background));
 		color: hsl(var(--foreground));
 		font-family: var(--font-sans);
+	}
+	/* Lock background scroll while any dialog is open (bits-ui provides no
+		lock itself; :has covers stacked dialogs with no counter to desync) */
+	body:has([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) {
+		overflow: hidden;
 	}
 	button,
 	[role="button"] {

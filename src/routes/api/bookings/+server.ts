@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { createBooking } from '$lib/server/bookings';
 import { db } from '$lib/server/db';
 import { spot } from '$lib/server/db/schema';
@@ -22,7 +22,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		const targetSpot = await db
 			.select()
 			.from(spot)
-			.where(and(eq(spot.number, spotNumber.trim()), isNull(spot.flatNumber)))
+			.where(and(eq(spot.number, spotNumber.trim()), eq(spot.status, 'shared')))
 			.get();
 
 		if (!targetSpot) {
