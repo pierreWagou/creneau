@@ -1,10 +1,10 @@
 import { json } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { FLAT_NUMBER_REGEX, formatSpotNumber, SPOT_NUMBER_REGEX } from '$lib/constants';
-import { validateEmails, validatePhones } from '$lib/server/contacts';
 import { db } from '$lib/server/db';
 import { flat, request, requestEmail, requestPhone, requestSpot, spot } from '$lib/server/db/schema';
-import { checkRateLimit, rateLimitErrorMessage, recordFailedAttempt, resetAttempts } from '$lib/server/rate-limit';
+import { handleHandlerError, requireRateLimit, validateContactInputs } from '$lib/server/handler';
+import { recordFailedAttempt, resetAttempts } from '$lib/server/rate-limit';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request: req }) => {
@@ -45,10 +45,8 @@ export const POST: RequestHandler = async ({ request: req }) => {
 
 		// Rate limit by flat number
 		const rateLimitKey = `request:${trimmedFlat}`;
-		const { allowed, retryAfterMs } = checkRateLimit(rateLimitKey);
-		if (!allowed) {
-			return json({ error: rateLimitErrorMessage(retryAfterMs || 0) }, { status: 429 });
-		}
+		const limited = requireRateLimit(rateLimitKey);
+		if (limited) return limited;
 
 		// Check flat doesn't already exist (any status)
 		const existingFlat = await db.select().from(flat).where(eq(flat.number, trimmedFlat)).get();
@@ -60,15 +58,9 @@ export const POST: RequestHandler = async ({ request: req }) => {
 		// Success — reset rate limit
 		resetAttempts(rateLimitKey);
 
-		const validatedEmails = validateEmails(emails);
-		if (typeof validatedEmails === 'string') {
-			return json({ error: validatedEmails }, { status: 400 });
-		}
-
-		const validatedPhones = validatePhones(phones);
-		if (typeof validatedPhones === 'string') {
-			return json({ error: validatedPhones }, { status: 400 });
-		}
+		const validated = validateContactInputs(emails, phones);
+		if (validated instanceof Response) return validated;
+		const { emails: validatedEmails, phones: validatedPhones } = validated;
 
 		// Create request row (no flat created)
 		const result = await db
@@ -95,10 +87,6 @@ export const POST: RequestHandler = async ({ request: req }) => {
 
 		return json({ request: result }, { status: 201 });
 	} catch (e) {
-		if (e instanceof SyntaxError) {
-			return json({ error: 'Requête invalide' }, { status: 400 });
-		}
-		console.error('[POST /api/requests]', e);
-		return json({ error: 'Erreur interne' }, { status: 500 });
+		return handleHandlerError('POST /api/requests', e);
 	}
 };

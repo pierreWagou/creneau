@@ -38,6 +38,8 @@ export const POST: RequestHandler = async ({ params, locals, url }) => {
 		}
 
 		const emails = await getFlatEmails(db, flatNumber);
+		// `emailSent` is the coarse boolean from sendActivationEmail (see its
+		// JSDoc): false = skipped/unconfigured/failed, never a hard error.
 		const emailSent = await sendActivationEmail(db, flatNumber, existing.activationCode, url.origin);
 		return json({ emailSent, emails });
 	} catch (e) {

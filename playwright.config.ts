@@ -34,6 +34,15 @@ export default defineConfig({
 			use: { ...devices['Desktop Chrome'] }
 		},
 		{
+			// API-contract tests: no UI, run last so the fixture chain exists
+			name: 'api',
+			testMatch: /api\.test\.ts/,
+			dependencies: ['admin'],
+			fullyParallel: false,
+			retries: 0,
+			use: { ...devices['Desktop Chrome'] }
+		},
+		{
 			name: 'main',
 			testMatch: /booking|calendar|drag|auth/,
 			dependencies: ['activation'],

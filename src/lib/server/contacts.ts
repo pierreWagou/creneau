@@ -3,8 +3,6 @@ import { MAX_CONTACTS_PER_TYPE } from '$lib/constants';
 import { formatPhone } from '$lib/utils/phone';
 import { isValidEmail, isValidPhone } from '$lib/validation';
 
-export { formatPhone } from '$lib/utils/phone';
-
 import type { DbOrTx, db } from './db';
 import { flatEmail, flatPhone } from './db/schema';
 

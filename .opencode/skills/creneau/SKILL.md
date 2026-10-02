@@ -46,11 +46,14 @@ Creneau is a shared parking spot booking app for apartment buildings. See the pr
 | `src/routes/api/spots/+server.ts`                       | `POST` parking spots (admin only)                                                                                                            |
 | `src/routes/api/spots/[number]/+server.ts`              | `PATCH` update description / `DELETE` spot (admin only)                                                                                      |
 | `src/routes/api/admin/flats/+server.ts`                 | `GET`/`POST` flats (admin only, POST accepts `spotNumbers`)                                                                                  |
-| `src/routes/api/admin/flats/[number]/+server.ts`        | `PATCH`/`DELETE` specific flat (admin only)                                                                                                  |
+| `src/routes/api/admin/flats/[number]/+server.ts`        | `PATCH`/`DELETE` specific flat (admin only, PATCH accepts `spotNumbers`/`emails`/`phones`/`force`)                                          |
 | `src/routes/api/admin/flats/[number]/activation/+server.ts` | `POST` generate / `DELETE` revoke activation code                                                                                        |
+| `src/routes/api/admin/flats/[number]/activation/send/+server.ts` | `POST` resend the activation email for an existing code (`emailSent` flag)                                                    |
 | `src/routes/api/admin/flats/[number]/reset/+server.ts`  | `POST` reset an active flat (deactivate, clear PIN/sessions)                                                                                 |
+| `src/routes/api/admin/spots/swap/+server.ts`            | `POST` swap a spot's owning lot (admin only, conflict-checked)                                                                                |
 | `src/routes/api/admin/requests/+server.ts`              | `GET` list pending requests (admin only)                                                                                                     |
-| `src/routes/api/admin/requests/[id]/+server.ts`         | `POST` approve request (creates flat + spots) / `PATCH` reject                                                                              |
+| `src/routes/api/admin/requests/[id]/+server.ts`         | `POST` approve (creates flat + spots, optional `force` body) / `PUT` edit request / `PATCH` reject                                          |
+| `src/routes/api/flats/[number]/+server.ts`              | `GET` public display-name lookup for the activation screen (no contacts/codes/PIN)                                                            |
 | `src/routes/api/requests/+server.ts`                    | `POST` submit a flat access request (public, no auth)                                                                                        |
 | `src/routes/api/health/+server.ts`                      | `GET` health check (DB connectivity, no auth required)                                                                                       |
 | `src/routes/api/auth/login/+server.ts`                  | `POST` login with flat number + PIN                                                                                                          |
@@ -58,11 +61,11 @@ Creneau is a shared parking spot booking app for apartment buildings. See the pr
 | `src/routes/api/auth/setup/+server.ts`                  | `POST` first-time admin setup (only works when no flats exist)                                                                               |
 | `src/routes/api/auth/logout/+server.ts`                 | `POST` logout (clear session)                                                                                                                |
 | `src/routes/api/events/+server.ts`                      | SSE stream endpoint                                                                                                                          |
-| `src/routes/(auth)/setup/+page.svelte`                  | First-time setup wizard (creates admin account)                                                                                              |
+| `src/routes/(public)/setup/+page.svelte`                | First-time setup wizard (creates admin account)                                                                                              |
 | `src/routes/(app)/stats/+page.svelte`                   | Usage stats: personal metrics + building leaderboard + utilization                                                                           |
 | `src/routes/(app)/account/+page.svelte`                 | Account settings (display name, PIN change)                                                                                                  |
 | `src/routes/api/account/+server.ts`                     | `PATCH` update display name, `POST` change PIN                                                                                               |
-| `src/lib/constants.ts`                                  | Shared constants (PIN lengths, display name max length, calendar lookahead, activation code TTL, max booking hours)                           |
+| `src/lib/constants.ts`                                  | Shared constants: PIN/display limits, FLAT/SPOT number rules + helpers, rate-limit, SMTP and UI timing knobs                                  |
 | `src/lib/server/rate-limit.ts`                          | In-memory rate limiting for auth endpoints (login, activation)                                                                               |
 
 ## Availability computation — how it works
@@ -155,10 +158,10 @@ Ten tables (SQLite, WAL mode). All use **natural keys** (no artificial IDs for s
 
 | Table           | Key fields                                                                                                                      |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `flat`          | number (PK), status (inactive/active), activationCode, activationCodeExpiresAt, displayName, pinHash, isAdmin, activatedAt, createdAt |
+| `flat`          | number (PK), status (inactive/pending/active), activationCode, activationCodeExpiresAt, displayName, pinHash, isAdmin, activatedAt, createdAt |
 | `flat_email`    | flatNumber (FK→flat, CASCADE), email — composite PK (flatNumber + email)                                                       |
 | `flat_phone`    | flatNumber (FK→flat, CASCADE), phone — composite PK (flatNumber + phone)                                                       |
-| `spot`          | number (PK), flatNumber (FK→flat, nullable, SET NULL on delete), description, createdAt                                          |
+| `spot`          | number (PK), flatNumber (FK→flat, nullable, SET NULL on delete), status (shared/assigned/unassigned), description, createdAt  |
 | `booking`       | id (autoincrement PK), spotNumber (FK→spot), flatNumber (FK→flat), startTime, endTime, note, createdAt                         |
 | `session`       | id (UUID PK), flatNumber (FK→flat), expiresAt, createdAt                                                                        |
 | `request`       | id (autoincrement PK), flatNumber, requesterName, status (pending/approved/rejected), reviewedBy, reviewedAt, createdAt         |
@@ -170,17 +173,22 @@ Bookings store full ISO datetime strings (e.g., `"2026-05-06T14:00:00"`).
 
 ## Flat lifecycle
 
-| State       | French      | `status`       | `activationCode`            | Description                                          |
-| ----------- | ----------- | -------------- | --------------------------- | ---------------------------------------------------- |
-| Request     | Demande     | `'request'`    | `null`                      | Incoming request, spots bound, waiting for admin     |
-| Inactive    | Inactif     | `'inactive'`   | `null`                      | Approved/admin-created, waiting for activation code  |
-| Pending     | En attente  | `'inactive'`   | Has value, TTL not elapsed  | Code generated, waiting for resident to activate     |
-| Expired     | Expiré      | `'inactive'`   | Has value, TTL elapsed      | Code generated but it expired before activation      |
-| Active      | Actif       | `'active'`     | `null`                      | Resident has activated and set their PIN             |
+Stored status is `flat.status ∈ {inactive, pending, active}` (XState v5 `flat-machine.ts`,
+writes in `flat-state.ts`). Expired invitations are **not** a status — they are a derived
+sub-state of `pending`, reaped lazily.
 
-Transitions: Request → Inactive (admin approves) → Pending (admin generates code) → Active (resident activates) → Inactive (admin resets)
-Also: Pending → Expired (code TTL elapses) → Inactive (admin resets)
-Request → deleted (admin rejects, spots unbound)
+| State    | French     | `status`     | `activationCode`           | Description                                            |
+| -------- | ---------- | ------------ | -------------------------- | ------------------------------------------------------ |
+| Inactive | Inactif    | `inactive`   | `null`                     | Created (request approval / admin) or after revoke/reset/expiry |
+| Pending  | En attente | `pending`    | Has value, TTL not elapsed | Invitation generated (`invite`), awaiting activation   |
+| Active   | Actif      | `active`     | `null`                     | Resident activated (`consume`) and set their PIN       |
+
+Transitions: `invite` (inactive→pending, refresh on pending), `revoke` (pending→inactive),
+`consume` (pending→active). Lazy expiry runs `reapExpiredInvitations()` (admin load, activation
+410, email-send guard) and returns dead invitations to `inactive`.
+
+Requests are a **separate** concern: `request.status ∈ {pending, approved, rejected}`.
+Approving one creates an `inactive`, codeless flat.
 
 ## Constants
 
@@ -212,7 +220,8 @@ export const ACTIVATION_CODE_LENGTH = 4;
 - **CD** (`.github/workflows/cd.yml`): Builds Docker image on CI success, pushes to `ghcr.io`
 - **Pre-commit** (`.husky/pre-commit`): Runs `npx biome check --write .` → `git add -u` → `npm run check`
 - **Tests**: Vitest, config in `vite.config.ts`, test files colocated (`*.test.ts`)
-- **ON DELETE CASCADE**: All FKs (`booking.spotNumber`, `booking.flatNumber`, `session.flatNumber`, `request_spot.requestId`, `request_email.requestId`, `request_phone.requestId`) cascade on delete
+- **ON DELETE CASCADE**: `flat_email.flatNumber`, `flat_phone.flatNumber`, `booking.spotNumber`, `booking.flatNumber`, `session.flatNumber`, `request_spot.requestId`, `request_email.requestId`, `request_phone.requestId`. Exception: `spot.flatNumber` is **SET NULL** (a deleted lot frees its spots; the endpoints land those `shared` explicitly so the status invariant holds).
+- **Not FK-backed**: `request.flatNumber` and `request_spot.spotNumber` are plain text (a request may reference a lot/spot that doesn't exist yet — it is resolved at approval).
 
 ## Common tasks
 
@@ -246,17 +255,20 @@ npm run db:migrate     # Apply to local DB
 - **API error messages**: All user-facing errors are in French. Keep this consistent.
 - **Presets (Matin, Après-midi, Soirée)**: These are UX shortcuts that auto-select hour ranges. They do NOT persist any field — just set startHour/endHour.
 - **Natural keys**: `spot` and `flat` tables use `number` (text) as primary key. No artificial integer IDs. Booking references them via `spotNumber`/`flatNumber` text FKs.
-- **Setup wizard**: On first boot (zero flats in DB), the app shows `/setup` where the first admin account is created. No seed script needed.
+- **Setup wizard**: On first boot (zero flats in DB), the app shows `/setup` where the first admin account is created. No app secret/config required. A seed script exists separately for dev/demo data (`scripts/seed.ts`, `npm run db:seed:dev`) and is what bakes `drizzle/seed.db` at Docker build time for the preview environment.
 
 ## Button Rules
+
+Canonical table lives in `AGENTS.md` (repo root) — keep the two identical:
 
 | Pattern | Variant | Use case |
 |---------|---------|----------|
 | A. Solid bg | `default` | Primary submit, main CTAs, add buttons (blue) |
-| B. Soft red bg | `destructive` | Delete, cancel, revoke, reject (AlertDialog confirmations) |
+| B. Solid red bg | `default` + `bg-destructive text-white dark:text-[#1e1e2e] hover:bg-destructive/80` | Delete, cancel, revoke, reject, logout |
+| B2. Solid green bg | `default` + `bg-success text-white dark:text-[#1e1e2e] hover:bg-success/80` | Approve |
 | C. Border + hover | `outline` | Secondary actions, toggle, modify, copy |
 | D. No bg + hover | `ghost` | Inline remove icons, nav links, view details |
-| E. Custom color | `ghost/outline` + manual | Symmetric action pairs (approve/reject in list rows) |
+| E. Custom color | `ghost/outline` + manual | Symmetric action pairs (approve/reject in list rows — stay tinted by design, not solid) |
 
 - **List rows** → `ghost` (lightweight)
 - **Dialog actions** → `outline` (prominent, consistent with other dialog buttons)

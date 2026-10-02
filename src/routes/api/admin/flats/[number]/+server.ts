@@ -1,6 +1,5 @@
 import { json } from '@sveltejs/kit';
 import { and, eq, notInArray } from 'drizzle-orm';
-import { formatSpotNumber, SPOT_NUMBER_REGEX } from '$lib/constants';
 import { hashPin, validatePin } from '$lib/server/auth';
 import {
 	getFlatEmails,
@@ -13,7 +12,14 @@ import {
 import { db } from '$lib/server/db';
 import { flat, spot } from '$lib/server/db/schema';
 import { requireAdmin } from '$lib/server/guards';
-import { bindSpotsToFlat, detectConflicts, detectStrands, strandErrorMessage } from '$lib/server/rebind';
+import { handleHandlerError } from '$lib/server/handler';
+import {
+	bindSpotsToFlat,
+	detectConflicts,
+	guardRebind,
+	guardSpotFormats,
+	normalizeSpotNumbers
+} from '$lib/server/rebind';
 import type { RequestHandler } from './$types';
 
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
@@ -55,19 +61,15 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
 		// Handle spot re-binding
 		if ('spotNumbers' in updates) {
-			const spotNumbers: string[] = Array.isArray(updates.spotNumbers) ? updates.spotNumbers : [];
-			const trimmedSpots = [...new Set(spotNumbers.map((s) => formatSpotNumber(s.trim())).filter((s) => s.length > 0))];
+			const trimmedSpots = normalizeSpotNumbers(updates.spotNumbers);
 			const force = updates.force === true;
 
 			if (trimmedSpots.length === 0) {
 				return json({ error: 'Un lot doit avoir au moins une place de parking' }, { status: 400 });
 			}
 
-			for (const s of trimmedSpots) {
-				if (!SPOT_NUMBER_REGEX.test(s)) {
-					return json({ error: `Format de place de parking invalide : "${s}" (ex. 01, 36)` }, { status: 400 });
-				}
-			}
+			const invalidSpot = guardSpotFormats(trimmedSpots);
+			if (invalidSpot) return invalidSpot;
 
 			// Verify flat exists
 			const existingFlat = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();
@@ -77,16 +79,9 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
 			// Check for conflicts before doing anything
 			const conflicts = await detectConflicts(db, trimmedSpots, flatNumber);
-			if (conflicts.length > 0 && !force) {
-				return json({ error: 'Conflit de place de parking', conflicts }, { status: 409 });
-			}
-			// Force: refuse to strand any source flat with 0 spots
-			if (force) {
-				const strands = await detectStrands(db, conflicts);
-				if (strands.length > 0) {
-					return json({ error: strandErrorMessage(strands[0]) }, { status: 409 });
-				}
-			}
+
+			const refused = await guardRebind(db, conflicts, force);
+			if (refused) return refused;
 
 			// Unbind removed spots + bind all, atomically
 			await db.transaction(async (tx) => {
@@ -107,11 +102,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
 		return json({ flat: { ...updated, emails, phones } });
 	} catch (e) {
-		if (e instanceof SyntaxError) {
-			return json({ error: 'Requête invalide' }, { status: 400 });
-		}
-		console.error('[PATCH /api/admin/flats/:number]', e);
-		return json({ error: 'Erreur interne' }, { status: 500 });
+		return handleHandlerError('PATCH /api/admin/flats/:number', e);
 	}
 };
 

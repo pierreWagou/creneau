@@ -1,0 +1,18 @@
+meta {
+  name: Edit Request
+  type: http
+  seq: 11
+}
+
+put {
+  url: {{baseUrl}}/api/admin/requests/3
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "requesterName": "Famille Martin",
+    "spotNumbers": ["36"]
+  }
+}

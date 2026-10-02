@@ -1,5 +1,4 @@
-const MAX_ATTEMPTS = 5;
-const LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
+import { MS_PER_MINUTE, RATE_LIMIT_LOCKOUT_MS, RATE_LIMIT_MAX_ATTEMPTS } from '$lib/constants';
 
 interface RateLimitRecord {
 	count: number;
@@ -33,13 +32,13 @@ export function checkRateLimit(key: string): { allowed: boolean; retryAfterMs?: 
 
 /**
  * Record a failed attempt for a key.
- * After MAX_ATTEMPTS failures, the key is locked out for LOCKOUT_MS.
+ * After RATE_LIMIT_MAX_ATTEMPTS failures, the key is locked out for RATE_LIMIT_LOCKOUT_MS.
  */
 export function recordFailedAttempt(key: string): void {
 	const record = attempts.get(key) || { count: 0, lockedUntil: 0 };
 	record.count++;
-	if (record.count >= MAX_ATTEMPTS) {
-		record.lockedUntil = Date.now() + LOCKOUT_MS;
+	if (record.count >= RATE_LIMIT_MAX_ATTEMPTS) {
+		record.lockedUntil = Date.now() + RATE_LIMIT_LOCKOUT_MS;
 	}
 	attempts.set(key, record);
 }
@@ -55,6 +54,6 @@ export function resetAttempts(key: string): void {
  * Build the French rate-limit error message for a lockout response.
  */
 export function rateLimitErrorMessage(retryAfterMs: number): string {
-	const minutes = Math.ceil(retryAfterMs / 60_000);
+	const minutes = Math.ceil(retryAfterMs / MS_PER_MINUTE);
 	return `Trop de tentatives. Réessayez dans ${minutes} minute${minutes > 1 ? 's' : ''}.`;
 }

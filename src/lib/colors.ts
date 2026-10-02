@@ -1,3 +1,11 @@
+/**
+ * Hex palette — the JS twin of the CSS variables in `src/app.css` (@layer base).
+ *
+ * Both must stay in sync: CSS vars can't reach (a) e-mail HTML
+ * (`lib/server/mail-templates.ts`) or (b) JS-driven inline styles / SVG fills
+ * (`getFlatColor`, avatar and calendar slot colors). Do NOT consolidate one
+ * into the other — each side serves a renderer the other cannot reach.
+ */
 // Catppuccin Latte — Light theme
 export const latte = {
 	base: '#eff1f5',

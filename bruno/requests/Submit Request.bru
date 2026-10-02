@@ -1,0 +1,21 @@
+meta {
+  name: Submit Request
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/requests
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "flatNumber": "B07",
+    "spotNumbers": ["36"],
+    "requesterName": "Famille Martin",
+    "emails": ["b07@test.com"],
+    "phones": ["+33612345678"]
+  }
+}

@@ -11,12 +11,12 @@ import type { FlatStatus } from './flat-state';
  */
 export type FlatMachineEvent = 'INVITE' | 'REVOKE' | 'CONSUME';
 
-export interface FlatMachineContext {
+interface FlatMachineContext {
 	/** Whether an activation code is currently attached (drives the revoke guard) */
 	hasCode: boolean;
 }
 
-export const flatMachine = createMachine(
+const flatMachine = createMachine(
 	{
 		id: 'flat',
 		types: {} as {

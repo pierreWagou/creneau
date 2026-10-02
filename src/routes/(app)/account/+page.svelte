@@ -97,7 +97,9 @@
 	}
 
 	async function handleLogout() {
-		await fetch('/api/auth/logout', { method: 'POST' });
+		// Fire-and-forget by design: the page always navigates, even if the
+		// server call fails (a half-dead session on this page is worse).
+		await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
 		goto('/login');
 	}
 </script>

@@ -3,7 +3,8 @@ import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { spot } from '$lib/server/db/schema';
 import { requireAdmin } from '$lib/server/guards';
-import { detectStrands, strandErrorMessage } from '$lib/server/rebind';
+import { handleHandlerError } from '$lib/server/handler';
+import { buildStrandErrorMessage, detectStrands } from '$lib/server/rebind';
 import type { RequestHandler } from './$types';
 
 /**
@@ -45,11 +46,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
 		return json({ spot: updated });
 	} catch (e) {
-		if (e instanceof SyntaxError) {
-			return json({ error: 'Requête invalide' }, { status: 400 });
-		}
-		console.error('[PATCH /api/spots/:number]', e);
-		return json({ error: 'Erreur interne' }, { status: 500 });
+		return handleHandlerError('PATCH /api/spots/:number', e);
 	}
 };
 
@@ -73,7 +70,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 		if (existing.flatNumber) {
 			const strands = await detectStrands(db, [{ spotNumber, currentFlat: existing.flatNumber }]);
 			if (strands.length > 0) {
-				return json({ error: strandErrorMessage(strands[0]) }, { status: 409 });
+				return json({ error: buildStrandErrorMessage(strands[0]) }, { status: 409 });
 			}
 		}
 

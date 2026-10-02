@@ -1,11 +1,18 @@
 import { json } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
-import { FLAT_NUMBER_REGEX, formatSpotNumber, SPOT_NUMBER_REGEX } from '$lib/constants';
-import { setFlatEmails, setFlatPhones, validateEmails, validatePhones } from '$lib/server/contacts';
+import { FLAT_NUMBER_REGEX } from '$lib/constants';
+import { setFlatEmails, setFlatPhones } from '$lib/server/contacts';
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
 import { requireAdmin } from '$lib/server/guards';
-import { bindSpotsToFlat, detectConflicts, detectStrands, strandErrorMessage } from '$lib/server/rebind';
+import { handleHandlerError, validateContactInputs } from '$lib/server/handler';
+import {
+	bindSpotsToFlat,
+	detectConflicts,
+	guardRebind,
+	guardSpotFormats,
+	normalizeSpotNumbers
+} from '$lib/server/rebind';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals }) => {
@@ -57,44 +64,24 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			return json({ error: 'Ce lot existe déjà' }, { status: 409 });
 		}
 
-		const validatedEmails = validateEmails(emails);
-		if (typeof validatedEmails === 'string') {
-			return json({ error: validatedEmails }, { status: 400 });
-		}
+		const validated = validateContactInputs(emails, phones);
+		if (validated instanceof Response) return validated;
+		const { emails: validatedEmails, phones: validatedPhones } = validated;
 
-		const validatedPhones = validatePhones(phones);
-		if (typeof validatedPhones === 'string') {
-			return json({ error: validatedPhones }, { status: 400 });
-		}
-
-		const trimmedSpots = Array.isArray(spotNumbers)
-			? [...new Set(spotNumbers.map((s: unknown) => formatSpotNumber(String(s).trim())).filter((s) => s.length > 0))]
-			: [];
+		const trimmedSpots = normalizeSpotNumbers(spotNumbers);
 
 		if (trimmedSpots.length === 0) {
 			return json({ error: 'Au moins une place de parking requise' }, { status: 400 });
 		}
 
-		for (const s of trimmedSpots) {
-			if (!SPOT_NUMBER_REGEX.test(s)) {
-				return json({ error: `Format de place de parking invalide : "${s}" (ex. 01, 36)` }, { status: 400 });
-			}
-		}
+		const invalidSpot = guardSpotFormats(trimmedSpots);
+		if (invalidSpot) return invalidSpot;
 
 		// Detect conflicts: spots already bound to other flats
 		const conflicts = await detectConflicts(db, trimmedSpots, flatNumber);
 
-		if (conflicts.length > 0 && !force) {
-			return json({ error: 'Conflit de place de parking', conflicts }, { status: 409 });
-		}
-
-		// Force: refuse to strand any source flat with 0 spots
-		if (force) {
-			const strands = await detectStrands(db, conflicts);
-			if (strands.length > 0) {
-				return json({ error: strandErrorMessage(strands[0]) }, { status: 409 });
-			}
-		}
+		const refused = await guardRebind(db, conflicts, force);
+		if (refused) return refused;
 
 		// All writes in one transaction: flat + contacts + spot binds succeed or fail together
 		const displayNameTrimmed = String(displayName ?? '').trim() || null;
@@ -118,10 +105,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 		return json({ flat: result }, { status: 201 });
 	} catch (e) {
-		if (e instanceof SyntaxError) {
-			return json({ error: 'Requête invalide' }, { status: 400 });
-		}
-		console.error('[POST /api/admin/flats]', e);
-		return json({ error: 'Erreur interne' }, { status: 500 });
+		return handleHandlerError('POST /api/admin/flats', e);
 	}
 };

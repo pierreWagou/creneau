@@ -28,9 +28,20 @@ SvelteKit (Svelte 5 runes) + SQLite (Drizzle ORM) + Tailwind CSS v4 + shadcn-sve
 
 - Auth: return `401` for unauthenticated, `403` for unauthorized (split guard pattern)
 - All POST/PATCH/DELETE handlers that call `request.json()` must catch `SyntaxError` and return `400`
+  — do it via `catch (e) { return handleHandlerError('POST /api/x', e); }` (`$lib/server/handler`), which
+  also logs unexpected failures and answers `500`. Sanctioned exception: `POST /api/admin/requests/:id`
+  accepts an optional body and swallows a parse error to default `force = false`.
 - Error response format: `json({ error: "..." }, { status: N })`
-- Rate limiting on login + activation (5 attempts / 15 min lockout per flat)
-- Spot reassignment: `PATCH /api/admin/flats/:number` accepts `force: true` to confirm a spot conflict swap; returns `409` with `conflicts` array if unforced
+- Rate limiting on login + activation (5 attempts / 15 min lockout per flat) — `requireRateLimit(key)` for
+  the `429` gate; `recordFailedAttempt` / `resetAttempts` stay at the failure/success points that earn them
+- Contact bodies are validated with `validateContactInputs(emails, phones)`; partial updates that persist
+  each list separately keep using `validateEmails` / `validatePhones` per key
+- Spot reassignment: `PATCH /api/admin/flats/:number` accepts `force: true` to confirm a spot conflict swap; returns `409` with `conflicts` array if unforced. The same `force`/`409 conflicts` contract (and the
+  never-strand-a-lot-at-0-spots rule) applies to `POST /api/spots`, `POST /api/admin/flats`,
+  `POST /api/admin/requests/:id` — all go through `guardRebind` in `$lib/server/rebind`
+- URL naming (new routes): plural kebab-case resources, admin-only operations under `admin/`. Existing
+  route paths are frozen — they're referenced by the frontend, e2e, Bruno and `openapi.yaml`, so renaming
+  is a breaking change that needs its own migration plan.
 
 ### Button Rules
 
@@ -80,9 +91,9 @@ Use `text-success`, `bg-success/10`, `border-success/30`, etc. Never use hardcod
 
 ### Code Organization
 
-- Shared constants in `src/lib/constants.ts`
+- Shared constants in `src/lib/constants.ts` (both sides; hex palette twin of `app.css` in `src/lib/colors.ts`)
 - Shared types in `src/lib/types.ts`
-- Server utilities in `src/lib/server/` (auth, bookings, availability, sse, rate-limit, db, contacts)
+- Server utilities in `src/lib/server/` (auth, bookings, availability, sse, rate-limit, db, contacts, guards, handler, rebind, flat-machine, flat-state, mail, mail-templates)
 - Time utilities in `src/lib/utils/time.ts`
 
 ### Git & CI
@@ -92,7 +103,7 @@ Use `text-success`, `bg-success/10`, `border-success/30`, etc. Never use hardcod
 - Preview CD (`cd.yml`): push to `main` → builds `:canary` → pushes to GHCR → deploys preview via Dokploy webhook
 - Release CD (`cd.yml`): GitHub Release published → builds `:X.Y.Z` + `:X.Y` + `:latest` → pushes to GHCR → deploys production via Dokploy webhook
 - Release flow: `npm run release:patch|minor|major` → `gh release create <tag> --generate-notes`
-- SSE events: `booking_created`, `booking_cancelled`, `booking_updated`
+- SSE events: `booking_created`, `booking_cancelled`, `booking_updated` (+ `connected` on stream open)
 
 ## Deployment
 
@@ -147,13 +158,23 @@ src/
 │   │   ├── bookings.ts      # CRUD + validation
 │   │   ├── availability.ts  # Timeline computation (pure function)
 │   │   ├── contacts.ts      # Email/phone validation + CRUD helpers
+│   │   ├── guards.ts        # requireAuth / requireAdmin (401 / 403 split)
+│   │   ├── handler.ts       # handleHandlerError, validateContactInputs, requireRateLimit
+│   │   ├── rebind.ts        # Spot-rebind rule: detectConflicts/Strands, guardRebind, bindSpotsToFlat
+│   │   ├── flat-machine.ts  # XState v5 flat lifecycle (pure, import-free)
+│   │   ├── flat-state.ts    # Lifecycle writes + invitation TTL / reap
+│   │   ├── mail.ts          # Pooled SMTP transporter + sendActivationEmail
+│   │   ├── mail-templates.ts# buildActivationEmail (hex palette for mail HTML)
 │   │   ├── sse.ts           # SSE broadcaster
 │   │   └── rate-limit.ts    # In-memory rate limiter
-│   ├── constants.ts         # PIN_MIN_LENGTH, PIN_MAX_LENGTH, DISPLAY_NAME_MAX_LENGTH, CALENDAR_LOOKAHEAD_MONTHS, ACTIVATION_CODE_TTL_MS, MAX_BOOKING_HOURS, ACTIVATION_CODE_LENGTH, MAX_CONTACTS_PER_TYPE, MS_PER_HOUR, SESSION_DURATION_DAYS
+│   ├── constants.ts         # PIN_*, FLAT/SPOT number rules, RATE_LIMIT_*, SMTP_*, UI_* timings
+│   ├── colors.ts            # Hex twin of app.css palette (mail HTML + JS inline styles)
+│   ├── validation.ts        # isValidEmail / isValidPhone
 │   ├── types.ts             # SessionFlat, BookingWithFlat, SpotTimeline, DAY_START/DAY_END
+│   ├── utils.ts             # cn (clsx + tailwind-merge)
 │   └── utils/time.ts        # padH, getHourFromISO, formatDateISO, formatDuration, TIME_BLOCKS
 ├── routes/
-│   ├── (public)/             # Login, activate, setup, request (unauthenticated)
+│   ├── (public)/             # Login, activate, setup, request, about (unauthenticated)
 │   ├── (app)/               # Authenticated pages (calendar, book, my-bookings, stats, account, admin)
 │   └── api/                 # REST endpoints + SSE
 ├── app.css                  # Theme + @layer components (semantic classes) + @layer base (global form styles)

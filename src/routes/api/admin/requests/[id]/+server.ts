@@ -5,7 +5,7 @@ import { validateEmails, validatePhones } from '$lib/server/contacts';
 import { db } from '$lib/server/db';
 import { flat, flatEmail, flatPhone, request, requestEmail, requestPhone, requestSpot } from '$lib/server/db/schema';
 import { requireAdmin } from '$lib/server/guards';
-import { bindSpotsToFlat, detectConflicts, detectStrands, strandErrorMessage } from '$lib/server/rebind';
+import { bindSpotsToFlat, detectConflicts, guardRebind } from '$lib/server/rebind';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ params, request: req, locals }) => {
@@ -53,17 +53,8 @@ export const POST: RequestHandler = async ({ params, request: req, locals }) => 
 			// No body or invalid JSON
 		}
 
-		if (conflicts.length > 0 && !force) {
-			return json({ error: 'Conflit de place de parking', conflicts }, { status: 409 });
-		}
-
-		// Force: refuse to strand any source flat with 0 spots
-		if (force) {
-			const strands = await detectStrands(db, conflicts);
-			if (strands.length > 0) {
-				return json({ error: strandErrorMessage(strands[0]) }, { status: 409 });
-			}
-		}
+		const refused = await guardRebind(db, conflicts, force);
+		if (refused) return refused;
 
 		// Read contacts from request tables
 		const reqEmails = await db.select().from(requestEmail).where(eq(requestEmail.requestId, requestId)).all();

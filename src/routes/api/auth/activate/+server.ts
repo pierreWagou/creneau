@@ -5,7 +5,8 @@ import { createSession, hashPin, setSessionCookie, validatePin } from '$lib/serv
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
 import { consumeFlatInvite, FlatTransitionError, reapExpiredInvitations } from '$lib/server/flat-state';
-import { checkRateLimit, rateLimitErrorMessage, recordFailedAttempt, resetAttempts } from '$lib/server/rate-limit';
+import { handleHandlerError, requireRateLimit } from '$lib/server/handler';
+import { recordFailedAttempt, resetAttempts } from '$lib/server/rate-limit';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
@@ -22,10 +23,8 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		}
 
 		// Rate limiting
-		const { allowed, retryAfterMs } = checkRateLimit(`activate:${normalizedFlat}`);
-		if (!allowed) {
-			return json({ error: rateLimitErrorMessage(retryAfterMs || 0) }, { status: 429 });
-		}
+		const limited = requireRateLimit(`activate:${normalizedFlat}`);
+		if (limited) return limited;
 
 		const pinError = validatePin(pin);
 		if (pinError) {
@@ -86,10 +85,6 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			}
 		});
 	} catch (e) {
-		if (e instanceof SyntaxError) {
-			return json({ error: 'Requête invalide' }, { status: 400 });
-		}
-		console.error('[POST /api/auth/activate]', e);
-		return json({ error: 'Erreur interne' }, { status: 500 });
+		return handleHandlerError('POST /api/auth/activate', e);
 	}
 };

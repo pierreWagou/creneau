@@ -6,7 +6,7 @@ interface ActivationEmailResult {
 	html: string;
 }
 
-export function activationEmail(
+export function buildActivationEmail(
 	flatNumber: string,
 	activationCode: string,
 	activationLink: string

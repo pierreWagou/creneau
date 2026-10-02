@@ -35,6 +35,8 @@
 }
 
 @layer base {
+	/* Catppuccin palette. Hex twin lives in src/lib/colors.ts for e-mail HTML
+	   and JS inline styles (CSS vars can't reach those) — keep both in sync. */
 	:root {
 		/* Catppuccin Latte — Blue primary + Lavender accent */
 		--background: 220 23% 95%; /* Base #eff1f5 */

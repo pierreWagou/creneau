@@ -13,6 +13,7 @@ import {
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
 import { requireAuth } from '$lib/server/guards';
+import { handleHandlerError } from '$lib/server/handler';
 import type { RequestHandler } from './$types';
 
 export const PATCH: RequestHandler = async ({ request, locals }) => {
@@ -67,11 +68,7 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
 			}
 		});
 	} catch (e) {
-		if (e instanceof SyntaxError) {
-			return json({ error: 'Requête invalide' }, { status: 400 });
-		}
-		console.error('[PATCH /api/account]', e);
-		return json({ error: 'Erreur interne' }, { status: 500 });
+		return handleHandlerError('PATCH /api/account', e);
 	}
 };
 
@@ -108,10 +105,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 		return json({ success: true });
 	} catch (e) {
-		if (e instanceof SyntaxError) {
-			return json({ error: 'Requête invalide' }, { status: 400 });
-		}
-		console.error('[POST /api/account]', e);
-		return json({ error: 'Erreur interne' }, { status: 500 });
+		return handleHandlerError('POST /api/account', e);
 	}
 };

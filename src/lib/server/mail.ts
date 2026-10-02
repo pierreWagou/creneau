@@ -1,9 +1,10 @@
 import type { Transporter } from 'nodemailer';
 import nodemailer from 'nodemailer';
 import { SMTP_FROM, SMTP_HOST, SMTP_PASSWORD, SMTP_PORT, SMTP_USER } from '$env/static/private';
+import { SMTP_DEFAULT_PORT, SMTP_POOL_SIZE, SMTP_TIMEOUT_MS } from '$lib/constants';
 import { getFlatEmails } from './contacts';
 import type { db } from './db';
-import { activationEmail } from './mail-templates';
+import { buildActivationEmail } from './mail-templates';
 
 let transporter: Transporter | null = null;
 
@@ -15,14 +16,15 @@ function getTransporter(): Transporter | null {
 		);
 		return null;
 	}
+	const port = Number(SMTP_PORT) || SMTP_DEFAULT_PORT;
 	transporter = nodemailer.createTransport({
 		host: SMTP_HOST,
-		port: Number(SMTP_PORT) || 465,
-		secure: Number(SMTP_PORT) === 465,
+		port,
+		secure: port === SMTP_DEFAULT_PORT,
 		pool: true,
-		maxConnections: 2,
-		connectionTimeout: 5000,
-		greetingTimeout: 5000,
+		maxConnections: SMTP_POOL_SIZE,
+		connectionTimeout: SMTP_TIMEOUT_MS,
+		greetingTimeout: SMTP_TIMEOUT_MS,
 		auth: {
 			user: SMTP_USER,
 			pass: SMTP_PASSWORD
@@ -31,6 +33,15 @@ function getTransporter(): Transporter | null {
 	return transporter;
 }
 
+/**
+ * Send the activation email to every address registered on the flat.
+ *
+ * Deliberately coarse: resolves `false` for all three non-delivery cases —
+ * (1) SMTP not configured, (2) no registered emails, (3) SMTP send failed —
+ * and never throws. Callers surface it as a "email sent" / "email skipped"
+ * toast + `emailSent` flag, so a delivery failure must never fail the
+ * surrounding admin action (the code is already generated and usable).
+ */
 export async function sendActivationEmail(
 	database: typeof db,
 	flatNumber: string,
@@ -47,7 +58,7 @@ export async function sendActivationEmail(
 	}
 
 	const activationLink = `${baseUrl}/activate?flat=${encodeURIComponent(flatNumber)}&code=${encodeURIComponent(activationCode)}`;
-	const { subject, text, html } = activationEmail(flatNumber, activationCode, activationLink);
+	const { subject, text, html } = buildActivationEmail(flatNumber, activationCode, activationLink);
 
 	try {
 		await transport.sendMail({

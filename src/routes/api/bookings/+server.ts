@@ -4,6 +4,7 @@ import { createBooking } from '$lib/server/bookings';
 import { db } from '$lib/server/db';
 import { spot } from '$lib/server/db/schema';
 import { requireAuth } from '$lib/server/guards';
+import { handleHandlerError } from '$lib/server/handler';
 import { sseManager } from '$lib/server/sse';
 import type { RequestHandler } from './$types';
 
@@ -44,10 +45,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		sseManager.broadcast('booking_created', result.booking);
 		return json({ booking: result.booking }, { status: 201 });
 	} catch (e) {
-		if (e instanceof SyntaxError) {
-			return json({ error: 'Requête invalide' }, { status: 400 });
-		}
-		console.error('[POST /api/bookings]', e);
-		return json({ error: 'Erreur interne' }, { status: 500 });
+		return handleHandlerError('POST /api/bookings', e);
 	}
 };

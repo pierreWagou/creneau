@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { spot } from '$lib/server/db/schema';
 import { requireAdmin } from '$lib/server/guards';
+import { handleHandlerError } from '$lib/server/handler';
 import type { RequestHandler } from './$types';
 
 /**
@@ -58,10 +59,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 		return json({ success: true });
 	} catch (e) {
-		if (e instanceof SyntaxError) {
-			return json({ error: 'Requête invalide' }, { status: 400 });
-		}
-		console.error('[POST /api/admin/spots/swap]', e);
-		return json({ error: 'Erreur interne' }, { status: 500 });
+		return handleHandlerError('POST /api/admin/spots/swap', e);
 	}
 };

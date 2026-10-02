@@ -12,6 +12,7 @@
 	import { page } from '$app/stores';
 	import { getFlatColor } from '$lib/colors';
 	import { Button } from '$lib/components/ui/button';
+	import { TOAST_DURATION_MS } from '$lib/constants';
 	import { type BookingWithFlat, DAY_END, DAY_START } from '$lib/types';
 	import { createBookingSSE } from '$lib/utils/sse';
 	import { formatDateISO, formatDuration, padH } from '$lib/utils/time';
@@ -226,7 +227,7 @@
 					label: 'Annuler',
 					onClick: () => undoMove(booking.id, oldStart, oldEnd)
 				},
-				duration: 5000
+				duration: TOAST_DURATION_MS
 			});
 		} else {
 			info.revert();
@@ -426,11 +427,11 @@
 				<div class="border-border border-t pt-2">
 					{#if confirmingCancel}
 						<div class="flex items-center gap-2">
-							<Button size="sm" variant="destructive" onclick={cancelBooking}>Confirmer</Button>
+							<Button size="sm" variant="default" class="bg-destructive text-white hover:bg-destructive/80 dark:text-[#1e1e2e]" onclick={cancelBooking}>Confirmer</Button>
 							<Button size="sm" variant="ghost" onclick={() => (confirmingCancel = false)}>Non</Button>
 						</div>
 					{:else}
-						<Button size="sm" variant="destructive" class="w-full" onclick={() => (confirmingCancel = true)}>
+						<Button size="sm" variant="default" class="w-full bg-destructive text-white hover:bg-destructive/80 dark:text-[#1e1e2e]" onclick={() => (confirmingCancel = true)}>
 							Annuler la réservation
 						</Button>
 					{/if}

@@ -4,7 +4,8 @@ import { formatSpotNumber, SPOT_NUMBER_REGEX } from '$lib/constants';
 import { db } from '$lib/server/db';
 import { spot } from '$lib/server/db/schema';
 import { requireAdmin } from '$lib/server/guards';
-import { detectStrands, strandErrorMessage } from '$lib/server/rebind';
+import { handleHandlerError } from '$lib/server/handler';
+import { buildStrandErrorMessage, detectStrands } from '$lib/server/rebind';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -43,7 +44,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			// Force: refuse to strand the holder with 0 spots (all-or-nothing, no writes before this point)
 			const strands = await detectStrands(db, [{ spotNumber, currentFlat: existingSpot.flatNumber }]);
 			if (strands.length > 0) {
-				return json({ error: strandErrorMessage(strands[0]) }, { status: 409 });
+				return json({ error: buildStrandErrorMessage(strands[0]) }, { status: 409 });
 			}
 			const unbound = await db
 				.update(spot)
@@ -62,10 +63,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 		return json({ spot: result }, { status: 201 });
 	} catch (e) {
-		if (e instanceof SyntaxError) {
-			return json({ error: 'Requête invalide' }, { status: 400 });
-		}
-		console.error('[POST /api/spots]', e);
-		return json({ error: 'Erreur interne' }, { status: 500 });
+		return handleHandlerError('POST /api/spots', e);
 	}
 };

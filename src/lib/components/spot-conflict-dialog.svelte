@@ -7,6 +7,7 @@ import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
 import { toast } from 'svelte-sonner';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
 	import { Button } from '$lib/components/ui/button';
+	import { CONFLICT_CHIP_CAP } from '$lib/constants';
 	import type { DescribedSpotConflict } from '$lib/utils/spots';
 
 	export interface ConflictChoice {
@@ -86,7 +87,10 @@ import { toast } from 'svelte-sonner';
 
 	/** Shown chips with overflow cap (pool/holder lists can be long) */
 	function capped(spots: string[]): { shown: string[]; extra: number } {
-		return { shown: spots.slice(0, 6), extra: Math.max(0, spots.length - 6) };
+		return {
+			shown: spots.slice(0, CONFLICT_CHIP_CAP),
+			extra: Math.max(0, spots.length - CONFLICT_CHIP_CAP)
+		};
 	}
 
 	function apply() {

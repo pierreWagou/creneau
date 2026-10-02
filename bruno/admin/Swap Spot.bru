@@ -1,0 +1,19 @@
+meta {
+  name: Swap Spot
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/api/admin/spots/swap
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "spotNumber": "36",
+    "flatNumber": "A01",
+    "targetSpotNumber": "10"
+  }
+}

@@ -8,7 +8,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '$lib/constants';
+	import { PIN_MAX_LENGTH, PIN_MIN_LENGTH, UI_FOCUS_DELAY_MS } from '$lib/constants';
 
 	let { data } = $props();
 
@@ -110,7 +110,7 @@
 					onOpenChangeComplete={(open) => {
 							if (!open) {
 								searchValue = '';
-								if (flatNumber) setTimeout(() => pinInputEl?.focus(), 50);
+								if (flatNumber) setTimeout(() => pinInputEl?.focus(), UI_FOCUS_DELAY_MS);
 							}
 						}}
 					>

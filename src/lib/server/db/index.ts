@@ -22,7 +22,7 @@ await client.execute('PRAGMA journal_mode = WAL');
 export const db = drizzle(client, { schema });
 
 /** Transaction handle (inferred) — helpers accept db or tx so endpoints can wrap writes */
-export type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 export type DbOrTx = typeof db | DbTransaction;
 
 // --- Migration ---
@@ -54,10 +54,23 @@ for (const migration of migrations) {
 			for (const stmt of stmts) {
 				try {
 					await client.execute(stmt);
-				} catch (e: any) {
-					// Ignore idempotent errors (IF NOT EXISTS, DROP IF EXISTS)
-					if (!e.message.includes('already exists') && !e.message.includes('no such table')) {
-						console.error(`[db/migrate] ${e.message}`);
+				} catch (e) {
+					// Substring matching is load-bearing: migrations are applied
+					// statement-by-statement (SQL split on ';') and older ones use
+					// plain ADD COLUMN / DROP TABLE without guards, so benign
+					// re-run conflicts ("duplicate column", "no such table") are
+					// expected. Known-benign codes are silenced; anything else is
+					// logged loudly but the migration is STILL marked applied below —
+					// re-queueing it would loop forever on a deterministic error.
+					// If this line ever appears in production logs: inspect the
+					// statement by hash and fix forward with a new migration.
+					const message = e instanceof Error ? e.message : String(e);
+					const benign =
+						message.includes('already exists') ||
+						message.includes('no such table') ||
+						message.includes('duplicate column');
+					if (!benign) {
+						console.error(`[db/migrate] ${migration.hash.slice(0, 12)} — statement failed: ${message}`);
 					}
 				}
 			}

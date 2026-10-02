@@ -34,7 +34,12 @@ import * as Drawer from '$lib/components/ui/drawer';
 	import { Label } from '$lib/components/ui/label';
 import { Separator } from '$lib/components/ui/separator';
 import { Textarea } from '$lib/components/ui/textarea';
-	import { DISPLAY_NAME_MAX_LENGTH, isValidFlatNumber } from '$lib/constants';
+	import {
+		DISPLAY_NAME_MAX_LENGTH,
+		isValidFlatNumber,
+		SEARCH_DEBOUNCE_MS,
+		UI_DEBOUNCE_MS
+	} from '$lib/constants';
 	import { createIsDesktop } from '$lib/utils/is-desktop.svelte';
 	import { displayPhone } from '$lib/utils/phone';
 	import { describeSharedPoolConflicts, describeSpotConflicts, findSpotConflicts } from '$lib/utils/spots';
@@ -133,7 +138,7 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 			else params.delete('q');
 			params.delete('page');
 			updateUrl(params, true);
-		}, 300);
+		}, SEARCH_DEBOUNCE_MS);
 	}
 
 	function gotoPage(p: number) {
@@ -225,7 +230,7 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 		};
 		const schedule = () => {
 			if (timer) clearTimeout(timer);
-			timer = setTimeout(apply, 150);
+			timer = setTimeout(apply, UI_DEBOUNCE_MS);
 		};
 		vp.addEventListener('resize', schedule);
 		vp.addEventListener('scroll', schedule);
