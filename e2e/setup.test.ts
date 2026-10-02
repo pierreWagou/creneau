@@ -55,11 +55,14 @@ test.describe
 			const dialog = page.locator('[role="dialog"]');
 			await dialog.waitFor({ timeout: 5000 });
 			await dialog.getByPlaceholder('ex. 01').fill(TEST_SPOT);
+			const created = page.waitForResponse(
+				(r) => r.url().endsWith('/api/spots') && r.request().method() === 'POST' && r.ok()
+			);
 			await dialog.getByRole('button', { name: 'Ajouter' }).click();
+			await created;
 
 			// New spots land unassigned — pool 36 so bookings (and later specs) can use it
-			await page.waitForTimeout(1500);
-			await page.reload();
+			await navigateTo(page, '/admin/spots');
 			const spotsCard = page.locator('[data-slot="card"]').filter({ hasText: 'Places de parking' });
 			const limboPill = spotsCard.getByRole('button', { name: /En attente/ });
 			await limboPill.click();

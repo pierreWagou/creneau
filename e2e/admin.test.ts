@@ -812,7 +812,7 @@ test.describe
 
 				// Main button creates 83 straight into limbo (not the shared filter)
 				await page.request.post('/api/spots', { data: { number: '83' } });
-				await page.reload();
+				await navigateTo(page, '/admin/spots');
 				await limboPill.click();
 				await expect(spot83).toBeVisible({ timeout: 5000 });
 				// Exclusive shared view: deselect limbo first (pills union otherwise)
