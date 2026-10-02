@@ -1,6 +1,6 @@
 import type { Transporter } from 'nodemailer';
 import nodemailer from 'nodemailer';
-import { SMTP_FROM, SMTP_HOST, SMTP_PASSWORD, SMTP_PORT, SMTP_USER } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { SMTP_DEFAULT_PORT, SMTP_POOL_SIZE, SMTP_TIMEOUT_MS } from '$lib/constants';
 import { getFlatEmails } from './contacts';
 import type { db } from './db';
@@ -10,6 +10,9 @@ let transporter: Transporter | null = null;
 
 function getTransporter(): Transporter | null {
 	if (transporter) return transporter;
+	// Read at call time: dynamic env resolves in the running container,
+	// so one image serves preview and production with different SMTP settings.
+	const { SMTP_HOST, SMTP_USER, SMTP_PASSWORD, SMTP_PORT } = env;
 	if (!SMTP_HOST || !SMTP_USER || !SMTP_PASSWORD) {
 		console.warn(
 			'[mail] SMTP not configured (missing SMTP_HOST, SMTP_USER, or SMTP_PASSWORD). Emails will not be sent.'
@@ -62,7 +65,7 @@ export async function sendActivationEmail(
 
 	try {
 		await transport.sendMail({
-			from: SMTP_FROM || 'noreply-creneau@wagou.fr',
+			from: env.SMTP_FROM || 'noreply-creneau@wagou.fr',
 			to: emails.join(', '),
 			subject,
 			text,
