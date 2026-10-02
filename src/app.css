@@ -145,31 +145,6 @@
 		@apply bg-primary h-2 rounded transition-all duration-300;
 	}
 
-	/* Flat state badges — Catppuccin palette (TRIAL: solid recipe mirroring the pills) */
-	.flat-badge-active {
-		background-color: hsl(var(--success)) !important;
-		color: #1e1e2e !important;
-	}
-	.flat-badge-pending {
-		background-color: hsl(var(--booking-busy)) !important;
-		color: #1e1e2e !important;
-	}
-	.flat-badge-request {
-		background-color: hsl(var(--primary)) !important;
-		color: white !important;
-	}
-	.dark .flat-badge-request {
-		color: #1e1e2e !important;
-	}
-	.flat-badge-warning {
-		background-color: hsl(var(--warning)) !important;
-		color: #1e1e2e !important;
-	}
-	.flat-badge-inactive {
-		background-color: hsl(var(--muted-foreground)) !important;
-		color: #1e1e2e !important;
-	}
-
 	/* Nested dialog visual hierarchy */
 	[data-nested-open] {
 		filter: blur(calc(var(--bits-dialog-nested-count) * 1px));
@@ -187,6 +162,33 @@
 	.dialog-section-label {
 		@apply text-xs font-medium text-muted-foreground uppercase tracking-wide;
 	}
+}
+
+/* Flat state badges — Catppuccin palette (TRIAL: solid recipe mirroring the pills).
+   Unlayered on purpose: unlayered author CSS beats Tailwind's layered utilities,
+   so these win over shadcn Badge styles without !important. */
+.flat-badge-active {
+	background-color: hsl(var(--success));
+	color: #1e1e2e;
+}
+.flat-badge-pending {
+	background-color: hsl(var(--booking-busy));
+	color: #1e1e2e;
+}
+.flat-badge-request {
+	background-color: hsl(var(--primary));
+	color: white;
+}
+.dark .flat-badge-request {
+	color: #1e1e2e;
+}
+.flat-badge-warning {
+	background-color: hsl(var(--warning));
+	color: #1e1e2e;
+}
+.flat-badge-inactive {
+	background-color: hsl(var(--muted-foreground));
+	color: #1e1e2e;
 }
 
 @layer base {

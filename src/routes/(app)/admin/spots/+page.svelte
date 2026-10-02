@@ -175,10 +175,6 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 			? (data.spots.find((s) => s.number === formatSpotNumber(normalizedNewSpot))?.flatNumber ?? null)
 			: null
 	);
-	function stagedCaption(count: number, tail: string): string | null {
-		if (count === 0) return null;
-		return count > 1 ? `${count} places seront réaffectées ${tail}` : `1 place sera réaffectée ${tail}`;
-	}
 
 	/** Open the resolver from the create solve button (client-side conflicts, no 409 needed) */
 	let pendingShareSpotData = $state<{ number: string; description: string | null } | null>(null);

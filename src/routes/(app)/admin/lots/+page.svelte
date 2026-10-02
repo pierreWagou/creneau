@@ -966,8 +966,8 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 		if (res.ok) {
 			toast.success('Lot réinitialisé');
 			openDialog = null;
+			// Keep selectedItem mounted through the close animation (Vaul overlay teardown)
 			detailOpen = false;
-			selectedItem = null;
 			invalidateAll();
 		} else {
 			const result = await res.json();
@@ -1028,8 +1028,8 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 		if (res.ok) {
 			toast.success('Lot supprimé');
 			openDialog = null;
+			// Keep selectedItem mounted through the close animation (Vaul overlay teardown)
 			detailOpen = false;
-			selectedItem = null;
 			invalidateAll();
 		} else {
 			const result = await res.json();
@@ -1090,8 +1090,8 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 			if (res.ok) {
 				const req = data.requests.find((r) => r.id === requestId);
 				toast.success(`Lot ${req?.flatNumber ?? ''} approuvé`);
+				// Keep selectedItem mounted through the close animation (Vaul overlay teardown)
 				detailOpen = false;
-				selectedItem = null;
 				clearRuntimeFlow('request');
 				invalidateAll();
 			} else if (res.status === 409) {
@@ -1209,10 +1209,10 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 	async function rejectRequest(requestId: number) {
 		const res = await fetch(`/api/admin/requests/${requestId}`, { method: 'PATCH' });
 		if (res.ok) {
-			toast.success('Demande rejetée');
-			detailOpen = false;
-			selectedItem = null;
-			invalidateAll();
+				toast.success('Demande rejetée');
+				// Keep selectedItem mounted through the close animation (Vaul overlay teardown)
+				detailOpen = false;
+				invalidateAll();
 		} else {
 			const result = await res.json();
 			toast.error(result.error || 'Impossible de rejeter la demande');
@@ -1431,7 +1431,9 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 			adminPinCurrent = '';
 			adminPinNew = '';
 			adminPinConfirm = '';
-			selectedItem = null;
+			// NOTE: selectedItem intentionally NOT nulled here — content must stay
+			// mounted through Vaul's close animation or its overlay orphans and
+			// eats pointer events (openers always set fresh data before reopening).
 			inviteLoading = false;
 			clearRuntimeFlow('edit');
 			clearRuntimeFlow('request');

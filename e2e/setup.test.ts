@@ -60,6 +60,10 @@ test.describe
 			// New spots land unassigned — pool 36 so bookings (and later specs) can use it
 			await page.waitForTimeout(1500);
 			await page.reload();
+			const spotsCard = page.locator('[data-slot="card"]').filter({ hasText: 'Places de parking' });
+			const limboPill = spotsCard.getByRole('button', { name: /En attente/ });
+			await limboPill.click();
+			await expect(limboPill).toHaveAttribute('aria-pressed', 'true');
 			const waitingCard = page.locator('[data-slot="card"]').filter({ hasText: 'En attente' });
 			await waitingCard.getByRole('button', { name: /Voir la place 36/ }).click();
 			const spotDrawer = page.locator('[role="dialog"]').last();

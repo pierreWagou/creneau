@@ -3,9 +3,9 @@ export function formatPhone(raw: string): string {
 	const stripped = raw.replace(/[^\d+]/g, '');
 	let digits = stripped;
 	if (digits.startsWith('00')) {
-		digits = '+' + digits.slice(2);
+		digits = `+${digits.slice(2)}`;
 	} else if (digits.startsWith('0')) {
-		digits = '+33' + digits.slice(1);
+		digits = `+33${digits.slice(1)}`;
 	}
 	return digits;
 }

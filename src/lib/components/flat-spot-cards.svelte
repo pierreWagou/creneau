@@ -121,7 +121,7 @@
 						type="button"
 						onclick={() => onSelect?.(spotNum)}
 						aria-label={subtext ? `Voir la place ${spotNum} (lot ${subtext})` : `Voir la place ${spotNum}`}
-						data-status={chipStatus}
+						data-status={chipStatus === 'assigned' ? undefined : chipStatus}
 						class="rounded-lg border border-border min-h-16 px-3 flex flex-col items-center justify-center gap-0.5 transition-colors hover:border-foreground/30 hover:bg-muted/50"
 					>
 						<span class="flex items-center gap-2">
@@ -236,8 +236,8 @@
 									inputClass="text-center"
 									error={draft.length > 0 && !draftValid ? 'Format requis : 1 ou 2 chiffres (ex. 3, 01, 36)' : null}
 									errorDisplay="tooltip"
-									committable={draftValid}
-									autofocus={pickerOpen}
+								committable={draftValid}
+								autofocus={pickerOpen}
 									onCommit={commit}
 									onCancel={cancel}
 								/>

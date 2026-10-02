@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { ADMIN_FLAT, ADMIN_PIN, navigateTo, TEST_FLATS } from './helpers';
+import { ADMIN_FLAT, ADMIN_PIN, addSpotViaPicker, ensureSpots, navigateTo, TEST_FLATS } from './helpers';
 
 test.describe
 	.serial('Activation flow', () => {
@@ -12,6 +12,8 @@ test.describe
 			await page.click('button[type="submit"]');
 			await page.waitForURL('/calendar');
 
+			// Spots must exist before the picker can claim them (created before page load)
+			await ensureSpots(page, ['10', '11', '12', '13']);
 			await navigateTo(page, '/admin/lots');
 
 			// Create each test flat via the dialog
@@ -29,9 +31,7 @@ test.describe
 				await expect(dialog.getByText(`Lot ${flat.number}`).first()).toBeVisible();
 				// Fill a valid 2-digit spot number
 				const spotNumber = String(10 + i).padStart(2, '0');
-				await dialog.getByRole('button', { name: 'Ajouter une place' }).click();
-				await dialog.locator('input[placeholder="ex. 01"]').fill(spotNumber);
-				await dialog.locator('input[placeholder="ex. 01"]').press('Enter');
+				await addSpotViaPicker(page, dialog, spotNumber);
 				// Fill email
 				await dialog.getByRole('button', { name: 'Ajouter un e-mail' }).click();
 				await dialog.locator('input[type="email"]').fill(`${flat.number.toLowerCase()}@test.com`);
@@ -42,6 +42,11 @@ test.describe
 				await dialog.locator('input[type="tel"]').press('Enter');
 				// Click the main "Ajouter" button to submit the flat
 				await dialog.getByRole('button', { name: 'Ajouter', exact: true }).click();
+				// Shared spot triggers pool resolver — confirm the move out of the pool
+				const resolver = page.locator('[role="alertdialog"]');
+				await expect(resolver).toBeVisible({ timeout: 5000 });
+				await resolver.getByText('Affecter', { exact: true }).click();
+				await resolver.getByRole('button', { name: /Appliquer \(1\/1\)/ }).click();
 				// Wait for dialog to close and flat to appear
 				await expect(page.getByText(flat.number).first()).toBeVisible();
 			}
@@ -70,9 +75,9 @@ test.describe
 				);
 				// Close the modal, then the drawer, before moving to the next flat
 				await page.keyboard.press('Escape');
-				await expect(inviteDialog).not.toBeVisible({ timeout: 3000 });
+				await expect(inviteDialog).not.toBeVisible({ timeout: 10000 });
 				await page.keyboard.press('Escape');
-				await expect(detailDialog).not.toBeVisible({ timeout: 3000 });
+				await expect(detailDialog).not.toBeVisible({ timeout: 10000 });
 			}
 		});
 
@@ -188,6 +193,7 @@ test.describe
 			await page.click('button[type="submit"]');
 			await page.waitForURL('/calendar');
 
+			await ensureSpots(page, ['20']);
 			await navigateTo(page, '/admin/lots');
 
 			// Create a dedicated flat via the dialog
@@ -197,9 +203,7 @@ test.describe
 			await dialog.waitFor();
 			await dialog.getByPlaceholder('ex. B12').fill('A05');
 			await dialog.getByPlaceholder('ex. B12').press('Enter');
-			await dialog.getByRole('button', { name: 'Ajouter une place' }).click();
-			await dialog.locator('input[placeholder="ex. 01"]').fill('20');
-			await dialog.locator('input[placeholder="ex. 01"]').press('Enter');
+			await addSpotViaPicker(page, dialog, '20');
 			await dialog.getByRole('button', { name: 'Ajouter un e-mail' }).click();
 			await dialog.locator('input[type="email"]').fill('a05@test.com');
 			await dialog.locator('input[type="email"]').press('Enter');
@@ -207,6 +211,11 @@ test.describe
 			await dialog.locator('input[type="tel"]').fill('+33612340578');
 			await dialog.locator('input[type="tel"]').press('Enter');
 			await dialog.getByRole('button', { name: 'Ajouter', exact: true }).click();
+			// Shared spot triggers pool resolver — confirm the move out of the pool
+			const createResolver = page.locator('[role="alertdialog"]');
+			await expect(createResolver).toBeVisible({ timeout: 5000 });
+			await createResolver.getByText('Affecter', { exact: true }).click();
+			await createResolver.getByRole('button', { name: /Appliquer \(1\/1\)/ }).click();
 			await expect(page.getByText('A05').first()).toBeVisible();
 
 			// Generate an invitation → En attente
@@ -222,7 +231,7 @@ test.describe
 			const inviteDialog = page.getByRole('dialog', { name: 'Invitation' });
 			await expect(inviteDialog).toBeVisible({ timeout: 5000 });
 			await page.keyboard.press('Escape');
-			await expect(inviteDialog).not.toBeVisible({ timeout: 3000 });
+			await expect(inviteDialog).not.toBeVisible({ timeout: 10000 });
 
 			// Revoke → Inactif (no invitation ⟹ inactive)
 			await detailDialog.getByRole('button', { name: "Révoquer l'invitation" }).click();
@@ -233,9 +242,9 @@ test.describe
 			await expect(detailDialog.getByText('En attente').first()).toBeVisible({ timeout: 5000 });
 			await expect(page.getByRole('dialog', { name: 'Invitation' })).toBeVisible({ timeout: 5000 });
 			await page.keyboard.press('Escape');
-			await expect(page.getByRole('dialog', { name: 'Invitation' })).not.toBeVisible({ timeout: 3000 });
+			await expect(page.getByRole('dialog', { name: 'Invitation' })).not.toBeVisible({ timeout: 10000 });
 			await page.keyboard.press('Escape');
-			await expect(detailDialog).not.toBeVisible({ timeout: 3000 });
+			await expect(detailDialog).not.toBeVisible({ timeout: 10000 });
 		});
 
 		test('number editor is open by default without prefill', async ({ page }) => {

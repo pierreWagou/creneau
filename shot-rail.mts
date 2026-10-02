@@ -1,4 +1,4 @@
-import { chromium, expect } from '@playwright/test';
+import { chromium } from '@playwright/test';
 
 for (const scheme of ['dark', 'light'] as const) {
 	const browser = await chromium.launch();

@@ -3,16 +3,7 @@ import { eq } from 'drizzle-orm';
 import { formatSpotNumber, SPOT_NUMBER_REGEX } from '$lib/constants';
 import { validateEmails, validatePhones } from '$lib/server/contacts';
 import { db } from '$lib/server/db';
-import {
-	flat,
-	flatEmail,
-	flatPhone,
-	request,
-	requestEmail,
-	requestPhone,
-	requestSpot,
-	spot
-} from '$lib/server/db/schema';
+import { flat, flatEmail, flatPhone, request, requestEmail, requestPhone, requestSpot } from '$lib/server/db/schema';
 import { requireAdmin } from '$lib/server/guards';
 import { bindSpotsToFlat, detectConflicts, detectStrands, strandErrorMessage } from '$lib/server/rebind';
 import type { RequestHandler } from './$types';

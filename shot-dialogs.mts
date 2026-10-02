@@ -1,22 +1,5 @@
 import { chromium } from '@playwright/test';
 
-async function loginAs(page: any, flat: string, pin: string) {
-	const res = await page.request.post('http://localhost:5176/api/auth/login', {
-		data: { flatNumber: flat, pin }
-	});
-	if (res.status() !== 200) throw new Error(`login ${flat} failed: ${res.status()}`);
-}
-
-async function adminPage(scheme: 'dark' | 'light', width: number) {
-	const browser = await chromium.launch();
-	const ctx = await browser.newContext({ colorScheme: scheme, viewport: { width, height: 900 } });
-	const page = await ctx.newPage();
-	page.setDefaultTimeout(10000);
-	await page.goto('http://localhost:5176/admin');
-	await page.waitForTimeout(1200);
-	return { browser, page };
-}
-
 // ---- 390 dark: spot add, swap, invite, generic confirm, approval conflict ----
 {
 	const browser = await chromium.launch();

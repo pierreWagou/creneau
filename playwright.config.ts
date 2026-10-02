@@ -44,6 +44,8 @@ export default defineConfig({
 	webServer: {
 		command: 'npx tsx e2e/setup-db.ts && DATABASE_URL=file:data/test.db npm run dev -- --port 5174',
 		port: 5174,
-		reuseExistingServer: false
+		// Local runs reuse a manually-started dev server (already warm —
+		// cold Vite compiles blow the 5s expect timeouts); CI boots fresh.
+		reuseExistingServer: !process.env.CI
 	}
 });

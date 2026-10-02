@@ -19,12 +19,10 @@ describe('validateBookingTimes', () => {
 		expect(result!.error).toContain('fin doit être après');
 	});
 
-	it('rejects start time before DAY_START (0)', () => {
+	it('accepts overnight booking within hour bounds', () => {
 		const result = validateBookingTimes('2026-07-24T23:00:00', '2026-07-25T01:00:00');
-		// startHour = 23, endHour = 1 → endHour (1) > DAY_END (24)? No.
-		// startHour (23) < DAY_START (0)? No.
-		// This is actually valid (overnight booking within same day range)
-		// Let's test the actual boundary case
+		// startHour = 23, endHour = 1 → within [DAY_START, DAY_END], end after start
+		expect(result).toBeNull();
 	});
 
 	it('rejects end time after DAY_END (24)', () => {

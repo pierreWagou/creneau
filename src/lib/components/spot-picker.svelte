@@ -32,11 +32,10 @@
 	let { allSpots, selected, maskHolder = false, onSelect, onCancel }: Props = $props();
 
 	let typed = $state('');
-	let showAssigned = $state(false);
+	let spotFilterTab = $state('free');
+	const showAssigned = $derived(spotFilterTab === 'all');
 	let rejectNote = $state<string | null>(null);
 	let showAll = $state(false);
-
-	const spotFilterTab = $derived(showAssigned ? 'all' : 'free');
 
 	const t = $derived(typed.trim());
 	/** Unfiltered preview stays small — search does the heavy lifting */
@@ -95,13 +94,15 @@
 					e.preventDefault();
 					commitTyped();
 				} else if (e.key === 'Escape') {
+					// Swallow: without this the keydown bubbles to the enclosing
+					// modal dialog, which closes and discards the whole draft.
+					e.stopPropagation();
 					onCancel();
 				}
 			}}
 		/>
 		<Tabs.Root
-			value={spotFilterTab}
-			onValueChange={(v) => (showAssigned = v === 'all')}
+			bind:value={spotFilterTab}
 			class="flex-1"
 		>
 			<Tabs.List class="grid w-full grid-cols-2 rounded-xl bg-muted p-1">

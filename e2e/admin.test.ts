@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { ADMIN_FLAT, ADMIN_PIN, ensureSpots, login, navigateTo, TEST_SPOT } from './helpers';
+import { ADMIN_FLAT, ADMIN_PIN, addSpotViaPicker, ensureSpots, login, navigateTo, TEST_SPOT } from './helpers';
 
 test.describe
 	.serial('Admin management', () => {
@@ -59,22 +59,16 @@ test.describe
 				// Login first
 				await login(page, ADMIN_FLAT, ADMIN_PIN);
 
-				// Recreate spot 36 via API so we have something to swap
-				const cookies = await page.context().cookies();
-				const sessionCookie = cookies.find((c) => c.name === 'session');
-				const cookieStr = sessionCookie ? `session=${sessionCookie.value}` : '';
-
-				const res = await page.request.post('/api/spots', {
-					headers: { 'Content-Type': 'application/json', Cookie: cookieStr },
-					data: { number: TEST_SPOT, description: '' }
-				});
-				expect(res.ok()).toBeTruthy();
+				// Recreate + pool spot 36 via API (previous test deleted it; POST
+				// alone would land it unassigned) plus a sacrificial 37 — the
+				// swap consumes its spot, and later mosaic tests need 36 shared
+				await ensureSpots(page, [TEST_SPOT, '37']);
 
 				await navigateTo(page, '/admin/spots');
 
 				// Open the shared spot chip in the spot drawer
 				const spotsCard = page.locator('[data-slot="card"]').filter({ hasText: 'Places de parking' });
-				const spotChip = spotsCard.getByRole('button', { name: `Voir la place ${TEST_SPOT}` });
+				const spotChip = spotsCard.getByRole('button', { name: 'Voir la place 37' });
 				await expect(spotChip).toBeVisible();
 				await spotChip.click();
 				const drawer = page.locator('[role="dialog"]').last();
@@ -98,7 +92,7 @@ test.describe
 
 				// Spot should disappear from shared list (now assigned to A01)
 				await page.keyboard.press('Escape');
-				await expect(spotsCard.getByRole('button', { name: `Voir la place ${TEST_SPOT}` })).toHaveCount(0);
+				await expect(spotsCard.getByRole('button', { name: 'Voir la place 37' })).toHaveCount(0);
 			});
 		});
 
@@ -151,7 +145,7 @@ test.describe
 
 				// Close detail dialog
 				await page.keyboard.press('Escape');
-				await expect(detailDialog).not.toBeVisible({ timeout: 3000 });
+				await expect(detailDialog).not.toBeVisible({ timeout: 10000 });
 
 				// Reopen detail — shield should now offer demotion
 				await flatCard.getByRole('button', { name: 'Voir détails' }).click();
@@ -164,7 +158,7 @@ test.describe
 
 				// Close dialog
 				await page.keyboard.press('Escape');
-				await expect(detailDialog).not.toBeVisible({ timeout: 3000 });
+				await expect(detailDialog).not.toBeVisible({ timeout: 10000 });
 
 				// Reopen — promote shield should be back
 				await flatCard.getByRole('button', { name: 'Voir détails' }).click();
@@ -201,7 +195,7 @@ test.describe
 
 				// Close dialog
 				await page.keyboard.press('Escape');
-				await expect(detailDialog).not.toBeVisible({ timeout: 3000 });
+				await expect(detailDialog).not.toBeVisible({ timeout: 10000 });
 
 				// Flat should now show "Inactif" badge
 				const flatCardAfter = page.locator('div.rounded-md.border').filter({ hasText: 'A03' }).first();
@@ -231,7 +225,7 @@ test.describe
 				await expect(page.locator('[data-sonner-toast]').filter({ hasText: 'supprimé' })).toBeVisible();
 
 				// Flat should disappear
-				await expect(flatCard).not.toBeVisible({ timeout: 3000 });
+				await expect(flatCard).not.toBeVisible({ timeout: 10000 });
 			});
 		});
 
@@ -250,9 +244,7 @@ test.describe
 				await page.getByPlaceholder('ex. B12').press('Enter');
 
 				// Add a spot
-				await page.getByRole('button', { name: 'Ajouter une place' }).click();
-				await page.locator('input[placeholder="ex. 01"]').fill('50');
-				await page.keyboard.press('Enter');
+				await addSpotViaPicker(page, page, '50');
 
 				// Add email
 				await page.getByRole('button', { name: 'Ajouter un e-mail' }).click();
@@ -285,7 +277,7 @@ test.describe
 				await expect(page.locator('[data-sonner-toast]').filter({ hasText: 'approuvé' })).toBeVisible();
 
 				// Request should disappear
-				await expect(requestRow).not.toBeVisible({ timeout: 3000 });
+				await expect(requestRow).not.toBeVisible({ timeout: 10000 });
 
 				// Flat B05 should now appear in flats list as active
 				const flatCard = page.locator('div.rounded-md.border').filter({ hasText: 'B05' }).first();
@@ -306,9 +298,7 @@ test.describe
 				await navigateTo(page, '/request');
 				await page.getByPlaceholder('ex. B12').fill('A99');
 				await page.getByPlaceholder('ex. B12').press('Enter');
-				await page.getByRole('button', { name: 'Ajouter une place' }).click();
-				await page.locator('input[placeholder="ex. 01"]').fill('70');
-				await page.keyboard.press('Enter');
+				await addSpotViaPicker(page, page, '70');
 				await page.getByRole('button', { name: 'Ajouter un e-mail' }).click();
 				await page.locator('input[type="email"]').fill('a99@test.com');
 				await page.keyboard.press('Enter');
@@ -338,7 +328,7 @@ test.describe
 				await expect(page.locator('[data-sonner-toast]').filter({ hasText: 'rejetée' })).toBeVisible();
 
 				// Request should disappear
-				await expect(requestRow2).not.toBeVisible({ timeout: 3000 });
+				await expect(requestRow2).not.toBeVisible({ timeout: 10000 });
 			});
 
 			test('flags conflicting spots in request detail', async ({ page }) => {
@@ -352,9 +342,7 @@ test.describe
 					await navigateTo(page, '/request');
 					await page.getByPlaceholder('ex. B12').fill(flatNumber);
 					await page.getByPlaceholder('ex. B12').press('Enter');
-					await page.getByRole('button', { name: 'Ajouter une place' }).click();
-					await page.locator('input[placeholder="ex. 01"]').fill('61');
-					await page.keyboard.press('Enter');
+					await addSpotViaPicker(page, page, '61');
 					await page.getByRole('button', { name: 'Ajouter un e-mail' }).click();
 					await page.locator('input[type="email"]').fill(email);
 					await page.keyboard.press('Enter');
@@ -400,7 +388,7 @@ test.describe
 				await page.keyboard.press('Escape');
 			});
 
-			test('add-lot picker rejects bound spots inline', async ({ page }) => {
+			test('add-lot picker warns on bound spots instead of rejecting', async ({ page }) => {
 				// Hermetic fixture: bind spot 62 to B08 via approval (spot pre-created: claims need existing spots)
 				await login(page, ADMIN_FLAT, ADMIN_PIN);
 				await ensureSpots(page, ['62', '64']);
@@ -408,9 +396,7 @@ test.describe
 				await navigateTo(page, '/request');
 				await page.getByPlaceholder('ex. B12').fill('B08');
 				await page.getByPlaceholder('ex. B12').press('Enter');
-				await page.getByRole('button', { name: 'Ajouter une place' }).click();
-				await page.locator('input[placeholder="ex. 01"]').fill('62');
-				await page.keyboard.press('Enter');
+				await addSpotViaPicker(page, page, '62');
 				await page.getByRole('button', { name: 'Ajouter un e-mail' }).click();
 				await page.locator('input[type="email"]').fill('b08@test.com');
 				await page.keyboard.press('Enter');
@@ -429,33 +415,24 @@ test.describe
 				await expect(page.locator('[data-sonner-toast]').filter({ hasText: 'approuvé' })).toBeVisible();
 				await expect(b08Row).not.toBeVisible({ timeout: 5000 });
 
-				// Open the add-lot dialog: bound 62 is rejected inline, never drafted
+				// Open the add-lot dialog: bound 62 selects with warning, submit blocked until resolved
 				// (64 was pre-created shared via ensureSpots — pickable, no conflict)
 				const lotsCard = page.locator('[data-slot="card"]').filter({ hasText: 'Gérez les lots' });
 				await lotsCard.getByRole('button', { name: 'Ajouter', exact: true }).click();
 				const createDialog = page.locator('[role="dialog"]').filter({ hasText: 'Ajouter un lot' });
 				await expect(createDialog).toBeVisible({ timeout: 5000 });
-				await createDialog.getByRole('button', { name: 'Ajouter une place' }).click();
-				await page.getByPlaceholder('Rechercher ex. 01').fill('62');
-				await page.keyboard.press('Enter');
-				await expect(page.getByText('Déjà attribuée au lot B08')).toBeVisible({ timeout: 5000 });
-				await expect(page.getByText(/Conflit : attribuée à/)).toHaveCount(0);
-				// Overlay behavior: popup floats above the dialog, which stays visible behind;
-				// Escape dismisses the popup and reopening starts fresh
-				await expect(createDialog).toBeVisible();
-				await expect(page.getByPlaceholder('Rechercher ex. 01')).toBeVisible();
+				// Bound 62 stages with warning via picker (helper expands Toutes + overflow)
+				await addSpotViaPicker(page, createDialog, '62');
+				// No inline rejection — spot drafts with warning, solve button appears
+				await expect(page.getByText('Déjà attribuée')).toHaveCount(0);
+				await expect(createDialog.getByRole('button', { name: /Résoudre les conflits/ })).toBeVisible();
+				const submitBtn = createDialog.getByRole('button', { name: 'Ajouter', exact: true });
+				await expect(submitBtn).toBeDisabled();
 				await page.keyboard.press('Escape');
-				await expect(page.getByPlaceholder('Rechercher ex. 01')).toHaveCount(0);
-				await createDialog.getByRole('button', { name: 'Ajouter une place' }).click();
-
-				// Free 64 selects from the picker with no warning
-				await page.getByPlaceholder('Rechercher ex. 01').fill('64');
-				await page.keyboard.press('Enter');
-				await expect(page.getByText(/Conflit : attribuée à/)).toHaveCount(0);
 			});
 
-			test('picker filters spots when searching', async ({ page }) => {
-				// Serial fixtures by now: 61 + 62 bound, 64 shared — nothing else guaranteed
+			test('picker toggles between Libres and Toutes', async ({ page }) => {
+				// Serial fixtures by now: 61 + 62 bound, 64 shared — plus unassigned spots
 				await login(page, ADMIN_FLAT, ADMIN_PIN);
 				await navigateTo(page, '/admin/lots');
 				const lotsCard = page.locator('[data-slot="card"]').filter({ hasText: 'Gérez les lots' });
@@ -463,17 +440,21 @@ test.describe
 				const createDialog = page.locator('[role="dialog"]').filter({ hasText: 'Ajouter un lot' });
 				await expect(createDialog).toBeVisible({ timeout: 5000 });
 				await createDialog.getByRole('button', { name: 'Ajouter une place' }).click();
-				const chips = page.getByRole('button', { name: /(Choisir la place|Place \d)/ });
-				// Empty query: only free 64
-				await expect(chips).toHaveCount(1);
-				// Searching filters the pool (bound 61/62 join free 64)
-				await page.getByPlaceholder('Rechercher ex. 01').fill('6');
-				await expect.poll(async () => await chips.count(), { timeout: 5000 }).toBeGreaterThan(1);
-				await expect(chips).toHaveCount(3);
+				// Default Libres view: bound spots hidden (toggle off)
+				await expect(page.getByRole('tab', { name: 'Toutes' })).toBeVisible();
+				await expect(page.getByRole('button', { name: /Place 62/ })).toHaveCount(0);
+				// Toggle Toutes → full ordered grid, bound chips appear with warning
+				await page.getByRole('tab', { name: 'Toutes' }).click();
+				const moreBtn = page.getByRole('button', { name: /Afficher plus/ });
+				if ((await moreBtn.count()) > 0) await moreBtn.first().click();
+				await expect(page.getByRole('button', { name: /Place 62.*sélectionner/ })).toBeVisible();
+				// Toggle back to Libres → bound hidden again
+				await page.getByRole('tab', { name: 'Libres' }).click();
+				await expect(page.getByRole('button', { name: /Place 62/ })).toHaveCount(0);
 				await page.keyboard.press('Escape');
 			});
 
-			test('strand rows are locked with an inline note in the picker', async ({ page }) => {
+			test('strand spots resolve as blocked in the conflict dialog', async ({ page }) => {
 				// Hermetic fixture: bind sole spot 66 to B10 via approval (spot pre-created)
 				await login(page, ADMIN_FLAT, ADMIN_PIN);
 				await ensureSpots(page, ['66']);
@@ -481,9 +462,7 @@ test.describe
 				await navigateTo(page, '/request');
 				await page.getByPlaceholder('ex. B12').fill('B10');
 				await page.getByPlaceholder('ex. B12').press('Enter');
-				await page.getByRole('button', { name: 'Ajouter une place' }).click();
-				await page.locator('input[placeholder="ex. 01"]').fill('66');
-				await page.keyboard.press('Enter');
+				await addSpotViaPicker(page, page, '66');
 				await page.getByRole('button', { name: 'Ajouter un e-mail' }).click();
 				await page.locator('input[type="email"]').fill('b10@test.com');
 				await page.keyboard.press('Enter');
@@ -502,21 +481,20 @@ test.describe
 				await expect(page.locator('[data-sonner-toast]').filter({ hasText: 'approuvé' })).toBeVisible();
 				await expect(b10Row).not.toBeVisible({ timeout: 5000 });
 
-				// A01's drawer → picker shows bound 66 locked (B10's only spot)…
+				// A01's drawer → bound 66 selects with warning (no longer locked)…
 				const flatCard = page.locator('div.rounded-md.border').filter({ hasText: 'A01' }).first();
 				await flatCard.getByRole('button', { name: 'Voir détails' }).click();
 				const detailDialog = page.locator('[role="dialog"]').filter({ hasText: 'Sécurité' });
 				await expect(detailDialog).toBeVisible({ timeout: 5000 });
-				await detailDialog.getByRole('button', { name: 'Ajouter une place' }).click();
-				await page.getByPlaceholder('Rechercher ex. 01').fill('66');
-				// Locked row uses aria-disabled yet stays activatable — dispatch the tap directly
-				await page.getByRole('button', { name: /Place 66/ }).dispatchEvent('click');
-
-				// …tap shows the inline note: no confirm offered, no server call, no modal
-				await expect(page.getByText("n'a que cette place")).toBeVisible({ timeout: 5000 });
-				await expect(page.getByText('Confirmer le transfert')).toHaveCount(0);
-				await expect(page.locator('[data-sonner-toast]').filter({ hasText: /mises à jour|Impossible/ })).toHaveCount(0);
-				await expect(page.locator('[role="alertdialog"]')).toHaveCount(0);
+				await addSpotViaPicker(page, detailDialog, '66');
+				// …commit opens the resolver with a strand-blocked row
+				const resolver = page.locator('[role="alertdialog"]');
+				await expect(resolver).toBeVisible({ timeout: 5000 });
+				await expect(resolver.getByText(/Impossible : le lot B10 n'aurait plus de place/)).toBeVisible();
+				// Conserver auto-selected, counter honest at 1/1 — applying drops the spot
+				await expect(resolver.getByRole('button', { name: /Appliquer \(1\/1\)/ })).toBeEnabled();
+				await resolver.getByRole('button', { name: /Appliquer \(1\/1\)/ }).click();
+				await expect(resolver).not.toBeVisible({ timeout: 5000 });
 				await page.keyboard.press('Escape');
 			});
 
@@ -532,9 +510,7 @@ test.describe
 					await page.getByPlaceholder('ex. B12').fill(flat);
 					await page.getByPlaceholder('ex. B12').press('Enter');
 					for (const s of spots) {
-						await page.getByRole('button', { name: 'Ajouter une place' }).click();
-						await page.locator('input[placeholder="ex. 01"]').fill(s);
-						await page.keyboard.press('Enter');
+						await addSpotViaPicker(page, s);
 					}
 					await page.getByRole('button', { name: 'Ajouter un e-mail' }).click();
 					await page.locator('input[type="email"]').fill(email);
@@ -554,21 +530,19 @@ test.describe
 					await expect(row).not.toBeVisible({ timeout: 5000 });
 				}
 
-				await requestAndApprove('B11', ['67', '68'], 'b11@test.com', '+33612345614');
-				await requestAndApprove('B12', ['69'], 'b12@test.com', '+33612345615');
+				await requestAndApprove('B14', ['67', '68'], 'b14@test.com', '+33612345614');
+				await requestAndApprove('B15', ['69'], 'b15@test.com', '+33612345615');
 
-				// B13 requests the movable spot 67 and the strand spot 69
+				// B16 requests the movable spot 67 and the strand spot 69
 				await page.context().clearCookies();
 				await navigateTo(page, '/request');
-				await page.getByPlaceholder('ex. B12').fill('B13');
+				await page.getByPlaceholder('ex. B12').fill('B16');
 				await page.getByPlaceholder('ex. B12').press('Enter');
 				for (const s of ['67', '69']) {
-					await page.getByRole('button', { name: 'Ajouter une place' }).click();
-					await page.locator('input[placeholder="ex. 01"]').fill(s);
-					await page.keyboard.press('Enter');
+					await addSpotViaPicker(page, s);
 				}
 				await page.getByRole('button', { name: 'Ajouter un e-mail' }).click();
-				await page.locator('input[type="email"]').fill('b13@test.com');
+				await page.locator('input[type="email"]').fill('b16@test.com');
 				await page.keyboard.press('Enter');
 				await page.getByRole('button', { name: 'Ajouter un téléphone' }).click();
 				await page.locator('input[type="tel"]').fill('+33612345616');
@@ -579,42 +553,47 @@ test.describe
 				// Approve → merged dialog: side-by-side picks, no default, Appliquer gated
 				await login(page, ADMIN_FLAT, ADMIN_PIN);
 				await navigateTo(page, '/admin/lots');
-				const b13Row = page.locator('div.rounded-md.border.border-dashed').filter({ hasText: 'B13' });
-				await expect(b13Row).toBeVisible({ timeout: 5000 });
-				await b13Row.getByRole('button', { name: 'Approuver' }).click();
+				const b16Row = page.locator('div.rounded-md.border.border-dashed').filter({ hasText: 'B16' });
+				await expect(b16Row).toBeVisible({ timeout: 5000 });
+				await b16Row.getByRole('button', { name: 'Approuver' }).click();
 				const conflictModal = page.locator('[role="alertdialog"]');
 				await expect(conflictModal).toBeVisible({ timeout: 5000 });
-				await expect(conflictModal.getByText('Places déjà attribuées')).toBeVisible();
+				await expect(conflictModal.getByRole('heading', { name: 'Places déjà attribuées' })).toBeVisible();
 
-				const movableRow = conflictModal.locator('fieldset').filter({ hasText: '67' });
-				const blockedRow = conflictModal.locator('fieldset').filter({ hasText: '69' });
+				const movableRow = conflictModal.locator('fieldset').filter({ hasText: 'Résolution pour la place 67' });
+				const blockedRow = conflictModal.locator('fieldset').filter({ hasText: 'Résolution pour la place 69' });
 				await expect(movableRow.getByRole('radio')).toHaveCount(2);
 				await expect(blockedRow.getByRole('radio')).toHaveCount(1);
-				await expect(blockedRow.getByText("n'a que cette place")).toBeVisible();
+				await expect(blockedRow.getByText(/Impossible : le lot B15 n'aurait plus de place/)).toBeVisible();
 
-				// No pick yet → Appliquer disabled (only the movable row counts)
-				await expect(conflictModal.getByRole('button', { name: /Appliquer \(0\/1\)/ })).toBeDisabled();
+				// Blocked auto-picks Conserver → counter starts at 1/2, movable still unpicked
+				await expect(conflictModal.getByRole('button', { name: /Appliquer \(1\/2\)/ })).toBeDisabled();
 
-				// Pick keep on the strand row, reassign on the movable row
-				await blockedRow.getByText('Garder').click();
-				await movableRow.getByText('Réaffecter').click();
-				await expect(conflictModal.getByRole('button', { name: /Appliquer \(1\/1\)/ })).toBeEnabled();
+				// Pick the Lot B16 card on the movable row → counter honest at 2/2
+				await movableRow.getByText('Affecter', { exact: true }).click();
+				await expect(conflictModal.getByRole('button', { name: /Appliquer \(2\/2\)/ })).toBeEnabled();
 
-				// Apply → staged only: dialog closes, request still pending, nothing reassigned yet
-				await conflictModal.getByRole('button', { name: /Appliquer \(1\/1\)/ }).click();
+				// Apply → row-initiated approval auto-commits: dialog closes, B16
+				// approved (67 moved off B14, strand 69 stays with B15)
+				await conflictModal.getByRole('button', { name: /Appliquer \(2\/2\)/ }).click();
 				await expect(conflictModal).not.toBeVisible({ timeout: 5000 });
-				await expect(b13Row).toBeVisible();
-
-				// Open detail → staged caption, Approuver enabled despite the live conflict
-				await b13Row.getByRole('button', { name: 'Voir détails' }).click();
-				const detailDialog = page.locator('[role="dialog"]').filter({ hasText: 'Demande' });
-				await expect(detailDialog).toBeVisible({ timeout: 5000 });
-				await expect(detailDialog.getByText(/sera réaffectée/)).toBeVisible();
-				const approveBtn = detailDialog.getByRole('button', { name: 'Approuver', exact: true });
-				await expect(approveBtn).toBeEnabled();
-				await approveBtn.click();
 				await expect(page.locator('[data-sonner-toast]').filter({ hasText: 'approuvé' })).toBeVisible();
-				await expect(b13Row).not.toBeVisible({ timeout: 5000 });
+				await expect(b16Row).not.toBeVisible({ timeout: 10000 });
+
+				// B16 flat exists holding the moved spot; B15 keeps its strand spot
+				// (search surfaces it — the new flat sorts past page 1)
+				await page.getByPlaceholder('Rechercher...').fill('B16');
+				const b16Flat = page.locator('div.rounded-md.border').filter({ hasText: 'B16' }).first();
+				await expect(b16Flat).toBeVisible({ timeout: 10000 });
+				await b16Flat.getByRole('button', { name: 'Voir détails' }).click();
+				const b16Detail = page.locator('[role="dialog"]').filter({ hasText: 'Sécurité' });
+				await expect(b16Detail).toBeVisible({ timeout: 5000 });
+				await expect(b16Detail.getByText('67', { exact: true })).toBeVisible();
+				await page.keyboard.press('Escape');
+				await expect(b16Detail).not.toBeVisible({ timeout: 10000 });
+				// Clear the search so later lots-page tests see the full list
+				await page.getByPlaceholder('Rechercher...').fill('');
+				await expect(page).not.toHaveURL(/q=B16/, { timeout: 10000 });
 			});
 
 			test('create only selects existing spots', async ({ page }) => {
@@ -625,9 +604,7 @@ test.describe
 				await navigateTo(page, '/request');
 				await page.getByPlaceholder('ex. B12').fill('B20');
 				await page.getByPlaceholder('ex. B12').press('Enter');
-				await page.getByRole('button', { name: 'Ajouter une place' }).click();
-				await page.locator('input[placeholder="ex. 01"]').fill('80');
-				await page.keyboard.press('Enter');
+				await addSpotViaPicker(page, page, '80');
 				await page.getByRole('button', { name: 'Ajouter un e-mail' }).click();
 				await page.locator('input[type="email"]').fill('b20@test.com');
 				await page.keyboard.press('Enter');
@@ -659,16 +636,27 @@ test.describe
 				await createDialog.locator('input[type="tel"]').fill('+33612345618');
 				await page.keyboard.press('Enter');
 				await createDialog.getByRole('button', { name: 'Ajouter une place' }).click();
-				await page.getByPlaceholder('Rechercher ex. 01').fill('81');
-				await page.keyboard.press('Enter');
+				await page.getByPlaceholder('N°').fill('81');
+				await page.getByPlaceholder('N°').press('Enter');
 				await expect(page.getByText(/inexistante/)).toBeVisible({ timeout: 5000 });
-				await page.getByPlaceholder('Rechercher ex. 01').fill('80');
-				await page.keyboard.press('Enter');
-				await expect(page.getByText('Déjà attribuée au lot B20')).toBeVisible({ timeout: 5000 });
-				await expect(page.getByText(/Conflit : attribuée à/)).toHaveCount(0);
 				await page.keyboard.press('Escape');
+				// Bound 80 selects with warning badge instead of inline rejection…
+				await createDialog.getByRole('button', { name: 'Ajouter une place' }).click();
+				await page.getByRole('tab', { name: 'Toutes' }).click();
+				const moreBtn = page.getByRole('button', { name: /Afficher plus/ });
+				if ((await moreBtn.count()) > 0) await moreBtn.first().click();
+				await page.getByRole('button', { name: /Place 80,/ }).click();
+				await expect(page.getByText('Déjà attribuée')).toHaveCount(0);
+				await expect(createDialog.getByRole('button', { name: /Résoudre les conflits/ })).toBeVisible();
+				// …submit routes to the resolver instead of creating while conflicts are undecided
 				const submitBtn = createDialog.getByRole('button', { name: 'Ajouter', exact: true });
-				await expect(submitBtn).toBeDisabled();
+				await submitBtn.click();
+				const createResolver = page.locator('[role="alertdialog"]');
+				await expect(createResolver).toBeVisible({ timeout: 5000 });
+				await page.keyboard.press('Escape');
+				await expect(createResolver).not.toBeVisible({ timeout: 10000 });
+				await page.keyboard.press('Escape');
+				await expect(page.locator('div.rounded-md.border').filter({ hasText: 'B21' })).toHaveCount(0);
 			});
 
 			test('inactive lots are editable like other statuses', async ({ page }) => {
@@ -683,20 +671,29 @@ test.describe
 				await flatCard.getByRole('button', { name: 'Voir détails' }).click();
 				const detailDialog = page.locator('[role="dialog"]').filter({ hasText: 'Sécurité' });
 				await expect(detailDialog).toBeVisible({ timeout: 5000 });
-				await expect(detailDialog.getByRole('button', { name: 'Modifier le nom' })).toBeVisible();
+				// Nameless → Ajouter (becomes Modifier once set)
+				await expect(detailDialog.getByRole('button', { name: 'Ajouter un nom' }).first()).toBeVisible();
 				await expect(detailDialog.getByRole('button', { name: 'Ajouter une place' })).toBeVisible();
 
-				// Add a spot through the picker
+				// Add a spot through the picker (77 is shared → Toutes view) —
+				// shared-pool picks open the pool resolver for confirmation
 				await detailDialog.getByRole('button', { name: 'Ajouter une place' }).click();
-				await page.getByPlaceholder('Rechercher ex. 01').fill('77');
-				await page.keyboard.press('Enter');
+				await page.getByRole('tab', { name: 'Toutes' }).click();
+				const more77 = page.getByRole('button', { name: /Afficher plus/ });
+				if ((await more77.count()) > 0) await more77.first().click();
+				await page.getByRole('button', { name: /Place 77,/ }).click();
+				const poolResolver = page.locator('[role="alertdialog"]');
+				await expect(poolResolver).toBeVisible({ timeout: 5000 });
+				await poolResolver.getByText('Affecter', { exact: true }).click();
+				await poolResolver.getByRole('button', { name: /Appliquer \(1\/1\)/ }).click();
 				await expect(page.locator('[data-sonner-toast]').filter({ hasText: 'mises à jour' })).toBeVisible();
 
-				// Edit the name
-				await detailDialog.getByRole('button', { name: 'Modifier le nom' }).click();
+				// Edit the name, then Modifier replaces Ajouter
+				await detailDialog.getByRole('button', { name: 'Ajouter un nom' }).first().click();
 				await detailDialog.getByPlaceholder('ex. Jean, Famille Dupont').fill('Résident B05');
 				await detailDialog.getByRole('button', { name: 'Valider' }).click();
 				await expect(page.locator('[data-sonner-toast]').filter({ hasText: 'mis à jour' })).toBeVisible();
+				await expect(detailDialog.getByRole('button', { name: 'Modifier le nom' })).toBeVisible();
 				await page.keyboard.press('Escape');
 			});
 
@@ -708,9 +705,7 @@ test.describe
 				await navigateTo(page, '/request');
 				await page.getByPlaceholder('ex. B12').fill('B22');
 				await page.getByPlaceholder('ex. B12').press('Enter');
-				await page.getByRole('button', { name: 'Ajouter une place' }).click();
-				await page.locator('input[placeholder="ex. 01"]').fill('82');
-				await page.keyboard.press('Enter');
+				await addSpotViaPicker(page, page, '82');
 				await page.getByRole('button', { name: 'Ajouter un e-mail' }).click();
 				await page.locator('input[type="email"]').fill('b22@test.com');
 				await page.keyboard.press('Enter');
@@ -734,7 +729,8 @@ test.describe
 				expect((await res.json()).error).toMatch(/n'aurait plus de place/);
 
 				// Spot intact: B22 still holds 82 (search past pagination)
-				await page.reload();
+				// (navigateTo, not reload: the search fill must not race hydration)
+				await navigateTo(page, '/admin/lots');
 				await page.getByPlaceholder('Rechercher...').fill('B22');
 				const flatCard = page.locator('div.rounded-md.border').filter({ hasText: 'B22' }).first();
 				await flatCard.getByRole('button', { name: 'Voir détails' }).click();
@@ -745,25 +741,18 @@ test.describe
 			});
 
 			test('request refuses unknown spots', async ({ page }) => {
-				// Spot 51 was never created — claims need existing spots
+				// Spot 51 was never created — the constrained picker refuses it
+				// inline, so it never stages into the draft and nothing is sent
 				await page.context().clearCookies();
 				await navigateTo(page, '/request');
 				await page.getByPlaceholder('ex. B12').fill('B23');
 				await page.getByPlaceholder('ex. B12').press('Enter');
 				await page.getByRole('button', { name: 'Ajouter une place' }).click();
-				await page.locator('input[placeholder="ex. 01"]').fill('51');
-				await page.keyboard.press('Enter');
-				await page.getByRole('button', { name: 'Ajouter un e-mail' }).click();
-				await page.locator('input[type="email"]').fill('b23@test.com');
-				await page.keyboard.press('Enter');
-				await page.getByRole('button', { name: 'Ajouter un téléphone' }).click();
-				await page.locator('input[type="tel"]').fill('+33612345620');
-				await page.keyboard.press('Enter');
-				await page.getByRole('button', { name: 'Envoyer la demande' }).click();
-
-				// Refused with a clear message, nothing sent, no row created
-				await expect(page.locator('[data-sonner-toast]').filter({ hasText: 'inexistante' })).toBeVisible();
-				await expect(page.getByText('Demande envoyée')).toHaveCount(0);
+				await page.getByPlaceholder('N°').fill('51');
+				await page.getByPlaceholder('N°').press('Enter');
+				await expect(page.getByText(/inexistante/)).toBeVisible({ timeout: 5000 });
+				await page.keyboard.press('Escape');
+				await expect(page.getByRole('button', { name: 'Supprimer la place 51' })).toHaveCount(0);
 				await login(page, ADMIN_FLAT, ADMIN_PIN);
 				await navigateTo(page, '/admin/lots');
 				await expect(page.locator('div.rounded-md.border.border-dashed').filter({ hasText: 'B23' })).toHaveCount(0);
@@ -798,13 +787,16 @@ test.describe
 				const spotsCard = page.locator('[data-slot="card"]').filter({ hasText: 'Places de parking' });
 				await spotsCard.getByRole('button', { name: /Attribuées/ }).click();
 				await expect(spotsCard).toBeVisible({ timeout: 5000 });
+				// 82 sorts past page 1 — search surfaces it
+				await spotsCard.getByPlaceholder('Rechercher une place…').fill('82');
 				await spotsCard.getByRole('button', { name: /Voir la place 82/ }).click();
 
 				// Spot drawer with Assignée badge, holder, and no pool/park actions
 				const drawer = page.locator('[role="dialog"]').last();
 				await expect(drawer).toBeVisible({ timeout: 5000 });
 				await expect(drawer.getByText('Assignée', { exact: true })).toBeVisible();
-				await expect(drawer.getByText(/B22/)).toBeVisible();
+				const lotLink = drawer.getByRole('link', { name: /B22/ });
+				await expect(lotLink).toBeVisible();
 				await expect(drawer.getByRole('button', { name: 'Mettre en commun' })).toHaveCount(0);
 				await expect(drawer.getByRole('button', { name: 'Retirer du pool' })).toHaveCount(0);
 				await page.keyboard.press('Escape');
@@ -833,7 +825,7 @@ test.describe
 				await spot83.click();
 				const spotDrawer = page.locator('[role="dialog"]').last();
 				await expect(spotDrawer).toBeVisible();
-				await expect(spotDrawer.getByText('En attente')).toBeVisible();
+				await expect(spotDrawer.getByText('En attente', { exact: true })).toBeVisible();
 				await spotDrawer.getByRole('button', { name: 'Mettre en commun' }).click();
 				await expect(page.locator('[data-sonner-toast]').filter({ hasText: 'mise en commun' })).toBeVisible();
 				await page.keyboard.press('Escape');
@@ -851,7 +843,7 @@ test.describe
 				await expect(spot83).toBeVisible({ timeout: 5000 });
 			});
 
-			test('picker excludes limbo spots', async ({ page }) => {
+			test('picker lists limbo spots as first-hand picks', async ({ page }) => {
 				// 84 exists but waits in limbo (created, never pooled)
 				await login(page, ADMIN_FLAT, ADMIN_PIN);
 				await page.request.post('/api/spots', { data: { number: '84' } });
@@ -862,13 +854,12 @@ test.describe
 				await expect(createDialog).toBeVisible({ timeout: 5000 });
 				await createDialog.getByRole('button', { name: 'Ajouter une place' }).click();
 
-				// Not listed, even filtered…
-				await page.getByPlaceholder('Rechercher ex. 01').fill('84');
-				await expect(page.getByRole('button', { name: /Choisir la place 84/ })).toHaveCount(0);
-				// …and exact typing explains instead of adding
-				await page.keyboard.press('Enter');
-				await expect(page.getByText(/mettez-la en commun/)).toBeVisible({ timeout: 5000 });
-				await expect(createDialog.getByText(/Conflit : attribuée à/)).toHaveCount(0);
+				// Limbo 84 listed by default (Libres view) with no warning…
+				await expect(page.getByRole('button', { name: 'Choisir la place 84', exact: true })).toBeVisible();
+				// …and selects cleanly with no conflict
+				await page.getByRole('button', { name: 'Choisir la place 84', exact: true }).click();
+				await expect(createDialog.getByText(/Conflit/)).toHaveCount(0);
+				await expect(createDialog.getByRole('button', { name: /Résoudre les conflits/ })).toHaveCount(0);
 				await page.keyboard.press('Escape');
 			});
 
@@ -928,26 +919,26 @@ test.describe
 				await expect(chip82).toBeVisible({ timeout: 5000 });
 				await expect(chip36).toHaveCount(0);
 
-				// …and zero selected shows everything (no filter = no filtering)
+				// …and zero selected shows everything across pages (no filter = no filtering)
 				await spotsCard.getByPlaceholder('Rechercher une place…').fill('');
 				for (const name of [/Partagées/, /Attribuées/, /En attente/]) {
 					await spotsCard.getByRole('button', { name }).click();
 				}
 				await expect(chip36).toBeVisible({ timeout: 5000 });
+				// 82 + 83 sort past page 1 (15 per page)
+				await spotsCard.getByRole('button', { name: 'Suivant' }).click();
 				await expect(spotsCard.getByRole('button', { name: /Voir la place 82/ })).toBeVisible();
 				await expect(spotsCard.getByRole('button', { name: /Voir la place 83/ })).toBeVisible();
 				await expect(spotsCard.getByText('Aucune place pour ces critères.')).toHaveCount(0);
 			});
 
 			test('spots mosaic paginates at 15 per page', async ({ page }) => {
-				// Two more limbo spots push the zero-filter total to 17 (15 + 2)
+				// Zero-filter inventory already exceeds one page — page through 15 at a time
 				await login(page, ADMIN_FLAT, ADMIN_PIN);
-				await page.request.post('/api/spots', { data: { number: '85' } });
-				await page.request.post('/api/spots', { data: { number: '86' } });
 				await navigateTo(page, '/admin/spots');
 				const spotsCard = page.locator('[data-slot="card"]').filter({ hasText: 'Places de parking' });
 
-				// Zero filter: deselect shared → all 17 across two pages, add cell on both
+				// Zero filter: deselect shared → first 15, add cell on both pages
 				await spotsCard.getByRole('button', { name: /Partagées/ }).click();
 				await expect(spotsCard.getByRole('button', { name: /Voir la place/ })).toHaveCount(15);
 				await expect(spotsCard.getByText('Page 1/2')).toBeVisible();
@@ -955,7 +946,7 @@ test.describe
 
 				await spotsCard.getByRole('button', { name: 'Suivant' }).click();
 				await expect(spotsCard.getByText('Page 2/2')).toBeVisible();
-				await expect(spotsCard.getByRole('button', { name: /Voir la place/ })).toHaveCount(2);
+				expect(await spotsCard.getByRole('button', { name: /Voir la place/ }).count()).toBeGreaterThan(0);
 				await expect(spotsCard.getByRole('button', { name: 'Ajouter une place' })).toBeVisible();
 
 				await spotsCard.getByRole('button', { name: 'Précédent' }).click();
@@ -969,8 +960,9 @@ test.describe
 				const spotsCard = page.locator('[data-slot="card"]').filter({ hasText: 'Places de parking' });
 				const drawer = page.locator('[role="dialog"]').last();
 
-				// Assigned 82: Lot link + solid neutral badge
+				// Assigned 82: Lot link + solid neutral badge (search past pagination)
 				await spotsCard.getByRole('button', { name: /Attribuées/ }).click();
+				await spotsCard.getByPlaceholder('Rechercher une place…').fill('82');
 				await spotsCard.getByRole('button', { name: /Voir la place 82/ }).click();
 				await expect(drawer).toBeVisible({ timeout: 5000 });
 				const lotLink = drawer.getByRole('link', { name: /B22/ });
@@ -989,8 +981,9 @@ test.describe
 				await expect(drawer.getByText('Partagée', { exact: true })).toHaveClass(/bg-primary/);
 				await page.keyboard.press('Escape');
 
-				// Limbo 83: waiting line + solid yellow badge
+				// Limbo 83: waiting line + solid yellow badge (search past pagination)
 				await spotsCard.getByRole('button', { name: /En attente/ }).click();
+				await spotsCard.getByPlaceholder('Rechercher une place…').fill('83');
 				await spotsCard.getByRole('button', { name: /Voir la place 83/ }).click();
 				await expect(drawer).toBeVisible({ timeout: 5000 });
 				await expect(drawer.getByText(/En attente d'affectation/)).toBeVisible();
