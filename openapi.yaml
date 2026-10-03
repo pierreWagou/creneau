@@ -41,6 +41,19 @@ components:
           type: string
           example: "Non autorisé"
 
+    SpotConflict:
+      type: object
+      description: A spot that is currently held by another lot (needs confirmation to move)
+      required: [spotNumber, currentFlat]
+      properties:
+        spotNumber:
+          type: string
+          example: "36"
+        currentFlat:
+          type: string
+          description: Lot currently holding the spot. A rebind that would leave it with 0 spots is always refused.
+          example: "A01"
+
     AvailableSlot:
       type: object
       required: [start, end]
@@ -120,11 +133,16 @@ components:
     FlatAdmin:
       description: Flat record returned by GET /api/admin/flats (no pinHash)
       type: object
-      required: [number, isAdmin, isActive]
+      required: [number, status, isAdmin]
       properties:
         number:
           type: string
           example: "A01"
+        status:
+          type: string
+          enum: [inactive, pending, active]
+          description: Stored lifecycle status (invitation TTL is derived, not stored)
+          example: "active"
         displayName:
           type: string
           nullable: true
@@ -140,13 +158,13 @@ components:
         isAdmin:
           type: boolean
           example: false
-        isActive:
-          type: boolean
-          example: true
         activatedAt:
           type: string
           nullable: true
           example: "2026-06-01T09:00:00"
+        createdAt:
+          type: string
+          example: "2026-05-01T10:00:00"
 
     FlatFull:
       description: Full flat record returned by admin mutation endpoints (includes pinHash)
@@ -158,9 +176,6 @@ components:
               type: string
               nullable: true
               description: Argon2 hash of the PIN (included for completeness; treat as opaque)
-            createdAt:
-              type: string
-              example: "2026-05-01T10:00:00"
 
     SessionFlat:
       type: object
@@ -192,6 +207,51 @@ components:
           type: string
           example: "2026-05-01T10:00:00"
 
+    RequestRecord:
+      type: object
+      description: Access request; joined contact/spot lists only where noted
+      required: [id, flatNumber, status, createdAt]
+      properties:
+        id:
+          type: integer
+          example: 3
+        flatNumber:
+          type: string
+          example: "B07"
+        requesterName:
+          type: string
+          nullable: true
+          example: "Famille Martin"
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+          example: "pending"
+        reviewedBy:
+          type: string
+          nullable: true
+          description: Reviewing admin's flat number (plain text, not a relation)
+          example: "B12"
+        reviewedAt:
+          type: string
+          nullable: true
+          example: "2026-06-02T09:30:00"
+        createdAt:
+          type: string
+          example: "2026-06-01T18:00:00"
+        emails:
+          type: array
+          items:
+            type: string
+        phones:
+          type: array
+          items:
+            type: string
+        requestedSpots:
+          type: array
+          items:
+            type: string
+          example: ["36"]
+
 tags:
   - name: Authentication
     description: Login, logout, first-time activation, and initial setup
@@ -203,8 +263,14 @@ tags:
     description: Spot timeline and per-day calendar status
   - name: Admin — Flats
     description: Flat lifecycle management (admin only)
+  - name: Admin — Requests
+    description: Access request review — approve, edit, reject (admin only)
   - name: Admin — Spots
     description: Parking spot management (admin only)
+  - name: Flats
+    description: Public flat display-name lookup
+  - name: Requests
+    description: Public flat access requests
   - name: System
     description: Health check and real-time SSE event stream
 
@@ -896,72 +962,16 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /api/admin/flats/bulk:
-    post:
-      tags: [Admin — Flats]
-      summary: Bulk create flats
-      security:
-        - cookieAuth: []
-      description: |
-        Create multiple flats at once. All are created in the `Inactif` state.
-        Duplicates are silently skipped (reported in `skipped`). Maximum 100 per request.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [flats]
-              properties:
-                flats:
-                  type: array
-                  items:
-                    type: string
-                  maxItems: 100
-                  example: ["A05", "A06", "B04", "B05"]
-      responses:
-        '201':
-          description: Flats created
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  created:
-                    type: integer
-                    example: 3
-                  skipped:
-                    type: array
-                    items:
-                      type: string
-                    description: Flat numbers that already existed
-                    example: ["B05"]
-        '400':
-          description: Invalid input or invalid JSON
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '401':
-          description: Not authenticated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '403':
-          description: Not an admin
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
   /api/admin/flats/{number}:
     patch:
       tags: [Admin — Flats]
       summary: Update a flat
       security:
         - cookieAuth: []
-      description: Currently only supports toggling `isAdmin`.
+      description: |
+        Partial update — only the keys present in the body are applied.
+        `emails` and `phones` are each validated and persisted independently.
+        `spotNumbers` rebinds the lot's spots; see `force` below.
       parameters:
         - name: number
           in: path
@@ -979,6 +989,37 @@ paths:
                 isAdmin:
                   type: boolean
                   example: true
+                displayName:
+                  type: string
+                  nullable: true
+                  example: "Dupont"
+                pin:
+                  type: string
+                  description: New PIN (validated, stored as an Argon2 hash)
+                  example: "1234"
+                emails:
+                  type: array
+                  items:
+                    type: string
+                  example: ["a01@test.com"]
+                phones:
+                  type: array
+                  items:
+                    type: string
+                  example: ["+33612345678"]
+                spotNumbers:
+                  type: array
+                  description: Full desired list of spot numbers (trims, zero-pads, dedupes)
+                  items:
+                    type: string
+                  example: ["01", "36"]
+                force:
+                  type: boolean
+                  description: |
+                    Confirm the rebind despite conflicts. Without it, conflicting spots
+                    answer `409` with the `conflicts` array. Even forced, a rebind is
+                    refused if it would leave the source lot with 0 spots.
+                  example: false
       responses:
         '200':
           description: Flat updated
@@ -990,7 +1031,7 @@ paths:
                   flat:
                     $ref: '#/components/schemas/FlatFull'
         '400':
-          description: No valid fields or invalid JSON
+          description: No valid fields, bad PIN, invalid contact, or a lot with no spots
           content:
             application/json:
               schema:
@@ -1007,6 +1048,27 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '404':
+          description: Flat not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            Spot conflict (unforced) or a rebind that would strand a lot at 0 spots.
+            The conflict case includes `conflicts` for the client-side resolver.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Error'
+                  - type: object
+                    properties:
+                      conflicts:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SpotConflict'
     delete:
       tags: [Admin — Flats]
       summary: Delete a flat
@@ -1246,6 +1308,13 @@ paths:
                   type: string
                   nullable: true
                   example: "Côté rue"
+                force:
+                  type: boolean
+                  description: |
+                    Reclaim a spot that is already bound to another lot. Without it, a
+                    bound spot answers `409` with `conflicts`. Even forced, creating a
+                    spot is refused if it would leave the holder lot with 0 spots.
+                  example: false
       responses:
         '201':
           description: Spot created
@@ -1274,6 +1343,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            The spot already exists (duplicate), it is bound to another lot and `force`
+            is not set (with `conflicts`), or a forced reclaim would strand a lot.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Error'
+                  - type: object
+                    properties:
+                      conflicts:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SpotConflict'
 
   /api/health:
     get:
@@ -1341,6 +1425,493 @@ paths:
                 description: Newline-delimited SSE messages
         '401':
           description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/flats/{number}:
+    get:
+      tags: [Flats]
+      summary: Public display-name lookup
+      description: |
+        Powers the activation screen. Returns only `number` + `displayName` —
+        no contacts, codes, or PIN material. No auth required.
+      parameters:
+        - name: number
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "A01"
+      responses:
+        '200':
+          description: Flat found
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [number]
+                properties:
+                  number:
+                    type: string
+                    example: "A01"
+                  displayName:
+                    type: string
+                    nullable: true
+                    example: "Dupont"
+        '400':
+          description: Missing lot number
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Flat not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/requests:
+    post:
+      tags: [Requests]
+      summary: Submit a flat access request
+      description: |
+        Public endpoint (no auth). The lot must not exist yet and every spot
+        must already exist. Rate-limited per lot number.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [flatNumber, spotNumbers, emails, phones]
+              properties:
+                flatNumber:
+                  type: string
+                  example: "B07"
+                spotNumbers:
+                  type: array
+                  items:
+                    type: string
+                  example: ["36"]
+                requesterName:
+                  type: string
+                  nullable: true
+                  example: "Famille Martin"
+                emails:
+                  type: array
+                  items:
+                    type: string
+                  example: ["b07@test.com"]
+                phones:
+                  type: array
+                  items:
+                    type: string
+                  example: ["+33612345678"]
+      responses:
+        '201':
+          description: Request created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request:
+                    $ref: '#/components/schemas/RequestRecord'
+        '400':
+          description: Validation error (lot/spot format, unknown spot, bad contacts) or invalid JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: The lot already exists in the system
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many requests for this lot number
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/admin/requests:
+    get:
+      tags: [Admin — Requests]
+      summary: List pending access requests
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Pending requests
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  requests:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RequestRecord'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/admin/requests/{id}:
+    post:
+      tags: [Admin — Requests]
+      summary: Approve a request (creates the flat)
+      security:
+        - cookieAuth: []
+      description: |
+        Creates the flat (inactive, codeless) with contacts, rebinds the requested
+        spots, and marks the request approved — atomically.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 3
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                force:
+                  type: boolean
+                  description: |
+                    Confirm the approval despite conflicts. Malformed or absent
+                    bodies default to `false`. See the conflict contract on
+                    `PATCH /admin/flats/{number}`.
+                  example: false
+      responses:
+        '200':
+          description: Request approved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Demande approuvée"
+        '400':
+          description: Invalid ID, nonpending request data, or malformed spot list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            Already handled, the lot already exists, or a spot conflict
+            (unforced, with `conflicts`) / strand refusal (forced).
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Error'
+                  - type: object
+                    properties:
+                      conflicts:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SpotConflict'
+    put:
+      tags: [Admin — Requests]
+      summary: Edit a pending request
+      security:
+        - cookieAuth: []
+      description: |
+        Partial update of a pending request's name, contacts, and spots.
+        Emails/phones persist independently when present.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 3
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                requesterName:
+                  type: string
+                  nullable: true
+                emails:
+                  type: array
+                  items:
+                    type: string
+                phones:
+                  type: array
+                  items:
+                    type: string
+                spotNumbers:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Request updated (contacts and spots joined in)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request:
+                    $ref: '#/components/schemas/RequestRecord'
+        '400':
+          description: Invalid ID/body, bad contacts, or a request left with no spots
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request already handled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      tags: [Admin — Requests]
+      summary: Reject a pending request
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 3
+      responses:
+        '200':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        '400':
+          description: Invalid ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Request already handled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/admin/spots/swap:
+    post:
+      tags: [Admin — Spots]
+      summary: Swap a spot's owning lot
+      security:
+        - cookieAuth: []
+      description: |
+        Moves a shared spot onto a lot, optionally exchanging it with one of the
+        lot's spots (which returns to the pool). The source lot is never
+        stranded at 0 spots.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [spotNumber, flatNumber]
+              properties:
+                spotNumber:
+                  type: string
+                  description: Shared pool spot to assign
+                  example: "36"
+                flatNumber:
+                  type: string
+                  description: Lot receiving the spot
+                  example: "A01"
+                targetSpotNumber:
+                  type: string
+                  description: Lot spot exchanged back to the pool (optional)
+                  example: "10"
+      responses:
+        '200':
+          description: Spots swapped
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        '400':
+          description: Missing/invalid parameters or spots in the wrong state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Spot not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: The swap would strand a lot at 0 spots
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/admin/flats/{number}/activation/send:
+    post:
+      tags: [Admin — Flats]
+      summary: Resend the activation email
+      security:
+        - cookieAuth: []
+      description: |
+        Emails the flat's existing (unexpired) activation code. Never fails hard:
+        `emailSent` is `false` when SMTP is unconfigured, no addresses are
+        registered, or delivery fails — the code itself is unaffected.
+      parameters:
+        - name: number
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "A01"
+      responses:
+        '200':
+          description: Attempt recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [emailSent]
+                properties:
+                  emailSent:
+                    type: boolean
+                    example: true
+                  emails:
+                    type: array
+                    items:
+                      type: string
+                    example: ["a01@test.com"]
+        '400':
+          description: Lot is active or has no code to send
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Flat not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '410':
+          description: Invitation expired — generate a new link instead
           content:
             application/json:
               schema:

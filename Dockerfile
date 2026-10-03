@@ -21,6 +21,11 @@ EXPOSE 3000
 VOLUME /app/data
 ENV NODE_ENV=production
 ENV DATABASE_URL=file:/app/data/creneau.db
+ENV SMTP_HOST=""
+ENV SMTP_PORT=465
+ENV SMTP_USER=""
+ENV SMTP_PASSWORD=""
+ENV SMTP_FROM="noreply-creneau@wagou.fr"
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD node -e "fetch('http://localhost:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"

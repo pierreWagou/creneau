@@ -52,7 +52,7 @@
 
 			<div class="flex items-center gap-1">
 				{#if data.flat.isAdmin}
-					<a href="/admin">
+					<a href="/admin/lots">
 						<Button variant="ghost" size="sm">Admin</Button>
 					</a>
 				{/if}

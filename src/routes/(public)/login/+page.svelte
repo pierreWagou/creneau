@@ -8,7 +8,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '$lib/constants';
+	import { PIN_MAX_LENGTH, PIN_MIN_LENGTH, UI_FOCUS_DELAY_MS } from '$lib/constants';
 
 	let { data } = $props();
 
@@ -99,7 +99,7 @@
 	<Card.Content>
 		<form onsubmit={(e) => { e.preventDefault(); handleLogin(); }} class="space-y-4">
 			<div class="space-y-2">
-				<Label for="flat">Numéro d'appartement</Label>
+				<Label for="flat">Numéro d'appartement <span class="text-destructive">*</span></Label>
 				{#if flats.length > 0}
 				<Combobox.Root
 					type="single"
@@ -110,7 +110,7 @@
 					onOpenChangeComplete={(open) => {
 							if (!open) {
 								searchValue = '';
-								if (flatNumber) setTimeout(() => pinInputEl?.focus(), 50);
+								if (flatNumber) setTimeout(() => pinInputEl?.focus(), UI_FOCUS_DELAY_MS);
 							}
 						}}
 					>
@@ -153,7 +153,7 @@
 				{/if}
 			</div>
 			<div class="space-y-2">
-				<Label for="pin">Code PIN</Label>
+				<Label for="pin">Code PIN <span class="text-destructive">*</span></Label>
 				<Input
 					id="pin"
 					type="password"

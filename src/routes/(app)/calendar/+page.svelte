@@ -10,7 +10,9 @@
 	import { toast } from 'svelte-sonner';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/stores';
+	import { getFlatColor } from '$lib/colors';
 	import { Button } from '$lib/components/ui/button';
+	import { TOAST_DURATION_MS } from '$lib/constants';
 	import { type BookingWithFlat, DAY_END, DAY_START } from '$lib/types';
 	import { createBookingSSE } from '$lib/utils/sse';
 	import { formatDateISO, formatDuration, padH } from '$lib/utils/time';
@@ -36,37 +38,6 @@
 	let tooltipAnchorEl: HTMLElement | null = null;
 	let tooltipTimeout: ReturnType<typeof setTimeout> | null = null;
 
-	// Catppuccin colors for different apartments (no blue/orange — reserved for primary/accent)
-	const FLAT_COLORS_LIGHT = [
-		'#8839ef', // mauve
-		'#179299', // teal
-		'#e64553', // maroon
-		'#ea76cb', // pink
-		'#40a02b', // green
-		'#df8e1d', // yellow
-		'#7287fd', // lavender
-		'#d20f39' // red
-	];
-	const FLAT_COLORS_DARK = [
-		'#cba6f7', // mauve
-		'#94e2d5', // teal
-		'#eba0ac', // maroon
-		'#f5c2e7', // pink
-		'#a6e3a1', // green
-		'#f9e2af', // yellow
-		'#b4befe', // lavender
-		'#f38ba8' // red
-	];
-
-	function getFlatColor(flatNumber: string): string {
-		const colors = isDark ? FLAT_COLORS_DARK : FLAT_COLORS_LIGHT;
-		let hash = 0;
-		for (let i = 0; i < flatNumber.length; i++) {
-			hash = flatNumber.charCodeAt(i) + ((hash << 5) - hash);
-		}
-		return colors[Math.abs(hash) % colors.length];
-	}
-
 	// Convert bookings to calendar events
 	function bookingsToEvents(bookings: BookingWithFlat[]) {
 		const now = new Date();
@@ -81,7 +52,7 @@
 				startEditable: isOwn && !isPast,
 				durationEditable: isOwn && !isPast,
 				classNames: isPast ? ['ec-event-past'] : [],
-				backgroundColor: isOwn ? (isDark ? '#89b4fa' : '#1e66f5') : getFlatColor(b.flatNumber),
+				backgroundColor: isOwn ? (isDark ? '#89b4fa' : '#1e66f5') : getFlatColor(b.flatNumber, isDark),
 				textColor: isDark ? '#1e1e2e' : '#eff1f5',
 				extendedProps: { booking: b }
 			};
@@ -256,7 +227,7 @@
 					label: 'Annuler',
 					onClick: () => undoMove(booking.id, oldStart, oldEnd)
 				},
-				duration: 5000
+				duration: TOAST_DURATION_MS
 			});
 		} else {
 			info.revert();
@@ -414,7 +385,7 @@
 			<p class="text-muted-foreground">Aucune place de parking configurée.</p>
 			{#if data.flat.isAdmin}
 				<p class="text-muted-foreground mt-2 text-sm">
-					Allez dans <a href="/admin" class="inline-link">Admin</a> pour ajouter des places.
+					Allez dans <a href="/admin/spots" class="inline-link">Admin</a> pour ajouter des places de parking.
 				</p>
 			{/if}
 		</div>
@@ -456,11 +427,11 @@
 				<div class="border-border border-t pt-2">
 					{#if confirmingCancel}
 						<div class="flex items-center gap-2">
-							<Button size="sm" variant="destructive" onclick={cancelBooking}>Confirmer</Button>
+							<Button size="sm" variant="default" class="bg-destructive text-white hover:bg-destructive/80 dark:text-[#1e1e2e]" onclick={cancelBooking}>Confirmer</Button>
 							<Button size="sm" variant="ghost" onclick={() => (confirmingCancel = false)}>Non</Button>
 						</div>
 					{:else}
-						<Button size="sm" variant="destructive" class="w-full" onclick={() => (confirmingCancel = true)}>
+						<Button size="sm" variant="default" class="w-full bg-destructive text-white hover:bg-destructive/80 dark:text-[#1e1e2e]" onclick={() => (confirmingCancel = true)}>
 							Annuler la réservation
 						</Button>
 					{/if}

@@ -18,7 +18,7 @@ interface CreateBookingInput {
  * Validate that booking start/end times satisfy hour-bound and duration rules.
  * Returns an error result on failure, or null on success.
  */
-function validateBookingTimes(
+export function validateBookingTimes(
 	startTime: string,
 	endTime: string
 ): { success: false; error: string; status: number } | null {
@@ -106,7 +106,7 @@ export async function createBooking(
 	// Verify spot exists
 	const spotExists = await db.select().from(spot).where(eq(spot.number, input.spotNumber)).get();
 	if (!spotExists) {
-		return { success: false, error: 'Place introuvable', status: 400 };
+		return { success: false, error: 'Place de parking introuvable', status: 400 };
 	}
 
 	const timesError = validateBookingTimes(input.startTime, input.endTime);

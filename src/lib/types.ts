@@ -17,6 +17,8 @@ export interface SessionFlat {
 	number: string;
 	displayName: string | null;
 	isAdmin: boolean;
+	emails: string[];
+	phones: string[];
 }
 
 /**

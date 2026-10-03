@@ -73,5 +73,22 @@
 				}
 			}
 		}
-	}
+	},
+	"overrides": [
+		{
+			"includes": [
+				"src/lib/components/flat-contact-list.svelte",
+				"src/lib/components/flat-profile-card.svelte",
+				"src/lib/components/flat-spot-cards.svelte",
+				"src/routes/(public)/activate/+page.svelte"
+			],
+			"linter": {
+				"rules": {
+					"a11y": {
+						"noAutofocus": "off"
+					}
+				}
+			}
+		}
+	]
 }

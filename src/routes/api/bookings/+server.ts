@@ -1,9 +1,10 @@
 import { json } from '@sveltejs/kit';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { createBooking } from '$lib/server/bookings';
 import { db } from '$lib/server/db';
 import { spot } from '$lib/server/db/schema';
 import { requireAuth } from '$lib/server/guards';
+import { handleHandlerError } from '$lib/server/handler';
 import { sseManager } from '$lib/server/sse';
 import type { RequestHandler } from './$types';
 
@@ -22,11 +23,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		const targetSpot = await db
 			.select()
 			.from(spot)
-			.where(and(eq(spot.number, spotNumber.trim()), isNull(spot.flatNumber)))
+			.where(and(eq(spot.number, spotNumber.trim()), eq(spot.status, 'shared')))
 			.get();
 
 		if (!targetSpot) {
-			return json({ error: "Cette place n'est pas disponible pour réservation" }, { status: 400 });
+			return json({ error: "Cette place de parking n'est pas disponible pour réservation" }, { status: 400 });
 		}
 
 		const result = await createBooking({
@@ -44,10 +45,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		sseManager.broadcast('booking_created', result.booking);
 		return json({ booking: result.booking }, { status: 201 });
 	} catch (e) {
-		if (e instanceof SyntaxError) {
-			return json({ error: 'Requête invalide' }, { status: 400 });
-		}
-		console.error('[POST /api/bookings]', e);
-		return json({ error: 'Erreur interne' }, { status: 500 });
+		return handleHandlerError('POST /api/bookings', e);
 	}
 };

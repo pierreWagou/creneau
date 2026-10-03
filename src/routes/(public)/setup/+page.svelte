@@ -1,12 +1,20 @@
 <script lang="ts">
+	import Mail from '@lucide/svelte/icons/mail';
+	import Phone from '@lucide/svelte/icons/phone';
 	import ShieldCheck from '@lucide/svelte/icons/shield-check';
 	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
+	import FlatContactList from '$lib/components/flat-contact-list.svelte';
+	import FlatTextField from '$lib/components/flat-text-field.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import { Separator } from '$lib/components/ui/separator';
+	import ValidationTip from '$lib/components/validation-tip.svelte';
 	import { isValidFlatNumber, PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '$lib/constants';
+	import { displayPhone, formatPhone } from '$lib/utils/phone';
+	import { isValidEmail, isValidPhone } from '$lib/validation';
 
 	let flatNumber = $state('');
 	let displayName = $state('');
@@ -14,9 +22,19 @@
 	let confirmPin = $state('');
 	let loading = $state(false);
 
+	let emails = $state<string[]>([]);
+	let phones = $state<string[]>([]);
+
 	const normalizedFlat = $derived(flatNumber.trim().toUpperCase());
 	const flatValid = $derived(normalizedFlat.length > 0 && isValidFlatNumber(normalizedFlat));
-	const canSubmit = $derived(flatValid && !loading);
+	const canSubmit = $derived(flatValid && emails.length > 0 && phones.length > 0 && !loading);
+	const missingFields = $derived(
+		[
+			!flatValid && "Numéro d'appartement invalide",
+			emails.length === 0 && 'Au moins un e-mail valide',
+			phones.length === 0 && 'Au moins un téléphone valide'
+		].filter((r): r is string => r !== false)
+	);
 
 	async function handleSetup() {
 		if (!canSubmit) return;
@@ -42,7 +60,7 @@
 			const res = await fetch('/api/auth/setup', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ flatNumber: normalizedFlat, displayName, pin })
+				body: JSON.stringify({ flatNumber: normalizedFlat, displayName, pin, emails, phones })
 			});
 
 			const result = await res.json();
@@ -72,27 +90,55 @@
 	</Card.Header>
 	<Card.Content>
 		<form onsubmit={(e) => { e.preventDefault(); handleSetup(); }} class="space-y-4">
-		<div class="space-y-2">
-			<Label for="flat">Numéro d'appartement</Label>
-			<Input
-				id="flat"
-				type="text"
+			<FlatTextField
+				label="Numéro d'appartement"
 				placeholder="ex. B12"
+				uppercase
 				bind:value={flatNumber}
-				oninput={() => { flatNumber = flatNumber.toUpperCase(); }}
-				class={flatNumber && !flatValid ? 'border-destructive' : ''}
-				required
 			/>
-			{#if flatNumber && !flatValid}
-				<p class="text-destructive text-xs">Format requis : A01 ou B12</p>
-			{/if}
-		</div>
+			<FlatTextField
+				label="Votre prénom"
+				placeholder="ex. Marc"
+				required={false}
+				bind:value={displayName}
+			/>
+
+			<Separator />
+
+			<FlatContactList
+				title="Emails"
+				icon={Mail}
+				items={emails}
+				placeholder="ex. dupont@email.com"
+				inputType="email"
+				invalidMessage="Email invalide"
+				addLabel="Ajouter un e-mail"
+				minItems={0}
+				validate={isValidEmail}
+				onChange={(e) => (emails = e)}
+			/>
+
+			<Separator />
+
+			<FlatContactList
+				title="Téléphones"
+				icon={Phone}
+				items={phones}
+				placeholder="+33 6 12 34 56 78"
+				inputType="tel"
+				invalidMessage="Téléphone invalide"
+				addLabel="Ajouter un téléphone"
+				minItems={0}
+				validate={isValidPhone}
+				format={formatPhone}
+				display={displayPhone}
+				onChange={(p) => (phones = p)}
+			/>
+
+			<Separator />
+
 			<div class="space-y-2">
-				<Label for="name">Votre prénom (optionnel)</Label>
-				<Input id="name" type="text" placeholder="ex. Marc" bind:value={displayName} />
-			</div>
-			<div class="space-y-2">
-				<Label for="pin">Code PIN</Label>
+				<Label for="pin">Code PIN <span class="text-destructive">*</span></Label>
 				<Input
 					id="pin"
 					type="password"
@@ -105,7 +151,7 @@
 			/>
 		</div>
 		<div class="space-y-2">
-			<Label for="pin-confirm">Confirmer le PIN</Label>
+			<Label for="pin-confirm">Confirmer le PIN <span class="text-destructive">*</span></Label>
 			<Input
 				id="pin-confirm"
 				type="password"
@@ -117,9 +163,21 @@
 					required
 				/>
 			</div>
-			<Button type="submit" class="w-full" disabled={!canSubmit}>
-				{loading ? 'Configuration...' : 'Créer le compte administrateur'}
-			</Button>
+			{#if !canSubmit}
+				<ValidationTip
+					show={missingFields.length > 0}
+					title="Éléments manquants :"
+					items={missingFields}
+				>
+					<Button type="submit" class="w-full" disabled>
+						{loading ? 'Configuration...' : 'Créer le compte administrateur'}
+					</Button>
+				</ValidationTip>
+			{:else}
+				<Button type="submit" class="w-full" disabled={loading}>
+					{loading ? 'Configuration...' : 'Créer le compte administrateur'}
+				</Button>
+			{/if}
 		</form>
 	</Card.Content>
 </Card.Root>

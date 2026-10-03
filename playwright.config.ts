@@ -26,6 +26,23 @@ export default defineConfig({
 			use: { ...devices['Desktop Chrome'] }
 		},
 		{
+			name: 'admin',
+			testMatch: /admin\.test\.ts/,
+			dependencies: ['main'],
+			fullyParallel: false,
+			retries: 0,
+			use: { ...devices['Desktop Chrome'] }
+		},
+		{
+			// API-contract tests: no UI, run last so the fixture chain exists
+			name: 'api',
+			testMatch: /api\.test\.ts/,
+			dependencies: ['admin'],
+			fullyParallel: false,
+			retries: 0,
+			use: { ...devices['Desktop Chrome'] }
+		},
+		{
 			name: 'main',
 			testMatch: /booking|calendar|drag|auth/,
 			dependencies: ['activation'],
@@ -34,8 +51,10 @@ export default defineConfig({
 		}
 	],
 	webServer: {
-		command: 'DATABASE_URL=file:data/test.db npm run dev -- --port 5174',
+		command: 'npx tsx e2e/setup-db.ts && DATABASE_URL=file:data/test.db npm run dev -- --port 5174',
 		port: 5174,
-		reuseExistingServer: false
+		// Local runs reuse a manually-started dev server (already warm —
+		// cold Vite compiles blow the 5s expect timeouts); CI boots fresh.
+		reuseExistingServer: !process.env.CI
 	}
 });

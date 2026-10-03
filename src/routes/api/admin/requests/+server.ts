@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { desc } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { flatRequest } from '$lib/server/db/schema';
+import { request } from '$lib/server/db/schema';
 import { requireAdmin } from '$lib/server/guards';
 import type { RequestHandler } from './$types';
 
@@ -10,7 +10,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 	if (guard) return guard;
 
 	try {
-		const requests = await db.select().from(flatRequest).orderBy(desc(flatRequest.createdAt)).all();
+		const requests = await db.select().from(request).where(eq(request.status, 'pending')).all();
 
 		return json({ requests });
 	} catch (e) {

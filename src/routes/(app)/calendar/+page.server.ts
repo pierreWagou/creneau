@@ -1,5 +1,5 @@
 import { addWeeks, endOfWeek, format, startOfWeek } from 'date-fns';
-import { isNull } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { getBookingsInRange } from '$lib/server/bookings';
 import { db } from '$lib/server/db';
 import { spot } from '$lib/server/db/schema';
@@ -14,7 +14,7 @@ export const load: PageServerLoad = async () => {
 	const to = format(endOfWeek(addWeeks(now, 3), { weekStartsOn: 1 }), `yyyy-MM-dd'T'${padH(DAY_END)}:00:00`);
 
 	// Only load shared spots (not bound to any flat)
-	const spots = await db.select().from(spot).where(isNull(spot.flatNumber)).all();
+	const spots = await db.select().from(spot).where(eq(spot.status, 'shared')).all();
 
 	// Load bookings for shared spots only
 	const sharedSpotNumbers = spots.map((s) => s.number);

@@ -32,25 +32,28 @@ A shared parking spot booking system for apartment buildings. Residents pick a t
  │                    SvelteKit App                      │
  ├────────────────────────────┬─────────────────────────┤
  │       Pages (SSR)          │       API Routes         │  routes
- │  /book /calendar /admin    │  /api/bookings           │
- │  /my-bookings /account     │  /api/bookings/[id]      │
- │  /stats                    │  /api/timeline            │
- │  /request (public)         │  /api/calendar-statuses   │
- │                            │  /api/events (SSE)        │
- │                            │  /api/account             │
- │                            │  /api/spots, /api/spots/* │
- │                            │  /api/requests (public)   │
- │                            │  /api/admin/flats/*       │
- │                            │  /api/admin/requests/*    │
+ │ /book /calendar /admin     │ /api/bookings           │
+ │ /my-bookings /account      │ /api/bookings/[id]      │
+ │ /stats                     │ /api/timeline           │
+ │ /request (public)          │ /api/calendar-statuses  │
+ │                            │ /api/events (SSE)       │
+ │                            │ /api/account            │
+ │                            │ /api/spots*             │
+ │                            │ /api/flats/[number]     │
+ │                            │ /api/requests (public)  │
+ │                            │ /api/admin/flats/*      │
+ │                            │ /api/admin/spots/swap   │
+ │                            │ /api/admin/requests/*   │
+ │                            │ /api/health             │
  ├────────────────────────────┼─────────────────────────┤
  │      UI Components         │     Server Logic         │  lib
- │  shadcn-svelte (bits)      │  availability.ts         │
- │  event-calendar            │  bookings.ts             │
- │  sonner toasts             │  auth.ts / sse.ts        │
- │                            │  guards.ts / rate-limit  │
+ │ shadcn-svelte (bits)       │ availability.ts         │
+ │ event-calendar             │ bookings.ts             │
+ │ sonner toasts              │ auth.ts / sse.ts        │
+ │                            │ guards.ts / rate-limit  │
+ │                            │ rebind.ts / handler.ts  │
+ │                            │ mail.ts / flat-state    │
  ├────────────────────────────┴─────────────────────────┤
- │               Drizzle ORM + SQLite                   │  data
- └──────────────────────────────────────────────────────┘
 ```
 
 ## Structure
@@ -71,18 +74,19 @@ src/
 │   │   ├── sse.ts            # Server-Sent Events broadcaster
 │   │   ├── rate-limit.ts     # In-memory rate limiter
 │   │   └── db/
-│   │       ├── schema.ts     # Drizzle schema (flat, spot, booking, session, flat_request)
+│   │       ├── schema.ts     # Drizzle schema (10 tables: flat + contacts, spot, booking, session, request + junctions)
 │   │       └── index.ts      # DB connection, migrations, session cleanup
 │   └── components/
 │       ├── ui/               # shadcn-svelte components
 │       ├── qr-code.svelte   # QR code generator with logo
 │       └── logo.svelte      # App logo
 ├── routes/
-│   ├── (auth)/
+│   ├── (public)/
 │   │   ├── login/            # PIN login
 │   │   ├── activate/         # First-time activation via invitation link
 │   │   ├── setup/            # First-time admin setup wizard
-│   │   └── request/          # Public flat access request form
+│   │   ├── request/          # Public flat access request form
+│   │   └── about/            # Public about/landing page
 │   ├── (app)/
 │   │   ├── book/             # Booking page (date + time selection)
 │   │   ├── calendar/         # Interactive week/day calendar view
@@ -90,6 +94,7 @@ src/
 │   │   ├── stats/            # Usage stats & leaderboard
 │   │   ├── account/          # Account settings (display name, PIN change)
 │   │   └── admin/            # Admin: manage flats, spots, requests
+│   │       └── guide/        # Admin guide
 │   └── api/                  # REST endpoints + SSE
 ├── scripts/
 │   ├── seed.ts               # Database seeding (generates drizzle/seed.db)
@@ -126,7 +131,7 @@ On first run with an empty database, the app shows a setup wizard at `/setup` to
 docker compose up -d    # Pulls image from GHCR and runs on port 3000 (seeds DB on first boot)
 ```
 
-**Production** persists data via bind mount (`/var/lib/creneau:/app/data`). **Preview** uses a named volume (ephemeral).
+**Production** persists data via bind mount (`/var/lib/creneau:/app/data`) and does not set `SEED_ON_INIT`. **Preview** uses a named volume with `SEED_ON_INIT=true`. The bundled `docker-compose.yml` is the **preview** shape (named volume + seed on first boot) — point the volume at a bind mount and drop `SEED_ON_INIT` for production.
 
 ## Development
 

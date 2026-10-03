@@ -2,13 +2,13 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { hash, verify } from '@node-rs/argon2';
 import type { Cookies } from '@sveltejs/kit';
 import { and, eq, gt } from 'drizzle-orm';
-import { ACTIVATION_CODE_LENGTH, PIN_MAX_LENGTH, PIN_MIN_LENGTH, SESSION_DURATION_DAYS } from '$lib/constants';
+import { ACTIVATION_CODE_LENGTH, PIN_MAX_LENGTH, PIN_MIN_LENGTH, SESSION_DURATION_MS } from '$lib/constants';
 import type { SessionFlat } from '$lib/types';
 import { db } from './db';
-import { flat, session } from './db/schema';
+import { flat, flatEmail, flatPhone, session } from './db/schema';
 
 export const SESSION_COOKIE_NAME = 'session';
-const SESSION_MAX_AGE = SESSION_DURATION_DAYS * 24 * 60 * 60; // seconds
+const SESSION_MAX_AGE = Math.floor(SESSION_DURATION_MS / 1000); // cookie maxAge is seconds
 
 /** Set the session cookie with standard options */
 export function setSessionCookie(cookies: Cookies, sessionId: string): void {
@@ -55,7 +55,7 @@ export function generateActivationCode(): string {
 
 export async function createSession(flatNumber: string): Promise<string> {
 	const id = randomUUID();
-	const expiresAt = new Date(Date.now() + SESSION_DURATION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+	const expiresAt = new Date(Date.now() + SESSION_DURATION_MS).toISOString();
 
 	await db.insert(session).values({ id, flatNumber, expiresAt });
 	return id;
@@ -76,12 +76,19 @@ export async function validateSession(sessionId: string): Promise<{ sessionId: s
 
 	if (!result) return null;
 
+	const [emails, phones] = await Promise.all([
+		db.select().from(flatEmail).where(eq(flatEmail.flatNumber, result.flat.number)),
+		db.select().from(flatPhone).where(eq(flatPhone.flatNumber, result.flat.number))
+	]);
+
 	return {
 		sessionId: result.session.id,
 		flat: {
 			number: result.flat.number,
 			displayName: result.flat.displayName,
-			isAdmin: result.flat.isAdmin
+			isAdmin: result.flat.isAdmin,
+			emails: emails.map((r) => r.email),
+			phones: phones.map((r) => r.phone)
 		}
 	};
 }

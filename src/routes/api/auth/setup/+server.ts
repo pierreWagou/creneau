@@ -1,8 +1,10 @@
 import { json } from '@sveltejs/kit';
 import { FLAT_NUMBER_REGEX } from '$lib/constants';
 import { createSession, hashPin, setSessionCookie, validatePin } from '$lib/server/auth';
+import { setFlatEmails, setFlatPhones } from '$lib/server/contacts';
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
+import { handleHandlerError, validateContactInputs } from '$lib/server/handler';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
@@ -13,7 +15,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			return json({ error: "L'application est déjà configurée" }, { status: 409 });
 		}
 
-		const { flatNumber, displayName, pin } = await request.json();
+		const { flatNumber, displayName, pin, emails, phones } = await request.json();
 
 		// Validate input
 		if (!flatNumber || !pin) {
@@ -22,7 +24,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 		const normalizedFlat = flatNumber.trim().toUpperCase();
 		if (!FLAT_NUMBER_REGEX.test(normalizedFlat)) {
-			return json({ error: "Format d'appartement invalide (ex. A01, B12)" }, { status: 400 });
+			return json({ error: 'Format de lot invalide (ex. A01, B12)' }, { status: 400 });
 		}
 
 		const pinError = validatePin(pin);
@@ -30,20 +32,30 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			return json({ error: pinError }, { status: 400 });
 		}
 
+		const validated = validateContactInputs(emails, phones);
+		if (validated instanceof Response) return validated;
+		const { emails: validatedEmails, phones: validatedPhones } = validated;
+
 		// Create admin flat (already active, no activation code)
 		const pinHash = await hashPin(pin);
 		const result = await db
 			.insert(flat)
 			.values({
 				number: normalizedFlat,
+				status: 'active',
 				displayName: displayName?.trim() || null,
 				pinHash,
 				isAdmin: true,
-				isActive: true,
 				activatedAt: new Date().toISOString()
 			})
 			.returning()
 			.get();
+
+		// Insert emails and phones
+		await Promise.all([
+			setFlatEmails(db, normalizedFlat, validatedEmails),
+			setFlatPhones(db, normalizedFlat, validatedPhones)
+		]);
 
 		// Create session and set cookie
 		const sessionId = await createSession(result.number);
@@ -58,10 +70,6 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			}
 		});
 	} catch (e) {
-		if (e instanceof SyntaxError) {
-			return json({ error: 'Requête invalide' }, { status: 400 });
-		}
-		console.error('[POST /api/auth/setup]', e);
-		return json({ error: 'Erreur interne' }, { status: 500 });
+		return handleHandlerError('POST /api/auth/setup', e);
 	}
 };

@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { cancelBooking, updateBooking } from '$lib/server/bookings';
 import { requireAuth } from '$lib/server/guards';
+import { handleHandlerError } from '$lib/server/handler';
 import { sseManager } from '$lib/server/sse';
 import type { RequestHandler } from './$types';
 
@@ -29,11 +30,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 		sseManager.broadcast('booking_updated', result.booking);
 		return json({ booking: result.booking });
 	} catch (e) {
-		if (e instanceof SyntaxError) {
-			return json({ error: 'Requête invalide' }, { status: 400 });
-		}
-		console.error('[PATCH /api/bookings/:id]', e);
-		return json({ error: 'Erreur interne' }, { status: 500 });
+		return handleHandlerError('PATCH /api/bookings/:id', e);
 	}
 };
 

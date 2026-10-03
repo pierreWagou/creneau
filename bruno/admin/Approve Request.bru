@@ -1,0 +1,17 @@
+meta {
+  name: Approve Request
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/admin/requests/3
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "force": false
+  }
+}

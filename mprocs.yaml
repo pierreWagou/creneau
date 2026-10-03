@@ -5,3 +5,5 @@ procs:
     cmd: ["npm", "run", "docs:dev"]
   test:
     cmd: ["npx", "vitest", "--watch"]
+  mail:
+    cmd: ["mailpit"]

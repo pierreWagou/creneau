@@ -1,41 +1,68 @@
 <script lang="ts">
-	import { Plus, Trash2 } from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
-	import { goto } from '$app/navigation';
+	import FlatDetailView from '$lib/components/flat-detail-view.svelte';
 	import Logo from '$lib/components/logo.svelte';
+	import type { SpotDirectory } from '$lib/components/spot-picker.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
-	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
-	import { isValidFlatNumber, isValidSpotNumber } from '$lib/constants';
+		import { describeSharedPoolConflicts, describeSpotConflicts, findSpotConflicts } from '$lib/utils/spots';
+
+	let { data } = $props();
 
 	let flatNumber = $state('');
-	let spotInputs = $state(['']);
+	let reqSpots = $state<string[]>([]);
+	let reqEmails = $state<string[]>([]);
+	let reqPhones = $state<string[]>([]);
 	let requesterName = $state('');
 	let loading = $state(false);
 	let submitted = $state(false);
+	let formValid = $state(true);
 
-	function addSpot() {
-		spotInputs = [...spotInputs, ''];
-	}
-
-	function removeSpot(index: number) {
-		if (spotInputs.length <= 1) return;
-		spotInputs = spotInputs.filter((_, i) => i !== index);
-	}
-
-	function updateSpot(index: number, value: string) {
-		spotInputs = spotInputs.map((s, i) => (i === index ? value : s));
-	}
+	// Create-form pencil flows (draft-only; number editor open by default on empty form)
+	let reqNumberEditing = $state(true);
+	let reqNameEditing = $state(false);
+	const reqNumberEdit = $derived({
+		editing: reqNumberEditing,
+		saving: false,
+		onStart: () => {
+			reqNumberEditing = true;
+		},
+		onCommit: (v: string) => {
+			flatNumber = v.trim().toUpperCase();
+			reqNumberEditing = false;
+		},
+		onCancel: () => {
+			reqNumberEditing = false;
+		}
+	});
+	const reqNameEdit = $derived({
+		editing: reqNameEditing,
+		saving: false,
+		onStart: () => {
+			reqNameEditing = true;
+		},
+		onCommit: (v: string) => {
+			requesterName = v;
+			reqNameEditing = false;
+		},
+		onCancel: () => {
+			reqNameEditing = false;
+		}
+	});
 
 	const normalizedFlat = $derived(flatNumber.trim().toUpperCase());
-	const validSpots = $derived(spotInputs.map((s) => s.trim()).filter((s) => s.length > 0));
-	const flatValid = $derived(normalizedFlat.length > 0 && isValidFlatNumber(normalizedFlat));
-	const spotsValid = $derived(validSpots.length > 0 && validSpots.every(isValidSpotNumber));
-	const canSubmit = $derived(flatValid && spotsValid && !loading);
+
+	const spotDirectory: SpotDirectory = $derived({
+		all: data.spots,
+		maskHolder: true
+	});
+	const spotConflicts = $derived([
+		...describeSpotConflicts(findSpotConflicts(reqSpots, data.spots, normalizedFlat), data.spots),
+		...describeSharedPoolConflicts(reqSpots, data.spots)
+	]);
 
 	async function handleSubmit() {
-		if (!canSubmit) return;
+		if (!formValid || loading) return;
 		loading = true;
 
 		try {
@@ -44,8 +71,10 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					flatNumber: normalizedFlat,
-					spotNumbers: validSpots,
-					requesterName: requesterName.trim() || undefined
+					spotNumbers: reqSpots,
+					requesterName: requesterName.trim() || undefined,
+					emails: reqEmails,
+					phones: reqPhones
 				})
 			});
 
@@ -86,73 +115,28 @@
 				</a>
 			</div>
 		{:else}
-		<form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="space-y-4">
-			<div class="space-y-2">
-				<Label for="flat">Numéro d'appartement</Label>
-				<Input
-					id="flat"
-					type="text"
-					placeholder="ex. B12"
-					bind:value={flatNumber}
-					oninput={() => { flatNumber = flatNumber.toUpperCase(); }}
-					class={flatNumber && !flatValid ? 'border-destructive' : ''}
-					required
-				/>
-				{#if flatNumber && !flatValid}
-					<p class="text-destructive text-xs">Format requis : A01 ou B12</p>
-				{/if}
-			</div>
-
-			<div class="space-y-2">
-				<Label>Places de parking</Label>
-				{#each spotInputs as _, i}
-					<div class="space-y-1">
-						<div class="flex gap-2">
-							<Input
-								type="text"
-								placeholder="ex. 01"
-								value={spotInputs[i]}
-								oninput={(e) => updateSpot(i, e.currentTarget.value)}
-								class={spotInputs[i] && !isValidSpotNumber(spotInputs[i]) ? 'border-destructive' : ''}
-								required
-							/>
-							{#if spotInputs.length > 1}
-								<Button
-									type="button"
-									variant="ghost"
-									size="icon"
-									class="shrink-0"
-									onclick={() => removeSpot(i)}
-								>
-									<Trash2 class="h-4 w-4" />
-								</Button>
-							{/if}
-						</div>
-						{#if spotInputs[i] && !isValidSpotNumber(spotInputs[i])}
-							<p class="text-destructive text-xs">Format requis : 2 chiffres (ex. 01, 36)</p>
-						{/if}
-					</div>
-				{/each}
-				<Button type="button" variant="outline" size="sm" class="w-full" onclick={addSpot}>
-					<Plus class="mr-1 h-4 w-4" />
-					Ajouter une place
-				</Button>
-			</div>
-
-				<div class="space-y-2">
-					<Label for="name">Nom d'affichage <span class="text-muted-foreground">(optionnel)</span></Label>
-					<Input
-						id="name"
-						type="text"
-						placeholder="ex. Jean, Famille Dupont"
-						bind:value={requesterName}
-					/>
-				</div>
-
-				<Button type="submit" class="w-full" disabled={!canSubmit}>
-					{loading ? 'Envoi...' : 'Envoyer la demande'}
-				</Button>
-			</form>
+		<form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+			<FlatDetailView
+				showLifecycle={false}
+				bind:number={flatNumber}
+				bind:displayName={requesterName}
+				numberEdit={reqNumberEdit}
+				nameEdit={reqNameEdit}
+				spotsEditable
+				contactsEditable
+				bind:spots={reqSpots}
+				bind:emails={reqEmails}
+				bind:phones={reqPhones}
+				minItems={0}
+				{spotDirectory}
+				{spotConflicts}
+				maskHolder
+				bind:valid={formValid}
+				submitLabel={loading ? 'Envoi...' : 'Envoyer la demande'}
+				submitting={loading}
+				onSubmit={handleSubmit}
+			/>
+		</form>
 		{/if}
 	</Card.Content>
 	<Card.Footer class="flex-col gap-2">

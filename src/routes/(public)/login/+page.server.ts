@@ -19,7 +19,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		const activeFlats = await db
 			.select({ number: flat.number, displayName: flat.displayName })
 			.from(flat)
-			.where(eq(flat.isActive, true))
+			.where(eq(flat.status, 'active'))
 			.orderBy(asc(flat.number))
 			.all();
 

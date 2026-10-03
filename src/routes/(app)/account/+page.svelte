@@ -1,83 +1,105 @@
 <script lang="ts">
 	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
-	import { Badge } from '$lib/components/ui/badge';
+	import FlatDetailView from '$lib/components/flat-detail-view.svelte';
+	import FlatPinForm from '$lib/components/flat-pin-form.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import * as Card from '$lib/components/ui/card';
-	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
-	import { Separator } from '$lib/components/ui/separator';
-	import { DISPLAY_NAME_MAX_LENGTH, PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '$lib/constants';
 
 	let { data } = $props();
 
-	// Display name editing
-	let displayName = $state(data.flat.displayName ?? '');
+	// Display name editing (draft lives in FlatDetailView; saved value shown)
+	let savedDisplayName = $state(data.flat.displayName ?? '');
 	let savingName = $state(false);
+	let editingName = $state(false);
 
-	// PIN change
-	let currentPin = $state('');
-	let newPin = $state('');
-	let confirmPin = $state('');
-	let changingPin = $state(false);
+	// Contacts (edited through the shared FlatContactsCard component, auto-persisted)
+	let emails = $state<string[]>([...(data.flat.emails ?? [])]);
+	let phones = $state<string[]>([...(data.flat.phones ?? [])]);
 
-	let pinMismatch = $derived(newPin.length > 0 && confirmPin.length > 0 && newPin !== confirmPin);
-	let pinValid = $derived(
-		newPin.length >= PIN_MIN_LENGTH &&
-			newPin.length <= PIN_MAX_LENGTH &&
-			/^\d+$/.test(newPin) &&
-			newPin === confirmPin &&
-			currentPin.length >= PIN_MIN_LENGTH
-	);
+	// PIN drafts (parent-owned so tab switches can't wipe them)
+	let pinCurrent = $state('');
+	let pinNew = $state('');
+	let pinConfirm = $state('');
 
-	async function saveDisplayName() {
-		savingName = true;
+	async function persistContacts(emailsToSave: string[], phonesToSave: string[]) {
+		if (emailsToSave.length === 0 || phonesToSave.length === 0) return;
 		try {
 			const res = await fetch('/api/account', {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ displayName: displayName.trim() || null })
+				body: JSON.stringify({ emails: emailsToSave, phones: phonesToSave })
 			});
 			if (res.ok) {
-				toast.success('Nom mis à jour');
+				emails = [...emailsToSave];
+				phones = [...phonesToSave];
+				toast.success('Contacts mis à jour');
 			} else {
 				const { error } = await res.json();
 				toast.error(error || 'Erreur lors de la mise à jour');
 			}
 		} catch {
 			toast.error('Erreur réseau');
+		}
+	}
+
+	// PIN change (inputs live in FlatPinForm; only the submit lives here)
+
+	async function commitDisplayName(value: string): Promise<boolean> {
+		const trimmed = value.trim();
+		if (trimmed === savedDisplayName) {
+			editingName = false;
+			return true;
+		}
+		savingName = true;
+		try {
+			const res = await fetch('/api/account', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ displayName: trimmed || null })
+			});
+			if (res.ok) {
+				savedDisplayName = trimmed;
+				toast.success('Nom mis à jour');
+				editingName = false;
+				return true;
+			} else {
+				const { error } = await res.json();
+				toast.error(error || 'Erreur lors de la mise à jour');
+				return false;
+			}
+		} catch {
+			toast.error('Erreur réseau');
+			return false;
 		} finally {
 			savingName = false;
 		}
 	}
 
-	async function changePin() {
-		if (!pinValid) return;
-		changingPin = true;
+	async function submitOwnerPin(pins: { currentPin: string; newPin: string }): Promise<boolean> {
 		try {
 			const res = await fetch('/api/account', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ currentPin, newPin })
+				body: JSON.stringify(pins)
 			});
 			if (res.ok) {
 				toast.success('PIN modifié avec succès');
-				currentPin = '';
-				newPin = '';
-				confirmPin = '';
+				return true;
 			} else {
 				const { error } = await res.json();
 				toast.error(error || 'Erreur lors du changement de PIN');
+				return false;
 			}
 		} catch {
 			toast.error('Erreur réseau');
-		} finally {
-			changingPin = false;
+			return false;
 		}
 	}
 
 	async function handleLogout() {
-		await fetch('/api/auth/logout', { method: 'POST' });
+		// Fire-and-forget by design: the page always navigates, even if the
+		// server call fails (a half-dead session on this page is worse).
+		await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
 		goto('/login');
 	}
 </script>
@@ -85,122 +107,40 @@
 <div class="mx-auto max-w-md space-y-4">
 	<h2 class="page-title">Mon compte</h2>
 
-	<!-- Identity -->
-	<Card.Root>
-		<Card.Header>
-			<Card.Title class="flex items-center gap-2">
-				Appartement {data.flat.number}
-				{#if data.flat.isAdmin}
-					<Badge variant="secondary">Admin</Badge>
-				{/if}
-			</Card.Title>
-			{#if data.flat.activatedAt}
-				<p class="text-muted-foreground text-sm">
-					Activé le {new Date(data.flat.activatedAt).toLocaleDateString('fr-FR')}
-				</p>
-			{/if}
-		</Card.Header>
-		<Card.Content class="space-y-4">
-			<div class="space-y-2">
-				<Label for="display-name">Nom d'affichage</Label>
-				<div class="flex gap-2">
-					<Input
-						id="display-name"
-						type="text"
-						placeholder="ex. Jean, Famille Dupont"
-						bind:value={displayName}
-						maxlength={DISPLAY_NAME_MAX_LENGTH}
-					/>
-					<Button size="sm" disabled={savingName} onclick={saveDisplayName} class="shrink-0">
-						{savingName ? '...' : 'Enregistrer'}
-					</Button>
-				</div>
-				<p class="text-muted-foreground text-xs">Ce nom sera visible par les autres résidents sur le calendrier.</p>
-			</div>
-		</Card.Content>
-	</Card.Root>
+	<FlatDetailView
+		number={data.flat.number}
+		displayName={savedDisplayName}
+		stateLabel="Actif"
+		stateBadgeClass="flat-badge-active"
+		ownFlatNumber={data.flat.number}
+		isAdmin={data.flat.isAdmin}
+		spots={data.spots.map((s) => s.number)}
+		descriptions={Object.fromEntries(data.spots.map((s) => [s.number, s.description]))}
+		emails={emails}
+		phones={phones}
+		contactsEditable
+		onEmailsChange={(e) => persistContacts(e, phones)}
+		onPhonesChange={(p) => persistContacts(emails, p)}
+		createdAt={data.flat.createdAt}
+		activatedAt={data.flat.activatedAt}
+		nameEdit={{
+			editing: editingName,
+			saving: savingName,
+			onStart: () => (editingName = true),
+			onCommit: (value) => commitDisplayName(value),
+			onCancel: () => (editingName = false)
+		}}
+	>
+		{#snippet security()}
+			<FlatPinForm
+				requireCurrentPin
+				bind:currentPin={pinCurrent}
+				bind:newPin={pinNew}
+				bind:confirmPin={pinConfirm}
+				onSubmit={submitOwnerPin}
+			/>
+		{/snippet}
+	</FlatDetailView>
 
-	<!-- Assigned spots -->
-	<Card.Root>
-		<Card.Header>
-			<Card.Title>Places assignées</Card.Title>
-		</Card.Header>
-		<Card.Content>
-			{#if data.spots.length === 0}
-				<p class="text-muted-foreground text-sm">Aucune place assignée.</p>
-			{:else}
-				<div class="space-y-2">
-					{#each data.spots as s}
-						<div class="rounded-md border p-3">
-							<p class="font-medium">Place {s.number}</p>
-							{#if s.description}
-								<p class="text-muted-foreground text-sm">{s.description}</p>
-							{/if}
-						</div>
-					{/each}
-				</div>
-			{/if}
-		</Card.Content>
-	</Card.Root>
-
-	<!-- Change PIN -->
-	<Card.Root>
-		<Card.Header>
-			<Card.Title>Changer le PIN</Card.Title>
-			<p class="text-muted-foreground text-sm">Votre PIN sécurise l'accès à votre compte</p>
-		</Card.Header>
-		<Card.Content class="space-y-4">
-			<div class="space-y-2">
-				<Label for="current-pin">PIN actuel</Label>
-				<Input
-					id="current-pin"
-					type="password"
-					inputmode="numeric"
-					placeholder="Votre PIN actuel"
-					bind:value={currentPin}
-					maxlength={PIN_MAX_LENGTH}
-				/>
-			</div>
-
-			<Separator />
-
-			<div class="space-y-2">
-				<Label for="new-pin">Nouveau PIN</Label>
-				<Input
-					id="new-pin"
-					type="password"
-					inputmode="numeric"
-					placeholder="{PIN_MIN_LENGTH} à {PIN_MAX_LENGTH} chiffres"
-					bind:value={newPin}
-					maxlength={PIN_MAX_LENGTH}
-				/>
-			</div>
-
-			<div class="space-y-2">
-				<Label for="confirm-pin">Confirmer le nouveau PIN</Label>
-				<Input
-					id="confirm-pin"
-					type="password"
-					inputmode="numeric"
-					placeholder="Retapez le nouveau PIN"
-					bind:value={confirmPin}
-					maxlength={PIN_MAX_LENGTH}
-				/>
-				{#if pinMismatch}
-					<p class="text-destructive text-xs">Les PINs ne correspondent pas</p>
-				{/if}
-			</div>
-
-			<Button class="w-full" disabled={!pinValid || changingPin} onclick={changePin}>
-				{changingPin ? 'Modification...' : 'Modifier le PIN'}
-			</Button>
-		</Card.Content>
-	</Card.Root>
-
-	<!-- Logout -->
-	<Card.Root>
-		<Card.Content class="py-4">
-			<Button variant="outline" class="text-destructive w-full" onclick={handleLogout}>Se déconnecter</Button>
-		</Card.Content>
-	</Card.Root>
+	<Button variant="default" class="w-full bg-destructive text-white hover:bg-destructive/80 dark:text-[#1e1e2e]" onclick={handleLogout}>Se déconnecter</Button>
 </div>

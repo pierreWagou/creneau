@@ -22,6 +22,9 @@
 	--color-accent: hsl(var(--accent));
 	--color-accent-foreground: hsl(var(--accent-foreground));
 	--color-booking-busy: hsl(var(--booking-busy));
+	--color-success: hsl(var(--success));
+	--color-warning: hsl(var(--warning));
+	--color-info: hsl(var(--info));
 	--color-destructive: hsl(var(--destructive));
 	--color-destructive-foreground: hsl(var(--destructive-foreground));
 	--color-ring: hsl(var(--ring));
@@ -32,6 +35,8 @@
 }
 
 @layer base {
+	/* Catppuccin palette. Hex twin lives in src/lib/colors.ts for e-mail HTML
+	   and JS inline styles (CSS vars can't reach those) — keep both in sync. */
 	:root {
 		/* Catppuccin Latte — Blue primary + Lavender accent */
 		--background: 220 23% 95%; /* Base #eff1f5 */
@@ -51,6 +56,9 @@
 		--accent: 239 84% 67%; /* Lavender #7287fd */
 		--accent-foreground: 220 23% 95%;
 		--booking-busy: 22 99% 52%; /* Peach #fe640b */
+		--success: 130 65% 40%; /* Green #40a02b */
+		--warning: 45 88% 56%; /* Yellow #df8e1d */
+		--info: 178 62% 40%; /* Teal #179299 */
 		--destructive: 347 87% 44%; /* Red #d20f39 */
 		--destructive-foreground: 220 23% 95%;
 		--ring: 220 91% 54%;
@@ -76,6 +84,9 @@
 		--accent: 232 97% 85%; /* Lavender #b4befe */
 		--accent-foreground: 240 21% 15%;
 		--booking-busy: 23 92% 75%; /* Peach #fab387 */
+		--success: 130 55% 71%; /* Green #a6e3a1 */
+		--warning: 47 95% 79%; /* Yellow #f9e2af */
+		--info: 174 57% 73%; /* Teal #94e2d5 */
 		--destructive: 343 81% 75%; /* Red #f38ba8 */
 		--destructive-foreground: 240 21% 15%;
 		--ring: 217 92% 76%;
@@ -136,21 +147,50 @@
 		@apply bg-primary h-2 rounded transition-all duration-300;
 	}
 
-	/* Flat state badges */
-	.flat-badge-active {
-		@apply bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200;
-	}
-	.flat-badge-pending {
-		@apply bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200;
-	}
-	.flat-badge-expired {
-		@apply bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200;
+	/* Nested dialog visual hierarchy */
+	[data-nested-open] {
+		filter: blur(calc(var(--bits-dialog-nested-count) * 1px));
 	}
 
 	/* Inline links (in body text) */
 	.inline-link {
 		@apply text-primary underline transition-colors hover:text-primary/80;
 	}
+
+	/* Dialog section cards */
+	.dialog-section {
+		@apply bg-muted/50 rounded-lg p-3 space-y-2;
+	}
+	.dialog-section-label {
+		@apply text-xs font-medium text-muted-foreground uppercase tracking-wide;
+	}
+}
+
+/* Flat state badges — Catppuccin palette (TRIAL: solid recipe mirroring the pills).
+   Unlayered on purpose: unlayered author CSS beats Tailwind's layered utilities,
+   so these win over shadcn Badge styles without !important. */
+.flat-badge-active {
+	background-color: hsl(var(--success));
+	color: #1e1e2e;
+}
+.flat-badge-pending {
+	background-color: hsl(var(--booking-busy));
+	color: #1e1e2e;
+}
+.flat-badge-request {
+	background-color: hsl(var(--primary));
+	color: white;
+}
+.dark .flat-badge-request {
+	color: #1e1e2e;
+}
+.flat-badge-warning {
+	background-color: hsl(var(--warning));
+	color: #1e1e2e;
+}
+.flat-badge-inactive {
+	background-color: hsl(var(--muted-foreground));
+	color: #1e1e2e;
 }
 
 @layer base {
@@ -161,6 +201,11 @@
 		background-color: hsl(var(--background));
 		color: hsl(var(--foreground));
 		font-family: var(--font-sans);
+	}
+	/* Lock background scroll while any dialog is open (bits-ui provides no
+		lock itself; :has covers stacked dialogs with no counter to desync) */
+	body:has([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) {
+		overflow: hidden;
 	}
 	button,
 	[role="button"] {

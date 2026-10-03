@@ -3,7 +3,8 @@ import { eq } from 'drizzle-orm';
 import { createSession, setSessionCookie, verifyPin } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
-import { checkRateLimit, rateLimitErrorMessage, recordFailedAttempt, resetAttempts } from '$lib/server/rate-limit';
+import { handleHandlerError, requireRateLimit } from '$lib/server/handler';
+import { recordFailedAttempt, resetAttempts } from '$lib/server/rate-limit';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
@@ -15,22 +16,20 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		}
 
 		// Rate limiting
-		const { allowed, retryAfterMs } = checkRateLimit(flatNumber);
-		if (!allowed) {
-			return json({ error: rateLimitErrorMessage(retryAfterMs || 0) }, { status: 429 });
-		}
+		const limited = requireRateLimit(flatNumber);
+		if (limited) return limited;
 
 		const existingFlat = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();
 
-		if (!existingFlat?.isActive || !existingFlat.pinHash) {
+		if (existingFlat?.status !== 'active' || !existingFlat.pinHash) {
 			recordFailedAttempt(flatNumber);
-			return json({ error: "Numéro d'appartement ou PIN invalide" }, { status: 401 });
+			return json({ error: 'Numéro de lot ou PIN invalide' }, { status: 401 });
 		}
 
 		const valid = await verifyPin(pin, existingFlat.pinHash);
 		if (!valid) {
 			recordFailedAttempt(flatNumber);
-			return json({ error: "Numéro d'appartement ou PIN invalide" }, { status: 401 });
+			return json({ error: 'Numéro de lot ou PIN invalide' }, { status: 401 });
 		}
 
 		// Success — reset rate limit
@@ -48,10 +47,6 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			}
 		});
 	} catch (e) {
-		if (e instanceof SyntaxError) {
-			return json({ error: 'Requête invalide' }, { status: 400 });
-		}
-		console.error('[POST /api/auth/login]', e);
-		return json({ error: 'Erreur interne' }, { status: 500 });
+		return handleHandlerError('POST /api/auth/login', e);
 	}
 };

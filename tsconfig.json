@@ -12,5 +12,5 @@
 		"strict": true,
 		"moduleResolution": "bundler"
 	},
-	"include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.svelte"]
+	"include": [".svelte-kit/ambient.d.ts", "src/**/*.ts", "src/**/*.d.ts", "src/**/*.svelte"]
 }

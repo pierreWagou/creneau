@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { buildSpotTimeline } from '$lib/server/availability';
 import { getBookingsInRange } from '$lib/server/bookings';
 import { db } from '$lib/server/db';
@@ -23,11 +23,11 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 	const targetSpot = await db
 		.select()
 		.from(spot)
-		.where(and(eq(spot.number, spotNumber), isNull(spot.flatNumber)))
+		.where(and(eq(spot.number, spotNumber), eq(spot.status, 'shared')))
 		.get();
 
 	if (!targetSpot) {
-		return json({ error: 'Place introuvable' }, { status: 404 });
+		return json({ error: 'Place de parking introuvable' }, { status: 404 });
 	}
 
 	try {

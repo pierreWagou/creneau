@@ -1,0 +1,1 @@
+ALTER TABLE `flat` ADD `request_conflicts` text;

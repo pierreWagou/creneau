@@ -24,10 +24,10 @@
 	</div>
 
 	<!-- Ce que fait Créneau -->
-	<Card.Root class="border-t-2 border-green-600 dark:border-green-400">
+	<Card.Root class="border-t-2 border-success">
 		<Card.Header>
 			<Card.Title class="flex items-center gap-2">
-				<Sparkles class="h-5 w-5 text-green-600 dark:text-green-400" />
+				<Sparkles class="h-5 w-5 text-success" />
 				Ce que fait Créneau
 			</Card.Title>
 			<Card.Description>Les fonctionnalités essentielles</Card.Description>
@@ -35,19 +35,19 @@
 		<Card.Content>
 			<ul class="text-muted-foreground space-y-2 text-sm">
 				<li class="flex items-start gap-2">
-					<span class="mt-0.5 text-green-600 dark:text-green-400">✓</span>
-					<span>Voir en temps réel quelles places sont libres</span>
+					<span class="mt-0.5 text-success">✓</span>
+					<span>Voir en temps réel quelles places de parking sont libres</span>
 				</li>
 				<li class="flex items-start gap-2">
-					<span class="mt-0.5 text-green-600 dark:text-green-400">✓</span>
+					<span class="mt-0.5 text-success">✓</span>
 					<span>Réserver sans conflit possible</span>
 				</li>
 				<li class="flex items-start gap-2">
-					<span class="mt-0.5 text-green-600 dark:text-green-400">✓</span>
+					<span class="mt-0.5 text-success">✓</span>
 					<span>Annuler ou modifier facilement</span>
 				</li>
 				<li class="flex items-start gap-2">
-					<span class="mt-0.5 text-green-600 dark:text-green-400">✓</span>
+					<span class="mt-0.5 text-success">✓</span>
 					<span>Tout se met à jour instantanément pour tous</span>
 				</li>
 			</ul>
@@ -61,51 +61,55 @@
 				<Zap class="text-primary h-5 w-5" />
 				Commencer
 			</Card.Title>
-			<Card.Description>3 étapes pour activer votre compte</Card.Description>
+			<Card.Description>Comment accéder à l'application</Card.Description>
 		</Card.Header>
 		<Card.Content>
 			<ol class="text-muted-foreground space-y-3 text-sm">
 				<li class="flex items-start gap-3">
 					<span class="bg-primary text-primary-foreground flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">1</span>
-					<span>Activez votre compte avec le <strong class="text-foreground">code d'activation</strong> reçu (valable 24h)</span>
+					<span><strong class="text-foreground">Demandez l'accès</strong> via le formulaire avec votre numéro d'appartement, vos places de parking souhaitées et vos coordonnées</span>
 				</li>
 				<li class="flex items-start gap-3">
 					<span class="bg-primary text-primary-foreground flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">2</span>
-					<span>Choisissez un <strong class="text-foreground">code PIN secret</strong> (4 à 6 chiffres) — c'est votre moyen de connexion</span>
+					<span>L'administrateur approuve votre demande et vous envoie un <strong class="text-foreground">code d'activation</strong> (valable 24h)</span>
 				</li>
 				<li class="flex items-start gap-3">
 					<span class="bg-primary text-primary-foreground flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">3</span>
-					<span><strong class="text-foreground">C'est prêt !</strong> Vous pouvez réserver vos places</span>
+					<span>Activez votre compte et choisissez un <strong class="text-foreground">code PIN secret</strong> (4 à 6 chiffres)</span>
+				</li>
+				<li class="flex items-start gap-3">
+					<span class="bg-primary text-primary-foreground flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">4</span>
+					<span><strong class="text-foreground">C'est prêt !</strong> Vous pouvez réserver vos places de parking</span>
 				</li>
 			</ol>
 		</Card.Content>
 	</Card.Root>
 
 	<!-- Réserver une place -->
-	<Card.Root class="border-t-2 border-yellow-600 dark:border-yellow-400">
+	<Card.Root class="border-t-2 border-warning">
 		<Card.Header>
 			<Card.Title class="flex items-center gap-2">
-				<CalendarDays class="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
-				Réserver une place
-			</Card.Title>
+				<CalendarDays class="h-5 w-5 text-warning" />
+			Réserver une place de parking
+		</Card.Title>
 			<Card.Description>Quelques clics et c'est fait</Card.Description>
 		</Card.Header>
 		<Card.Content>
 			<ol class="text-muted-foreground space-y-3 text-sm">
 				<li class="flex items-start gap-3">
-					<span class="bg-yellow-600 dark:bg-yellow-400 text-background flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">1</span>
+					<span class="bg-warning text-background flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">1</span>
 					<span>Ouvrez le <strong class="text-foreground">Calendrier</strong></span>
 				</li>
 				<li class="flex items-start gap-3">
-					<span class="bg-yellow-600 dark:bg-yellow-400 text-background flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">2</span>
+					<span class="bg-warning text-background flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">2</span>
 					<span>Choisissez une <strong class="text-foreground">date</strong> (les cases vertes sont libres)</span>
 				</li>
 				<li class="flex items-start gap-3">
-					<span class="bg-yellow-600 dark:bg-yellow-400 text-background flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">3</span>
+					<span class="bg-warning text-background flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">3</span>
 					<span>Sélectionnez votre <strong class="text-foreground">créneau horaire</strong></span>
 				</li>
 				<li class="flex items-start gap-3">
-					<span class="bg-yellow-600 dark:bg-yellow-400 text-background flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">4</span>
+					<span class="bg-warning text-background flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">4</span>
 					<span><strong class="text-foreground">Confirmez</strong> — c'est réservé !</span>
 				</li>
 			</ol>
@@ -144,10 +148,10 @@
 	</Card.Root>
 
 	<!-- Règles simples -->
-	<Card.Root class="border-t-2 border-orange-600 dark:border-orange-400">
+	<Card.Root class="border-t-2 border-booking-busy">
 		<Card.Header>
 			<Card.Title class="flex items-center gap-2">
-				<ShieldCheck class="h-5 w-5 text-orange-600 dark:text-orange-400" />
+				<ShieldCheck class="h-5 w-5 text-booking-busy" />
 				Règles simples
 			</Card.Title>
 			<Card.Description>Pas de surprise, tout est clair</Card.Description>
@@ -155,26 +159,26 @@
 		<Card.Content>
 			<ul class="text-muted-foreground space-y-2 text-sm">
 				<li class="flex items-start gap-2">
-					<span class="mt-0.5 text-orange-600 dark:text-orange-400">•</span>
+					<span class="mt-0.5 text-booking-busy">•</span>
 					<span><strong class="text-foreground">Max 7 jours</strong> consécutifs par réservation</span>
 				</li>
 				<li class="flex items-start gap-2">
-					<span class="mt-0.5 text-orange-600 dark:text-orange-400">•</span>
+					<span class="mt-0.5 text-booking-busy">•</span>
 					<span><strong class="text-foreground">Annulation libre</strong> à tout moment (pour les réservations à venir)</span>
 				</li>
 				<li class="flex items-start gap-2">
-					<span class="mt-0.5 text-orange-600 dark:text-orange-400">•</span>
-					<span><strong class="text-foreground">Pas de conflit possible</strong> — si une place est prise, l'appli l'empêche</span>
+					<span class="mt-0.5 text-booking-busy">•</span>
+					<span><strong class="text-foreground">Pas de conflit possible</strong> — si une place de parking est prise, l'appli l'empêche</span>
 				</li>
 			</ul>
 		</Card.Content>
 	</Card.Root>
 
 	<!-- Activité -->
-	<Card.Root class="border-t-2 border-purple-600 dark:border-purple-400">
+	<Card.Root class="border-t-2 border-accent">
 		<Card.Header>
 			<Card.Title class="flex items-center gap-2">
-				<ChartBar class="h-5 w-5 text-purple-600 dark:text-purple-400" />
+				<ChartBar class="h-5 w-5 text-accent" />
 				Activité
 			</Card.Title>
 			<Card.Description>Statistiques et transparence</Card.Description>
@@ -182,35 +186,64 @@
 		<Card.Content>
 			<ul class="text-muted-foreground space-y-2 text-sm">
 				<li class="flex items-start gap-2">
-					<span class="mt-0.5 text-purple-600 dark:text-purple-400">•</span>
+					<span class="mt-0.5 text-accent">•</span>
 					<span>Consultez vos <strong class="text-foreground">statistiques personnelles</strong> : heures de réservation, nombre de créneaux</span>
 				</li>
 				<li class="flex items-start gap-2">
-					<span class="mt-0.5 text-purple-600 dark:text-purple-400">•</span>
+					<span class="mt-0.5 text-accent">•</span>
 					<span>Suivez l'<strong class="text-foreground">utilisation globale</strong> de l'immeuble</span>
 				</li>
 				<li class="flex items-start gap-2">
-					<span class="mt-0.5 text-purple-600 dark:text-purple-400">•</span>
+					<span class="mt-0.5 text-accent">•</span>
 					<span>Découvrez le <strong class="text-foreground">classement des résidents</strong> — transparent pour tous</span>
 				</li>
 			</ul>
 		</Card.Content>
 	</Card.Root>
 
-	<!-- Confidentialité -->
-	<Card.Root class="border-t-2 border-teal-600 dark:border-teal-400">
+	<!-- Vos coordonnées -->
+	<Card.Root class="border-t-2 border-info">
 		<Card.Header>
 			<Card.Title class="flex items-center gap-2">
-				<Lock class="h-5 w-5 text-teal-600 dark:text-teal-400" />
+				<Mail class="h-5 w-5 text-info" />
+				Vos coordonnées
+			</Card.Title>
+			<Card.Description>Gardez vos contacts à jour</Card.Description>
+		</Card.Header>
+		<Card.Content>
+			<ul class="text-muted-foreground space-y-2 text-sm">
+				<li class="flex items-start gap-2">
+					<span class="mt-0.5 text-info">•</span>
+					<span>Ajoutez ou modifiez vos <strong class="text-foreground">emails</strong> et <strong class="text-foreground">téléphones</strong> depuis la page Mon compte</span>
+				</li>
+				<li class="flex items-start gap-2">
+					<span class="mt-0.5 text-info">•</span>
+					<span>Au moins <strong class="text-foreground">1 email et 1 téléphone</strong> sont requis pour pouvoir réserver</span>
+				</li>
+				<li class="flex items-start gap-2">
+					<span class="mt-0.5 text-info">•</span>
+					<span>Vos coordonnées ne sont visibles que par vous et les administrateurs</span>
+				</li>
+			</ul>
+		</Card.Content>
+	</Card.Root>
+
+	<!-- Confidentialité -->
+	<Card.Root class="border-t-2 border-info">
+		<Card.Header>
+			<Card.Title class="flex items-center gap-2">
+				<Lock class="h-5 w-5 text-info" />
 				Confidentialité
 			</Card.Title>
 			<Card.Description>Vos données sont protégées</Card.Description>
 		</Card.Header>
 		<Card.Content class="space-y-2">
 			<p class="text-muted-foreground text-sm">
-				Aucune donnée personnelle n'est stockée. Uniquement les numéros d'appartement, les places
-				et les horaires de réservation. Le serveur est situé dans l'immeuble, aucune donnée n'est
-				transmise à un service externe.
+				Les données stockées sont les numéros d'appartement, les places de parking, les horaires de réservation
+				et vos coordonnées (emails et téléphones) pour faciliter la communication entre résidents.
+			</p>
+			<p class="text-muted-foreground text-sm">
+				Aucune donnée n'est transmise à un service externe. Le serveur est situé dans l'immeuble.
 			</p>
 			<p class="text-muted-foreground text-sm">
 				Les administrateurs de l'application sont les membres du conseil syndical.
@@ -219,10 +252,10 @@
 	</Card.Root>
 
 	<!-- Tester l'application -->
-	<Card.Root class="border-t-2 border-pink-600 dark:border-pink-400">
+	<Card.Root class="border-t-2 border-accent">
 		<Card.Header>
 			<Card.Title class="flex items-center gap-2">
-				<Play class="h-5 w-5 text-pink-600 dark:text-pink-400" />
+				<Play class="h-5 w-5 text-accent" />
 				Tester l'application
 			</Card.Title>
 			<Card.Description>Version de démonstration</Card.Description>
@@ -251,10 +284,10 @@
 	</Card.Root>
 
 	<!-- FAQ -->
-	<Card.Root class="border-t-2 border-cyan-600 dark:border-cyan-400">
+	<Card.Root class="border-t-2 border-primary">
 		<Card.Header>
 			<Card.Title class="flex items-center gap-2">
-				<CircleHelp class="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+				<CircleHelp class="h-5 w-5 text-primary" />
 				Questions fréquentes
 			</Card.Title>
 			<Card.Description>Les réponses aux questions courantes</Card.Description>
@@ -275,6 +308,10 @@
 			<div class="space-y-1">
 				<p class="font-medium text-foreground">Comment modifier une réservation ?</p>
 				<p class="text-muted-foreground">Depuis le calendrier en glissant-déposant, ou depuis Mes réservations.</p>
+			</div>
+			<div class="space-y-1">
+				<p class="font-medium text-foreground">Comment mettre à jour mes coordonnées ?</p>
+				<p class="text-muted-foreground">Depuis Mon compte dans la section Coordonnées. Ajoutez ou supprimez des emails et téléphones.</p>
 			</div>
 		</Card.Content>
 	</Card.Root>
