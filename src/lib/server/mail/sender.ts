@@ -3,6 +3,7 @@ import nodemailer from 'nodemailer';
 import { env } from '$env/dynamic/private';
 import { ACTIVATE_PATH, DEFAULT_SENDER, SMTP_DEFAULT_PORT, SMTP_POOL_SIZE, SMTP_TIMEOUT_MS } from '$lib/constants';
 import { formatBookingEndFr, formatCompactDateTimeFr } from '$lib/utils/time';
+import { isValidEmail } from '$lib/validation';
 import { getFlatEmails } from '../contacts';
 import type { db } from '../db';
 import { bookingUid, buildICS, type CalendarEvent } from '../ics';
@@ -70,6 +71,32 @@ function logoAttachment(): MailAttachment {
 }
 
 /**
+ * Catch-all redirect resolution (pure — env read stays in `deliver()` so this
+ * is trivially unit-testable). When `SMTP_REDIRECT_ALL_TO` is set (preview
+ * only — production must never set it), every recipient is swapped for the
+ * redirect address and the originals are preserved in `X-Original-To` plus a
+ * `[Preview]` subject tag. Unset → identity (production path untouched).
+ */
+export interface RedirectResolution {
+	to: string[];
+	headers: Record<string, string>;
+	subjectTag: string | null;
+}
+
+export function resolveRedirect(to: string[], redirectTo?: string): RedirectResolution {
+	if (!redirectTo || to.length === 0) return { to, headers: {}, subjectTag: null };
+	if (!isValidEmail(redirectTo)) {
+		console.warn(`[mail] Invalid SMTP_REDIRECT_ALL_TO "${redirectTo}", redirecting anyway.`);
+	}
+	console.warn(`[mail] Redirecting ${to.length} recipient(s) to ${redirectTo} (catch-all guard active).`);
+	return {
+		to: [redirectTo],
+		headers: { 'X-Original-To': to.join(', ') },
+		subjectTag: '[Preview]'
+	};
+}
+
+/**
  * Single-transaction delivery core: resolves `false` (never throws) when
  * SMTP is unconfigured, there is nobody to write to, or the send fails.
  * A failed send resets the cached transporter so the next call retries.
@@ -86,13 +113,15 @@ async function deliver(
 		if (to.length === 0) console.warn('[mail] No recipients, skipping email.');
 		return false;
 	}
+	const resolved = resolveRedirect(to, env.SMTP_REDIRECT_ALL_TO);
 	try {
 		await transport.sendMail({
 			from: env.SMTP_FROM || DEFAULT_SENDER,
-			to: to.join(', '),
-			subject,
+			to: resolved.to.join(', '),
+			subject: resolved.subjectTag ? `${resolved.subjectTag} ${subject}` : subject,
 			text,
 			html,
+			headers: resolved.headers,
 			attachments: [...attachments, logoAttachment()]
 		});
 		return true;
