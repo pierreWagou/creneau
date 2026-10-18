@@ -50,7 +50,7 @@ test.describe
 			await expect(page.locator(`.ec-event:has-text("${FLAT.number}")`)).toBeVisible({ timeout: 10000 });
 		});
 
-		test('clicking an event shows popover with details', async ({ page }) => {
+		test('clicking an event opens the booking drawer with details', async ({ page }) => {
 			await login(page, FLAT.number, FLAT.pin);
 			const cookies = await getSessionCookie(page);
 			lastCookies = cookies;
@@ -74,11 +74,13 @@ test.describe
 			const event = page.locator(`.ec-event:has-text("${FLAT.number}")`).first();
 			await event.click();
 
-			// Verify popover appears with cancel button (own booking)
-			await expect(page.locator('text=Annuler la réservation')).toBeVisible({ timeout: 5000 });
+			// Verify the shared drawer opens with details + owner actions
+			await expect(page.locator(`text=Réservation #${booking.id}`)).toBeVisible({ timeout: 5000 });
+			await expect(page.getByRole('button', { name: 'Modifier', exact: true })).toBeVisible();
+			await expect(page.getByRole('button', { name: 'Annuler', exact: true })).toBeVisible();
 		});
 
-		test('cancel a booking from the calendar popover', async ({ page }) => {
+		test('cancel a booking from the calendar drawer', async ({ page }) => {
 			await login(page, FLAT.number, FLAT.pin);
 			const cookies = await getSessionCookie(page);
 			lastCookies = cookies;
@@ -102,11 +104,9 @@ test.describe
 			const event = page.locator(`.ec-event:has-text("${FLAT.number}")`).first();
 			await event.click();
 
-			// Click "Annuler la réservation"
-			await page.locator('button:text("Annuler la réservation")').click();
-
-			// Click "Confirmer" in the inline confirmation
-			await page.locator('button:text("Confirmer")').click();
+			// Drawer footer Annuler, then confirm in the dialog
+			await page.getByRole('button', { name: 'Annuler' }).click();
+			await page.getByRole('button', { name: 'Annuler la réservation' }).click();
 
 			// Booking was cancelled via UI — no need for afterEach cleanup
 			lastBookingId = null;

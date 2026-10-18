@@ -21,12 +21,19 @@ export function validateEmails(emails: unknown): string[] | string {
 
 export function validatePhones(phones: unknown): string[] | string {
 	if (!Array.isArray(phones)) return 'Les téléphones doivent être un tableau';
-	const raw = phones.map((p) => String(p).trim()).filter((p) => p.length > 0);
-	if (raw.length === 0) return 'Au moins un téléphone requis';
-	if (raw.length > MAX_CONTACTS_PER_TYPE) {
+	// Normalize (format) before dedupe + count, like emails: what is stored is what counts.
+	const formatted = [
+		...new Set(
+			phones
+				.map((p) => String(p).trim())
+				.filter((p) => p.length > 0)
+				.map(formatPhone)
+		)
+	];
+	if (formatted.length === 0) return 'Au moins un téléphone requis';
+	if (formatted.length > MAX_CONTACTS_PER_TYPE) {
 		return `Maximum ${MAX_CONTACTS_PER_TYPE} téléphones autorisés`;
 	}
-	const formatted = [...new Set(raw.map(formatPhone))];
 	for (const phone of formatted) {
 		if (!isValidPhone(phone)) return `Téléphone invalide : "${phone}"`;
 	}
@@ -55,4 +62,21 @@ export async function setFlatPhones(database: DbOrTx, flatNumber: string, phones
 	if (phones.length > 0) {
 		await database.insert(flatPhone).values(phones.map((phone) => ({ flatNumber, phone })));
 	}
+}
+
+/**
+ * Validate one contact list and persist it via `replace`. Returns the error
+ * message when validation fails (caller answers it, e.g. `errorJson(err, 400)`),
+ * else null. Returns a message instead of a Response so this module stays
+ * free of handler imports (`handler.ts` already imports from here).
+ */
+export async function replaceValidatedContacts(
+	raw: unknown,
+	validate: (v: unknown) => string[] | string,
+	replace: (values: string[]) => Promise<void>
+): Promise<string | null> {
+	const validated = validate(raw);
+	if (typeof validated === 'string') return validated;
+	await replace(validated);
+	return null;
 }

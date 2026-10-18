@@ -1,14 +1,15 @@
 <script lang="ts">
 	import { Combobox } from 'bits-ui';
-	import { tick } from 'svelte';
-	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
+	import AsyncButton from '$lib/components/async-button.svelte';
+	import FormField from '$lib/components/form-field.svelte';
 	import Logo from '$lib/components/logo.svelte';
-	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
 	import { PIN_MAX_LENGTH, PIN_MIN_LENGTH, UI_FOCUS_DELAY_MS } from '$lib/constants';
+	import { apiFetch } from '$lib/utils/api';
+	import { rankComboboxMatches } from '$lib/utils/combobox';
+	import { notifyResult } from '$lib/utils/toasts';
 
 	let { data } = $props();
 
@@ -31,17 +32,7 @@
 		}))
 	);
 
-	const filteredItems = $derived(
-		searchValue.trim() === ''
-			? []
-			: (() => {
-					const q = searchValue.trim().toLowerCase();
-					const matches = items.filter((item) => item.label.toLowerCase().includes(q));
-					const startsWith = matches.filter((item) => item.label.toLowerCase().startsWith(q));
-					const contains = matches.filter((item) => !item.label.toLowerCase().startsWith(q));
-					return [...startsWith, ...contains];
-				})()
-	);
+	const filteredItems = $derived(rankComboboxMatches(items, searchValue, (item) => item.label));
 
 	$effect(() => {
 		const match = flats.find((f) => f.number.toLowerCase() === searchValue.trim().toLowerCase());
@@ -50,40 +41,37 @@
 
 	$effect(() => {
 		const _ = filteredItems;
-		if (comboOpen) {
-			requestAnimationFrame(() => {
-				if (comboOpen && inputEl) {
-					retriggering = true;
-					inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-					retriggering = false;
-				}
-			});
-		}
+		if (!comboOpen) return;
+		const frame = requestAnimationFrame(() => {
+			if (comboOpen && inputEl) {
+				retriggering = true;
+				inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+				retriggering = false;
+			}
+		});
+		return () => cancelAnimationFrame(frame);
 	});
 
 	async function handleLogin() {
 		if (!flatNumber || !pin) return;
 		loading = true;
 
-		try {
-			const res = await fetch('/api/auth/login', {
+		const result = await apiFetch(
+			'/api/auth/login',
+			{
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ flatNumber, pin })
-			});
+			},
+			'Connexion impossible'
+		);
 
-			const result = await res.json();
-
-			if (res.ok) {
-				goto('/calendar');
-			} else {
-				toast.error(result.error || 'Connexion impossible');
-			}
-		} catch {
-			toast.error('Erreur de connexion');
-		} finally {
-			loading = false;
+		if (result.ok) {
+			goto('/calendar');
+		} else {
+			notifyResult(result, null, 'Connexion impossible');
 		}
+		loading = false;
 	}
 </script>
 
@@ -98,8 +86,7 @@
 	</Card.Header>
 	<Card.Content>
 		<form onsubmit={(e) => { e.preventDefault(); handleLogin(); }} class="space-y-4">
-			<div class="space-y-2">
-				<Label for="flat">Numéro d'appartement <span class="text-destructive">*</span></Label>
+			<FormField label="Numéro de lot" for="flat" required>
 				{#if flats.length > 0}
 				<Combobox.Root
 					type="single"
@@ -141,7 +128,7 @@
 										</Combobox.Item>
 									{:else}
 										<span class="text-muted-foreground block px-2 py-1.5 text-sm">
-											Aucun appartement trouvé.
+											Aucun lot trouvé.
 										</span>
 									{/each}
 								</Combobox.Viewport>
@@ -151,9 +138,8 @@
 				{:else}
 					<Input id="flat" type="text" placeholder="ex. B12" bind:value={flatNumber} required />
 				{/if}
-			</div>
-			<div class="space-y-2">
-				<Label for="pin">Code PIN <span class="text-destructive">*</span></Label>
+			</FormField>
+			<FormField label="Code PIN" for="pin" required>
 				<Input
 					id="pin"
 					type="password"
@@ -165,16 +151,16 @@
 					bind:ref={pinInputEl}
 					required
 				/>
-			</div>
-			<Button type="submit" class="w-full" disabled={loading || !flatNumber || !pin}>
-				{loading ? 'Connexion...' : 'Se connecter'}
-			</Button>
+			</FormField>
+			<AsyncButton type="submit" class="w-full" disabled={!flatNumber || !pin} {loading} loadingLabel="Connexion…">
+				Se connecter
+			</AsyncButton>
 		</form>
 	</Card.Content>
 	<Card.Footer class="flex-col gap-2">
 	<p class="text-muted-foreground text-sm">
 		Vous avez une invitation ? <a href="/activate" class="inline-link font-medium"
-			>Activer mon appartement</a
+			>Activer mon lot</a
 		>
 	</p>
 	<p class="text-muted-foreground text-sm">

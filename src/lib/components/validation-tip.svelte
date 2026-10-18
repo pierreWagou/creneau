@@ -33,7 +33,7 @@
 				{#if items?.length}
 					{#if title}<p class="font-medium mb-1">{title}</p>{/if}
 					<ul class="list-disc pl-4 space-y-0.5">
-						{#each items as item}
+						{#each items as item (item)}
 							<li class="text-xs">{item}</li>
 						{/each}
 					</ul>

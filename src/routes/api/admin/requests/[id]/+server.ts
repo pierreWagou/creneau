@@ -1,41 +1,46 @@
 import { json } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
-import { formatSpotNumber, SPOT_NUMBER_REGEX } from '$lib/constants';
-import { validateEmails, validatePhones } from '$lib/server/contacts';
+import { REJECTION_REASON_MAX_LENGTH } from '$lib/constants';
+import { replaceValidatedContacts, validateEmails, validatePhones } from '$lib/server/contacts';
 import { db } from '$lib/server/db';
 import { flat, flatEmail, flatPhone, request, requestEmail, requestPhone, requestSpot } from '$lib/server/db/schema';
+import { inviteFlat } from '$lib/server/flat-state';
 import { requireAdmin } from '$lib/server/guards';
-import { bindSpotsToFlat, detectConflicts, guardRebind } from '$lib/server/rebind';
+import { errorJson, handleHandlerError, parseNumericId } from '$lib/server/handler';
+import { mailFlag, sendRequestApprovedEmail, sendRequestRejectedEmail, sendWithMailFlag } from '$lib/server/mail';
+import { bindSpotsToFlat, detectConflicts, guardRebind, parseSpotListInput } from '$lib/server/rebind';
 import type { RequestHandler } from './$types';
 
-export const POST: RequestHandler = async ({ params, request: req, locals }) => {
+export const POST: RequestHandler = async ({ params, request: req, locals, url }) => {
 	const guard = requireAdmin(locals);
 	if (guard) return guard;
 
-	const requestId = Number(params.id);
-	if (Number.isNaN(requestId)) {
-		return json({ error: 'ID invalide' }, { status: 400 });
-	}
+	const parsedId = parseNumericId(params, 'demande');
+	if (parsedId instanceof Response) return parsedId;
+	const requestId = parsedId;
 
 	try {
 		const existing = await db.select().from(request).where(eq(request.id, requestId)).get();
 
 		if (!existing) {
-			return json({ error: 'Demande introuvable' }, { status: 404 });
+			return errorJson('Demande introuvable', 404);
 		}
 
 		if (existing.status !== 'pending') {
-			return json({ error: 'Cette demande a déjà été traitée' }, { status: 409 });
+			return errorJson('Cette demande a déjà été traitée', 409);
 		}
 
 		// Check flat doesn't already exist
 		const existingFlat = await db.select().from(flat).where(eq(flat.number, existing.flatNumber)).get();
 		if (existingFlat) {
-			return json({ error: `Le lot ${existing.flatNumber} existe déjà` }, { status: 409 });
+			return errorJson(`Le lot ${existing.flatNumber} existe déjà`, 409);
 		}
 
 		// Read requested spots
 		const requestedSpots = await db.select().from(requestSpot).where(eq(requestSpot.requestId, requestId)).all();
+		if (requestedSpots.length === 0) {
+			return errorJson('Cette demande ne contient plus de place de parking', 400);
+		}
 
 		// Detect conflicts: requested spots currently bound to other flats
 		const conflicts = await detectConflicts(
@@ -50,7 +55,7 @@ export const POST: RequestHandler = async ({ params, request: req, locals }) => 
 			const body = await req.json();
 			force = body?.force === true;
 		} catch {
-			// No body or invalid JSON
+			// Sanctioned: optional body → default force=false (no body or invalid JSON).
 		}
 
 		const refused = await guardRebind(db, conflicts, force);
@@ -95,10 +100,28 @@ export const POST: RequestHandler = async ({ params, request: req, locals }) => 
 				.where(eq(request.id, requestId));
 		});
 
-		return json({ message: 'Demande approuvée' });
+		// Approval also creates the invitation so the mail carries a usable
+		// link right away. Mail never fails the approval: on any delivery
+		// problem we log and still answer success (the code stays usable).
+		const { mailFailed } = await sendWithMailFlag(
+			'POST /api/admin/requests/:id',
+			async () => {
+				const invited = await inviteFlat(existing.flatNumber);
+				if (!invited.activationCode) return true;
+				return sendRequestApprovedEmail(
+					db,
+					existing.flatNumber,
+					invited.activationCode,
+					url.origin,
+					reqEmails.map((r) => r.email)
+				);
+			},
+			`flat ${existing.flatNumber}`
+		);
+
+		return json({ success: true, ...mailFlag(mailFailed) });
 	} catch (e) {
-		console.error('[POST /api/admin/requests/:id]', e);
-		return json({ error: 'Erreur interne' }, { status: 500 });
+		return handleHandlerError('POST /api/admin/requests/:id', e);
 	}
 };
 
@@ -106,27 +129,26 @@ export const PUT: RequestHandler = async ({ params, request: req, locals }) => {
 	const guard = requireAdmin(locals);
 	if (guard) return guard;
 
-	const requestId = Number(params.id);
-	if (Number.isNaN(requestId)) {
-		return json({ error: 'ID invalide' }, { status: 400 });
-	}
+	const parsedId = parseNumericId(params, 'demande');
+	if (parsedId instanceof Response) return parsedId;
+	const requestId = parsedId;
 
 	let updates: Record<string, unknown>;
 	try {
 		updates = await req.json();
-	} catch {
-		return json({ error: 'Requête invalide' }, { status: 400 });
+	} catch (e) {
+		return handleHandlerError('PUT /api/admin/requests/:id', e);
 	}
 
 	try {
 		const existing = await db.select().from(request).where(eq(request.id, requestId)).get();
 
 		if (!existing) {
-			return json({ error: 'Demande introuvable' }, { status: 404 });
+			return errorJson('Demande introuvable', 404);
 		}
 
 		if (existing.status !== 'pending') {
-			return json({ error: 'Cette demande a déjà été traitée' }, { status: 409 });
+			return errorJson('Cette demande a déjà été traitée', 409);
 		}
 
 		if ('requesterName' in updates) {
@@ -137,42 +159,32 @@ export const PUT: RequestHandler = async ({ params, request: req, locals }) => {
 		}
 
 		if ('emails' in updates) {
-			const validatedEmails = validateEmails(updates.emails);
-			if (typeof validatedEmails === 'string') {
-				return json({ error: validatedEmails }, { status: 400 });
-			}
-			await db.delete(requestEmail).where(eq(requestEmail.requestId, requestId));
-			if (validatedEmails.length > 0) {
-				await db.insert(requestEmail).values(validatedEmails.map((email) => ({ requestId, email })));
-			}
+			const emailError = await replaceValidatedContacts(updates.emails, validateEmails, async (values) => {
+				await db.delete(requestEmail).where(eq(requestEmail.requestId, requestId));
+				if (values.length > 0) {
+					await db.insert(requestEmail).values(values.map((email) => ({ requestId, email })));
+				}
+			});
+			if (emailError) return errorJson(emailError, 400);
 		}
 
 		if ('phones' in updates) {
-			const validatedPhones = validatePhones(updates.phones);
-			if (typeof validatedPhones === 'string') {
-				return json({ error: validatedPhones }, { status: 400 });
-			}
-			await db.delete(requestPhone).where(eq(requestPhone.requestId, requestId));
-			if (validatedPhones.length > 0) {
-				await db.insert(requestPhone).values(validatedPhones.map((phone) => ({ requestId, phone })));
-			}
+			const phoneError = await replaceValidatedContacts(updates.phones, validatePhones, async (values) => {
+				await db.delete(requestPhone).where(eq(requestPhone.requestId, requestId));
+				if (values.length > 0) {
+					await db.insert(requestPhone).values(values.map((phone) => ({ requestId, phone })));
+				}
+			});
+			if (phoneError) return errorJson(phoneError, 400);
 		}
 
 		if ('spotNumbers' in updates) {
-			const spotNumbers: string[] = Array.isArray(updates.spotNumbers) ? updates.spotNumbers : [];
-			const trimmedSpots = [
-				...new Set(spotNumbers.map((s) => formatSpotNumber(String(s).trim())).filter((s) => s.length > 0))
-			];
-
-			if (trimmedSpots.length === 0) {
-				return json({ error: 'Une demande doit avoir au moins une place de parking' }, { status: 400 });
-			}
-
-			for (const s of trimmedSpots) {
-				if (!SPOT_NUMBER_REGEX.test(s)) {
-					return json({ error: `Format de place de parking invalide : "${s}" (ex. 01, 36)` }, { status: 400 });
-				}
-			}
+			const parsedSpots = parseSpotListInput(
+				updates.spotNumbers,
+				'Une demande doit avoir au moins une place de parking'
+			);
+			if (parsedSpots instanceof Response) return parsedSpots;
+			const trimmedSpots = parsedSpots;
 
 			await db.delete(requestSpot).where(eq(requestSpot.requestId, requestId));
 			await db.insert(requestSpot).values(trimmedSpots.map((spotNumber) => ({ requestId, spotNumber })));
@@ -192,29 +204,42 @@ export const PUT: RequestHandler = async ({ params, request: req, locals }) => {
 			}
 		});
 	} catch (e) {
-		console.error('[PUT /api/admin/requests/:id]', e);
-		return json({ error: 'Erreur interne' }, { status: 500 });
+		return handleHandlerError('PUT /api/admin/requests/:id', e);
 	}
 };
 
-export const PATCH: RequestHandler = async ({ params, locals }) => {
+export const PATCH: RequestHandler = async ({ params, locals, request: req, url }) => {
 	const guard = requireAdmin(locals);
 	if (guard) return guard;
 
-	const requestId = Number(params.id);
-	if (Number.isNaN(requestId)) {
-		return json({ error: 'ID invalide' }, { status: 400 });
+	const parsedId = parseNumericId(params, 'demande');
+	if (parsedId instanceof Response) return parsedId;
+	const requestId = parsedId;
+
+	// Optional rejection reason (transient — email only, never stored).
+	// A bare PATCH keeps working: empty bodies mean “no reason”.
+	let reason: string | null = null;
+	try {
+		const rawBody = await req.text();
+		if (rawBody.trim() !== '') {
+			const body = JSON.parse(rawBody) as { reason?: unknown };
+			if (typeof body.reason === 'string' && body.reason.trim() !== '') {
+				reason = body.reason.trim().slice(0, REJECTION_REASON_MAX_LENGTH);
+			}
+		}
+	} catch (e) {
+		return handleHandlerError('PATCH /api/admin/requests/:id', e);
 	}
 
 	try {
 		const existing = await db.select().from(request).where(eq(request.id, requestId)).get();
 
 		if (!existing) {
-			return json({ error: 'Demande introuvable' }, { status: 404 });
+			return errorJson('Demande introuvable', 404);
 		}
 
 		if (existing.status !== 'pending') {
-			return json({ error: 'Cette demande a déjà été traitée' }, { status: 409 });
+			return errorJson('Cette demande a déjà été traitée', 409);
 		}
 
 		// Mark as rejected
@@ -227,9 +252,24 @@ export const PATCH: RequestHandler = async ({ params, locals }) => {
 			})
 			.where(eq(request.id, requestId));
 
-		return json({ success: true });
+		// Courtesy notice to the requester (never fails the rejection).
+		const { mailFailed } = await sendWithMailFlag(
+			'PATCH /api/admin/requests/:id',
+			async () => {
+				const addresses = await db.select().from(requestEmail).where(eq(requestEmail.requestId, requestId)).all();
+				return sendRequestRejectedEmail(
+					addresses.map((r) => r.email),
+					existing.requesterName,
+					reason,
+					existing.flatNumber,
+					url.origin
+				);
+			},
+			`request ${requestId}`
+		);
+
+		return json({ success: true, ...mailFlag(mailFailed) });
 	} catch (e) {
-		console.error('[PATCH /api/admin/requests/:id]', e);
-		return json({ error: 'Erreur interne' }, { status: 500 });
+		return handleHandlerError('PATCH /api/admin/requests/:id', e);
 	}
 };

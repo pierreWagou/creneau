@@ -1,8 +1,10 @@
 import { createClient } from '@libsql/client';
 import { drizzle } from 'drizzle-orm/libsql';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import type { SpotConflict } from '$lib/types';
 import * as schema from './db/schema';
 import {
+	assertNoStrand,
 	bindSpotsToFlat,
 	buildStrandErrorMessage,
 	detectConflicts,
@@ -10,7 +12,7 @@ import {
 	guardRebind,
 	guardSpotFormats,
 	normalizeSpotNumbers,
-	type SpotConflict
+	validateBatchMoves
 } from './rebind';
 
 /**
@@ -130,6 +132,17 @@ describe('detectStrands', () => {
 		expect(await detectStrands(db, conflicts)).toEqual([]);
 	});
 
+	it('flags only the stranded holder among several', async () => {
+		await seedSpot('10', 'A01', 'assigned');
+		await seedSpot('11', 'A02', 'assigned');
+		await seedSpot('12', 'A02', 'assigned');
+		const conflicts: SpotConflict[] = [
+			{ spotNumber: '10', currentFlat: 'A01' },
+			{ spotNumber: '11', currentFlat: 'A02' }
+		];
+		expect(await detectStrands(db, conflicts)).toEqual([{ spotNumber: '10', currentFlat: 'A01' }]);
+	});
+
 	it('is empty when there is no conflict to resolve', async () => {
 		expect(await detectStrands(db, [])).toEqual([]);
 	});
@@ -140,6 +153,24 @@ describe('buildStrandErrorMessage', () => {
 		expect(buildStrandErrorMessage({ spotNumber: '66', currentFlat: 'B10' })).toBe(
 			"Impossible de réaffecter la place de parking 66 — le lot B10 n'aurait plus de place de parking"
 		);
+	});
+});
+
+describe('assertNoStrand', () => {
+	it('refuses releasing the holder last spot with a 409 (swap leg scenario)', async () => {
+		await seedSpot('10', 'A01', 'assigned');
+		const res = await assertNoStrand(db, '10', 'A01');
+		expect(res).not.toBeNull();
+		expect(res!.status).toBe(409);
+		expect(await res!.json()).toEqual({
+			error: "Impossible de réaffecter la place de parking 10 — le lot A01 n'aurait plus de place de parking"
+		});
+	});
+
+	it('allows releasing one spot of several', async () => {
+		await seedSpot('10', 'A01', 'assigned');
+		await seedSpot('11', 'A01', 'assigned');
+		expect(await assertNoStrand(db, '10', 'A01')).toBeNull();
 	});
 });
 
@@ -200,5 +231,86 @@ describe('bindSpotsToFlat', () => {
 
 		const rows = await client.execute('SELECT number FROM spot WHERE flat_number = ? ORDER BY number', ['B01']);
 		expect(rows.rows.map((r) => r.number)).toEqual(['10', '11']);
+	});
+});
+
+describe('validateBatchMoves', () => {
+	const rows = [
+		{ number: '10', flatNumber: 'A01', status: 'assigned' },
+		{ number: '11', flatNumber: 'A01', status: 'assigned' },
+		{ number: '12', flatNumber: null, status: 'shared' },
+		{ number: '13', flatNumber: null, status: 'unassigned' }
+	];
+	const flats = ['A01', 'B01'];
+
+	it('allows an A↔B swap evaluated on final holdings', () => {
+		const res = validateBatchMoves(rows, flats, [
+			{ spotNumber: '10', to: { type: 'flat', flatNumber: 'B01' } },
+			{ spotNumber: '12', to: { type: 'flat', flatNumber: 'A01' } }
+		]);
+		expect('stranded' in res && res.stranded).toEqual([]);
+		expect('writes' in res && res.writes).toEqual([
+			{ spotNumber: '10', flatNumber: 'B01', status: 'assigned' },
+			{ spotNumber: '12', flatNumber: 'A01', status: 'assigned' }
+		]);
+	});
+
+	it('refuses to strand a holder at 0 spots', () => {
+		const res = validateBatchMoves([{ number: '10', flatNumber: 'A01', status: 'assigned' }], flats, [
+			{ spotNumber: '10', to: { type: 'flat', flatNumber: 'B01' } }
+		]);
+		expect('stranded' in res && res.stranded).toEqual([{ spotNumber: '10', currentFlat: 'A01' }]);
+	});
+
+	it('accepts assigned → unassigned without stranding the holder', () => {
+		const res = validateBatchMoves(rows, flats, [{ spotNumber: '10', to: { type: 'unassigned' } }]);
+		expect('stranded' in res && res.stranded).toEqual([]);
+		expect('writes' in res && res.writes).toEqual([{ spotNumber: '10', flatNumber: null, status: 'unassigned' }]);
+	});
+
+	it('refuses assigned → unassigned that strands the holder', () => {
+		const res = validateBatchMoves([{ number: '10', flatNumber: 'A01', status: 'assigned' }], flats, [
+			{ spotNumber: '10', to: { type: 'unassigned' } }
+		]);
+		expect('stranded' in res && res.stranded).toEqual([{ spotNumber: '10', currentFlat: 'A01' }]);
+	});
+
+	it('accepts pool and limbo moves in both directions', () => {
+		const res = validateBatchMoves(rows, flats, [
+			{ spotNumber: '12', to: { type: 'unassigned' } },
+			{ spotNumber: '13', to: { type: 'shared' } }
+		]);
+		expect('writes' in res && res.writes).toEqual([
+			{ spotNumber: '12', flatNumber: null, status: 'unassigned' },
+			{ spotNumber: '13', flatNumber: null, status: 'shared' }
+		]);
+	});
+
+	it('drops no-op moves', () => {
+		const res = validateBatchMoves(rows, flats, [
+			{ spotNumber: '12', to: { type: 'shared' } },
+			{ spotNumber: '13', to: { type: 'unassigned' } }
+		]);
+		expect(res).toEqual({ writes: [], stranded: [] });
+	});
+
+	it('rejects unknown spots and flats', () => {
+		const missingSpot = validateBatchMoves(rows, flats, [{ spotNumber: '99', to: { type: 'shared' } }]);
+		expect('error' in missingSpot && missingSpot.status).toBe(404);
+		const missingFlat = validateBatchMoves(rows, flats, [
+			{ spotNumber: '12', to: { type: 'flat', flatNumber: 'Z99' } }
+		]);
+		expect('error' in missingFlat && missingFlat.status).toBe(404);
+	});
+
+	it('rejects malformed bodies', () => {
+		expect(validateBatchMoves(rows, flats, [])).toMatchObject({ status: 400 });
+		expect(validateBatchMoves(rows, flats, [{ spotNumber: '12' }])).toMatchObject({ status: 400 });
+		expect(validateBatchMoves(rows, flats, [{ spotNumber: '  ', to: { type: 'shared' } }])).toMatchObject({
+			status: 400
+		});
+		expect(validateBatchMoves(rows, flats, [{ spotNumber: 'abc', to: { type: 'shared' } }])).toMatchObject({
+			status: 400
+		});
 	});
 });

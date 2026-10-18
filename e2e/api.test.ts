@@ -116,40 +116,48 @@ test.describe('Self-service account', () => {
 	});
 
 	test('POST /api/account rotates the PIN and back', async ({ request }) => {
-		const temporary = '4321';
+		// Hermetic fixture: rotate a dedicated lot's PIN, never the shared
+		// admin's — a temporary ADMIN_FLAT rotation races concurrent projects'
+		// admin logins (wrong-PIN 401s accumulate into a rate-limit lockout).
 		await login(request, ADMIN_FLAT, ADMIN_PIN);
+		const created = await request.post('/api/admin/flats', {
+			data: { number: 'B99', spotNumbers: ['59'], emails: ['b99@test.com'], phones: ['+33600000042'] }
+		});
+		expect(created.ok()).toBe(true);
+		const invited = await request.post('/api/admin/flats/B99/activation');
+		expect(invited.ok()).toBe(true);
+		const code = (await invited.json()).flat.activationCode as string;
+		expect(code).toBeTruthy();
 
+		await request.post('/api/auth/logout');
+		const activated = await request.post('/api/auth/activate', {
+			data: { flatNumber: 'B99', activationCode: code, displayName: 'Lot B99', pin: '1111' }
+		});
+		expect(activated.ok()).toBe(true);
+
+		const temporary = '4321';
 		try {
 			const changed = await request.post('/api/account', {
-				data: { currentPin: ADMIN_PIN, newPin: temporary }
+				data: { currentPin: '1111', newPin: temporary }
 			});
 			expect(changed.status()).toBe(200);
 
 			// The old PIN must stop working
+			await request.post('/api/auth/logout');
 			const oldPin = await request.post('/api/auth/login', {
-				data: { flatNumber: ADMIN_FLAT, pin: ADMIN_PIN }
+				data: { flatNumber: 'B99', pin: '1111' }
 			});
 			expect(oldPin.status()).toBe(401);
 
 			// …and the new one must
 			await request.post('/api/auth/logout');
-			await login(request, ADMIN_FLAT, temporary);
+			await login(request, 'B99', temporary);
 		} finally {
-			// Restore the suite's documented admin PIN, whichever PIN is live now
-			const current = [temporary, ADMIN_PIN];
-			for (const pin of current) {
-				await request.post('/api/auth/logout');
-				const res = await request.post('/api/auth/login', {
-					data: { flatNumber: ADMIN_FLAT, pin }
-				});
-				if (!res.ok()) continue;
-				if (pin !== ADMIN_PIN) {
-					await request.post('/api/account', {
-						data: { currentPin: pin, newPin: ADMIN_PIN }
-					});
-				}
-				break;
-			}
+			// Cleanup needs the admin session back
+			await request.post('/api/auth/logout');
+			await login(request, ADMIN_FLAT, ADMIN_PIN);
+			const removed = await request.delete('/api/admin/flats/B99');
+			expect(removed.ok()).toBe(true);
 		}
 	});
 });

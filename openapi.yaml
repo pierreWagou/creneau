@@ -2,7 +2,7 @@ openapi: 3.1.0
 
 info:
   title: Créneau API
-  version: 0.1.0
+  version: 1.6.0
   description: |
     REST API for **Créneau**, a shared parking spot booking app for apartment buildings.
 
@@ -69,7 +69,7 @@ components:
 
     BookingWithFlat:
       type: object
-      required: [id, spotNumber, flatNumber, startTime, endTime, createdAt]
+      required: [id, spotNumber, flatNumber, startTime, endTime, note, createdAt, status, flatDisplayName]
       properties:
         id:
           type: integer
@@ -92,6 +92,11 @@ components:
           type: string
           nullable: true
           example: "Livraison meubles"
+        status:
+          type: string
+          enum: [active, cancelled]
+          description: Cancelled bookings are soft-deleted display rows — ignored by availability, conflicts, calendar, and stats.
+          example: "active"
         createdAt:
           type: string
           description: ISO datetime string
@@ -116,7 +121,7 @@ components:
 
     CalendarDayStatus:
       type: object
-      required: [date, status]
+      required: [date, status, ratio]
       properties:
         date:
           type: string
@@ -129,6 +134,12 @@ components:
             `free` — no bookings on this day,
             `partial` — some slots remain,
             `full` — no available slots
+        ratio:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Booked share of reservable hours (0 free … 1 fully booked)
+          example: 0.5
 
     FlatAdmin:
       description: Flat record returned by GET /api/admin/flats (no pinHash)
@@ -179,7 +190,7 @@ components:
 
     SessionFlat:
       type: object
-      required: [number, isAdmin]
+      required: [number, isAdmin, emails, phones, displayName]
       properties:
         number:
           type: string
@@ -191,6 +202,14 @@ components:
         isAdmin:
           type: boolean
           example: false
+        emails:
+          type: array
+          items:
+            type: string
+        phones:
+          type: array
+          items:
+            type: string
 
     Spot:
       type: object
@@ -199,6 +218,14 @@ components:
         number:
           type: string
           example: "36"
+        status:
+          type: string
+          enum: [shared, assigned, unassigned]
+          example: "shared"
+        flatNumber:
+          type: string
+          nullable: true
+          example: "B12"
         description:
           type: string
           nullable: true
@@ -324,7 +351,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
               example:
-                error: "Numéro d'appartement ou PIN invalide"
+                error: "Numéro de lot ou PIN invalide"
         '429':
           description: Rate limit exceeded
           content:
@@ -418,7 +445,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
               example:
-                error: "Cet appartement a déjà été activé"
+                error: "Ce lot a déjà été activé"
         '410':
           description: Activation code expired
           content:
@@ -462,6 +489,16 @@ paths:
                   nullable: true
                   maxLength: 50
                   example: "Admin"
+                emails:
+                  type: array
+                  items:
+                    type: string
+                  description: Optional contact emails for the new flat
+                phones:
+                  type: array
+                  items:
+                    type: string
+                  description: Optional contact phones for the new flat
       responses:
         '200':
           description: Setup successful. Sets `session` cookie.
@@ -509,17 +546,37 @@ paths:
                   maxLength: 50
                   description: Set to null or empty string to clear
                   example: "Dupont"
+                emails:
+                  type: array
+                  items:
+                    type: string
+                  description: Full replacement list of contact emails
+                phones:
+                  type: array
+                  items:
+                    type: string
+                  description: Full replacement list of contact phones
       responses:
         '200':
-          description: Display name updated
+          description: Account updated (returns the updated flat with contacts)
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  success:
-                    type: boolean
-                    example: true
+                  flat:
+                    allOf:
+                      - $ref: '#/components/schemas/FlatFull'
+                      - type: object
+                        properties:
+                          emails:
+                            type: array
+                            items:
+                              type: string
+                          phones:
+                            type: array
+                            items:
+                              type: string
         '400':
           description: No valid fields, name too long, or invalid JSON
           content:
@@ -565,13 +622,13 @@ paths:
                     type: boolean
                     example: true
         '400':
-          description: Missing fields, wrong current PIN, invalid new PIN, or invalid JSON
+          description: Missing fields, invalid new PIN, or invalid JSON
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '401':
-          description: Not authenticated
+          description: Not authenticated, or wrong current PIN
           content:
             application/json:
               schema:
@@ -593,6 +650,7 @@ paths:
         Creates a parking spot reservation. The booking is rejected if:
         - `startTime` is in the past
         - The spot does not exist
+        - The spot is not `shared` (only shared spots are bookable)
         - The time range is outside `[00:00, 24:00]`
         - The duration exceeds 7 days
         - The slot overlaps with an existing booking on the same spot
@@ -631,6 +689,9 @@ paths:
                 properties:
                   booking:
                     $ref: '#/components/schemas/BookingWithFlat'
+                  mailFailed:
+                    type: boolean
+                    description: Present and true only when the confirmation email failed to send (SMTP unconfigured, no recipients, or send error). Absent on success.
         '400':
           description: Missing fields, past date, invalid time range, or invalid JSON
           content:
@@ -659,7 +720,9 @@ paths:
       security:
         - cookieAuth: []
       description: |
-        Update the time range of an existing booking. Only the booking owner can update it.
+        Update the time range and/or spot of an existing booking. Only the booking owner or an admin can update it.
+        A spot move targets a shared spot; conflicts are checked on the target excluding the booking itself.
+        Cancelled and past bookings cannot be updated.
         Broadcasts a `booking_updated` SSE event on success.
       parameters:
         - name: id
@@ -674,7 +737,6 @@ paths:
           application/json:
             schema:
               type: object
-              required: [startTime, endTime]
               properties:
                 startTime:
                   type: string
@@ -682,6 +744,20 @@ paths:
                 endTime:
                   type: string
                   example: "2026-06-23T17:00:00"
+                spotNumber:
+                  type: string
+                  example: "36"
+                  description: |
+                    Move the booking to another shared spot (unknown spot 404,
+                    non-shared target 400). Same-spot is a no-op for that dimension.
+                    Conflicts are checked on the target excluding the booking itself.
+                note:
+                  type: string
+                  nullable: true
+                  description: |
+                    Update the note alone (times untouched) or alongside a move.
+                    Empty string clears it. At least one of the time pair,
+                    spotNumber, or note must be present.
       responses:
         '200':
           description: Booking updated
@@ -692,8 +768,11 @@ paths:
                 properties:
                   booking:
                     $ref: '#/components/schemas/BookingWithFlat'
+                  mailFailed:
+                    type: boolean
+                    description: Present and true only when the owner notification email failed to send (every move notifies its owner, including self-moves; SMTP unconfigured, no recipients, or send error). Absent on success or when no mail was attempted (note-only edits).
         '400':
-          description: Invalid ID, missing fields, past date, or invalid JSON
+          description: Invalid ID, missing fields, past date, cancelled booking, unbookable spot target, or invalid JSON
           content:
             application/json:
               schema:
@@ -711,13 +790,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Booking not found
+          description: Booking or target spot not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: New time slot conflicts with another booking
+          description: New slot conflicts with another booking on the target spot
           content:
             application/json:
               schema:
@@ -729,6 +808,8 @@ paths:
         - cookieAuth: []
       description: |
         Cancel a booking. The booking owner or an admin can cancel.
+        Cancellation is a soft-delete: the row is kept with `status:
+        cancelled` for display and ignored everywhere temporal.
         Past bookings (already ended) cannot be cancelled.
         Broadcasts a `booking_cancelled` SSE event on success.
       parameters:
@@ -749,12 +830,64 @@ paths:
                   success:
                     type: boolean
                     example: true
+                  mailFailed:
+                    type: boolean
+                    description: Present and true only when the owner notification email failed to send (every cancellation notifies its owner, including self-cancels; SMTP unconfigured, no recipients, or send error). Absent on success.
         '400':
           description: Invalid ID or booking already ended
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not the booking owner (and not admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Booking not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Booking already cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/bookings/{id}/ics:
+    get:
+      tags: [Bookings]
+      summary: Download a booking as a calendar invite
+      security:
+        - cookieAuth: []
+      description: |
+        Returns the booking as an RFC 5545 `.ics` file (floating local time,
+        stable UID per booking). Owner or admin only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 42
+      responses:
+        '200':
+          description: Calendar invite download
+          content:
+            text/calendar:
+              schema:
+                type: string
+                example: "BEGIN:VCALENDAR\r\nMETHOD:PUBLISH\r\n..."
         '401':
           description: Not authenticated
           content:
@@ -806,6 +939,13 @@ paths:
             type: string
           description: Spot number
           example: "36"
+        - name: exclude
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Booking id excluded from the timeline (edit mode — the booking being moved must not block its own slot; honored for the requester's own bookings and any booking for admins; non-numeric answers 400)
+          example: 12
       responses:
         '200':
           description: Spot timeline
@@ -814,13 +954,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/SpotTimeline'
         '400':
-          description: Missing required parameters
+          description: Missing required parameters, or range over 93 days
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
               example:
                 error: "Paramètres from/to/spot requis"
+        '404':
+          description: Unknown or non-shared spot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '401':
           description: Not authenticated
           content:
@@ -835,8 +981,9 @@ paths:
       security:
         - cookieAuth: []
       description: |
-        Returns a `free` / `partial` / `full` status for each day in the requested range.
-        Used for color-coding the date picker calendar cells.
+        Returns a `free` / `partial` / `full` status plus a booked-hours `ratio`
+        for each day in the requested range.
+        Used for color-coding the date picker calendar cells (scaled tone).
         If `spot` is omitted, statuses aggregate across all spots.
       parameters:
         - name: from
@@ -860,6 +1007,13 @@ paths:
             type: string
           description: Spot number filter (optional)
           example: "36"
+        - name: exclude
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Booking id excluded from the statuses (edit mode — the booking being moved must not paint its own day; honored for the requester's own bookings and any booking for admins; non-numeric answers 400)
+          example: 12
       responses:
         '200':
           description: Calendar statuses
@@ -871,9 +1025,9 @@ paths:
                   statuses:
                     type: array
                     items:
-                      $ref: '#/components/schemas/CalendarDayStatus'
+                       $ref: '#/components/schemas/CalendarDayStatus'
         '400':
-          description: Missing from or to parameters
+          description: Missing from or to parameters, or range over 93 days
           content:
             application/json:
               schema:
@@ -921,18 +1075,41 @@ paths:
       summary: Create a flat
       security:
         - cookieAuth: []
-      description: Creates a flat in the `Inactif` state (no activation code, no PIN).
+      description: Creates a flat in the `inactive` state (no activation code, no PIN).
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [number]
+              required: [number, spotNumbers, emails, phones]
               properties:
                 number:
                   type: string
                   example: "A05"
+                displayName:
+                  type: string
+                  nullable: true
+                  example: "Dupont"
+                spotNumbers:
+                  type: array
+                  items:
+                    type: string
+                  example: ["36"]
+                emails:
+                  type: array
+                  items:
+                    type: string
+                phones:
+                  type: array
+                  items:
+                    type: string
+                force:
+                  type: boolean
+                  description: |
+                    Confirm the creation despite spot conflicts. Malformed or absent
+                    bodies default to `false`. Stranding a holder lot is always refused.
+                  example: false
       responses:
         '201':
           description: Flat created
@@ -943,8 +1120,14 @@ paths:
                 properties:
                   flat:
                     $ref: '#/components/schemas/FlatFull'
+        '409':
+          description: Flat already exists, spot conflicts without `force`, or a reclaim would strand a lot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '400':
-          description: Missing flat number or invalid JSON
+          description: Missing flat number, no valid spot, invalid spot format, or invalid JSON
           content:
             application/json:
               schema:
@@ -971,7 +1154,8 @@ paths:
       description: |
         Partial update — only the keys present in the body are applied.
         `emails` and `phones` are each validated and persisted independently.
-        `spotNumbers` rebinds the lot's spots; see `force` below.
+        `spotNumbers` rebinds the lot's spots; removed spots land limbo
+        (`unassigned`), awaiting explicit routing. See `force` below.
       parameters:
         - name: number
           in: path
@@ -1077,6 +1261,8 @@ paths:
       description: |
         Permanently deletes a flat and all associated bookings and sessions (cascade).
         An admin cannot delete their own flat.
+        Freed spots land limbo (`unassigned`), awaiting explicit routing.
+        The flat's former residents are notified by email (failure-only mailFailed flag, never an error).
       parameters:
         - name: number
           in: path
@@ -1095,6 +1281,9 @@ paths:
                   success:
                     type: boolean
                     example: true
+                  mailFailed:
+                    type: boolean
+                    description: Present and true only when the deletion email failed to send (SMTP unconfigured, no recipients, or send error). Absent on success.
         '400':
           description: Cannot delete own flat
           content:
@@ -1102,7 +1291,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
               example:
-                error: "Impossible de supprimer votre propre appartement"
+                error: "Impossible de supprimer votre propre lot"
         '401':
           description: Not authenticated
           content:
@@ -1124,7 +1313,7 @@ paths:
         - cookieAuth: []
       description: |
         Generates a 4-character activation code valid for 24 hours.
-        Transitions the flat from `Inactif` → `En attente`.
+        Transitions the flat from `inactive` → `pending`.
         Can be called multiple times to refresh an expired code.
       parameters:
         - name: number
@@ -1174,7 +1363,7 @@ paths:
         - cookieAuth: []
       description: |
         Revokes a pending activation code.
-        Transitions the flat from `En attente` → `Inactif`.
+        Transitions the flat from `pending` → `inactive`.
       parameters:
         - name: number
           in: path
@@ -1230,7 +1419,7 @@ paths:
       security:
         - cookieAuth: []
       description: |
-        Resets an active flat back to `Inactif`. Clears PIN, activation code, display name,
+        Resets an active flat back to `inactive`. Clears PIN, activation code, display name,
         and all active sessions. Requires explicit confirmation.
         An admin cannot reset their own account.
       parameters:
@@ -1314,10 +1503,20 @@ paths:
                     Reclaim a spot that is already bound to another lot. Without it, a
                     bound spot answers `409` with `conflicts`. Even forced, creating a
                     spot is refused if it would leave the holder lot with 0 spots.
+                    A reclaimed spot lands limbo (`unassigned`), awaiting explicit routing.
                   example: false
       responses:
         '201':
           description: Spot created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  spot:
+                    $ref: '#/components/schemas/Spot'
+        '200':
+          description: Existing bound spot reclaimed (force) — unbound to limbo, not re-created
           content:
             application/json:
               schema:
@@ -1358,6 +1557,101 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/SpotConflict'
+
+  /api/spots/{number}:
+    patch:
+      tags: [Admin — Spots]
+      summary: Update a spot's description or siding status
+      security:
+        - cookieAuth: []
+      description: |
+        `status` moves a spot between the shared pool and limbo (`shared` /
+        `unassigned`); bound spots are accepted but never stranded. Omit
+        `status` to update only the description.
+      parameters:
+        - name: number
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "36"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                description:
+                  type: string
+                  nullable: true
+                status:
+                  type: string
+                  enum: [shared, unassigned]
+      responses:
+        '200':
+          description: Spot updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  spot:
+                    $ref: '#/components/schemas/Spot'
+        '400':
+          description: Invalid status or JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Spot not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Siding the spot would strand its holder lot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags: [Admin — Spots]
+      summary: Delete a spot
+      security:
+        - cookieAuth: []
+      description: Refuses to leave the holder lot with 0 spots (409).
+      parameters:
+        - name: number
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "36"
+      responses:
+        '200':
+          description: Spot deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        '404':
+          description: Spot not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Deleting the spot would strand its holder lot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /api/health:
     get:
@@ -1597,7 +1891,7 @@ paths:
                   description: |
                     Confirm the approval despite conflicts. Malformed or absent
                     bodies default to `false`. See the conflict contract on
-                    `PATCH /admin/flats/{number}`.
+                    `PATCH /api/admin/flats/{number}`.
                   example: false
       responses:
         '200':
@@ -1607,9 +1901,12 @@ paths:
               schema:
                 type: object
                 properties:
-                  message:
-                    type: string
-                    example: "Demande approuvée"
+                  success:
+                    type: boolean
+                    example: true
+                  mailFailed:
+                    type: boolean
+                    description: Present and true only when the approval email failed to send (SMTP unconfigured, no recipients, or send error). Absent on success.
         '400':
           description: Invalid ID, nonpending request data, or malformed spot list
           content:
@@ -1738,6 +2035,20 @@ paths:
           schema:
             type: integer
           example: 3
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: |
+                    Optional rejection reason (email only, never stored).
+                    Trimmed, silently truncated to 500 characters. A bare
+                    PATCH without body rejects without a reason.
+                  example: "Place déjà attribuée à un autre lot"
       responses:
         '200':
           description: Request rejected
@@ -1749,8 +2060,11 @@ paths:
                   success:
                     type: boolean
                     example: true
+                  mailFailed:
+                    type: boolean
+                    description: Present and true only when the rejection email failed to send (SMTP unconfigured, no recipients, or send error). Absent on success.
         '400':
-          description: Invalid ID
+          description: Invalid ID or invalid JSON
           content:
             application/json:
               schema:
@@ -1788,7 +2102,7 @@ paths:
         - cookieAuth: []
       description: |
         Moves a shared spot onto a lot, optionally exchanging it with one of the
-        lot's spots (which returns to the pool). The source lot is never
+        lot's spots (which lands limbo, awaiting explicit routing). The source lot is never
         stranded at 0 spots.
       requestBody:
         required: true
@@ -1852,6 +2166,88 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /api/admin/spots/moves:
+    post:
+      tags: [Admin — Spots]
+      summary: Atomically rebind a batch of spots
+      security:
+        - cookieAuth: []
+      description: |
+        Moves many spots across lots, pool, and limbo in a single
+        transaction. Every move is validated against the *final* holdings:
+        an A↔B swap is legal even though each leg taken alone looks like a
+        conflict. Stranding any lot at 0 spots is always refused (409).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [moves]
+              properties:
+                moves:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [spotNumber, to]
+                    properties:
+                      spotNumber:
+                        type: string
+                        example: "36"
+                      to:
+                        type: object
+                        required: [type]
+                        properties:
+                          type:
+                            type: string
+                            enum: [flat, shared, unassigned]
+                          flatNumber:
+                            type: string
+                            description: Required when type is flat
+                            example: "B12"
+      responses:
+        '200':
+          description: Moves applied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  updated:
+                    type: number
+                    example: 3
+        '400':
+          description: Missing/invalid parameters or spots in the wrong state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Spot or target lot not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: A move is illegal or would strand a lot at 0 spots
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /api/admin/flats/{number}/activation/send:
     post:
       tags: [Admin — Flats]
@@ -1860,8 +2256,21 @@ paths:
         - cookieAuth: []
       description: |
         Emails the flat's existing (unexpired) activation code. Never fails hard:
-        `emailSent` is `false` when SMTP is unconfigured, no addresses are
+        `mailFailed` is present and `true` when SMTP is unconfigured, no addresses are
         registered, or delivery fails — the code itself is unaffected.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  description: |
+                    Target a single registered address instead of all of them.
+                    Must belong to the lot, otherwise 400.
+                  example: "a01@test.com"
       parameters:
         - name: number
           in: path
@@ -1876,16 +2285,16 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [emailSent]
+                required: [emails]
                 properties:
-                  emailSent:
-                    type: boolean
-                    example: true
                   emails:
                     type: array
                     items:
                       type: string
                     example: ["a01@test.com"]
+                  mailFailed:
+                    type: boolean
+                    description: Present and true only when the email failed to send (SMTP unconfigured, no recipients, or send error). Absent on success.
         '400':
           description: Lot is active or has no code to send
           content:

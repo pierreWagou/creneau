@@ -6,12 +6,19 @@
 
 	let { children }: { children: Snippet } = $props();
 
+	// Guide takes the full page: no admin header/tabs below the app top bar.
+	const isGuide = $derived($page.url.pathname.startsWith('/admin/guide'));
+
 	const tabs = [
 		{ href: '/admin/lots', label: 'Lots' },
-		{ href: '/admin/spots', label: 'Places' }
+		{ href: '/admin/spots', label: 'Places' },
+		{ href: '/admin/bookings', label: 'Réservations' }
 	];
 </script>
 
+{#if isGuide}
+	{@render children()}
+{:else}
 <div class="space-y-8">
 	<div class="flex items-center justify-between">
 		<h2 class="page-title">Administration</h2>
@@ -20,7 +27,7 @@
 		</a>
 	</div>
 
-	<nav aria-label="Sections d'administration" class="flex gap-1 rounded-lg bg-muted p-[3px]">
+	<nav aria-label="Sections d'administration" class="flex gap-6 border-b border-border">
 		{#each tabs as tab}
 			{@const active =
 				$page.url.pathname === tab.href || ($page.url.pathname === '/admin' && tab.href === '/admin/lots')}
@@ -28,14 +35,18 @@
 				href={tab.href}
 				data-sveltekit-prefetch
 				aria-current={active ? 'page' : undefined}
-				class="h-8 flex-1 inline-flex items-center justify-center rounded-md px-1.5 text-sm font-medium whitespace-nowrap transition-all {active
-					? 'bg-primary text-white dark:text-[#1e1e2e] shadow-sm'
-					: 'text-foreground/60 hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground'}"
+				class="relative whitespace-nowrap pb-2 text-sm font-medium transition-colors {active
+					? 'text-foreground'
+					: 'text-muted-foreground hover:text-foreground'}"
 			>
 				{tab.label}
+				{#if active}
+					<span class="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-primary" aria-hidden="true"></span>
+				{/if}
 			</a>
 		{/each}
 	</nav>
 
 	{@render children()}
 </div>
+{/if}

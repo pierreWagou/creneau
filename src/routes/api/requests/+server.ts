@@ -1,10 +1,16 @@
 import { json } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
-import { FLAT_NUMBER_REGEX, formatSpotNumber, SPOT_NUMBER_REGEX } from '$lib/constants';
 import { db } from '$lib/server/db';
 import { flat, request, requestEmail, requestPhone, requestSpot, spot } from '$lib/server/db/schema';
-import { handleHandlerError, requireRateLimit, validateContactInputs } from '$lib/server/handler';
+import {
+	errorJson,
+	handleHandlerError,
+	parseFlatNumber,
+	requireRateLimit,
+	validateContactInputs
+} from '$lib/server/handler';
 import { recordFailedAttempt, resetAttempts } from '$lib/server/rate-limit';
+import { parseSpotListInput } from '$lib/server/rebind';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request: req }) => {
@@ -12,34 +18,21 @@ export const POST: RequestHandler = async ({ request: req }) => {
 		const { flatNumber, spotNumbers, requesterName, emails, phones } = await req.json();
 
 		if (!flatNumber || !Array.isArray(spotNumbers) || spotNumbers.length === 0) {
-			return json({ error: 'Numéro de lot et au moins une place de parking requise' }, { status: 400 });
+			return errorJson('Numéro de lot et au moins une place de parking requise', 400);
 		}
 
-		const trimmedFlat = flatNumber.trim().toUpperCase();
+		const trimmedFlat = parseFlatNumber(flatNumber);
+		if (trimmedFlat instanceof Response) return trimmedFlat;
 
-		if (!FLAT_NUMBER_REGEX.test(trimmedFlat)) {
-			return json({ error: 'Format de lot invalide (ex. A01, B12)' }, { status: 400 });
-		}
-
-		const trimmedSpots = [
-			...new Set(spotNumbers.map((s: unknown) => formatSpotNumber(String(s).trim())).filter((s) => s.length > 0))
-		];
-
-		if (trimmedSpots.length === 0) {
-			return json({ error: 'Aucun numéro de place de parking valide' }, { status: 400 });
-		}
-
-		for (const s of trimmedSpots) {
-			if (!SPOT_NUMBER_REGEX.test(s)) {
-				return json({ error: `Format de place de parking invalide : "${s}" (ex. 01, 36)` }, { status: 400 });
-			}
-		}
+		const parsedSpots = parseSpotListInput(spotNumbers, 'Aucun numéro de place de parking valide');
+		if (parsedSpots instanceof Response) return parsedSpots;
+		const trimmedSpots = parsedSpots;
 
 		// Refuse unknown spots — the building's spots are created by admins first
 		for (const s of trimmedSpots) {
 			const known = await db.select().from(spot).where(eq(spot.number, s)).get();
 			if (!known) {
-				return json({ error: `Place « ${s} » inexistante` }, { status: 400 });
+				return errorJson(`Place « ${s} » inexistante`, 400);
 			}
 		}
 
@@ -52,7 +45,7 @@ export const POST: RequestHandler = async ({ request: req }) => {
 		const existingFlat = await db.select().from(flat).where(eq(flat.number, trimmedFlat)).get();
 		if (existingFlat) {
 			recordFailedAttempt(rateLimitKey);
-			return json({ error: 'Ce lot existe déjà dans le système' }, { status: 409 });
+			return errorJson('Ce lot existe déjà dans le système', 409);
 		}
 
 		// Success — reset rate limit

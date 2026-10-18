@@ -24,8 +24,9 @@ export const load: PageServerLoad = async ({ locals }) => {
 			.all();
 
 		return { flats: activeFlats };
-	} catch {
+	} catch (e) {
 		// DB error fetching active flats — fall back to empty list (combobox degrades to text input)
+		console.error('[login] failed to load active flats:', e);
 		return { flats: [] };
 	}
 };

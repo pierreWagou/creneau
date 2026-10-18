@@ -1,22 +1,40 @@
 <script lang="ts">
-	import CarFront from '@lucide/svelte/icons/car-front';
-import Trash2 from '@lucide/svelte/icons/trash-2';
-	import { format, isPast, isSameDay, isSameMonth, parseISO } from 'date-fns';
-	import { fr } from 'date-fns/locale';
-	import { onDestroy, onMount } from 'svelte';
-	import { toast } from 'svelte-sonner';
-	import { invalidateAll } from '$app/navigation';
-	import * as AlertDialog from '$lib/components/ui/alert-dialog';
-	import { Badge } from '$lib/components/ui/badge';
+	import CalendarDays from '@lucide/svelte/icons/calendar-days';
+	import { mode } from 'mode-watcher';
+	import { onDestroy, onMount, tick } from 'svelte';
+	import { goto, invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
+	import BookingCancelDialog from '$lib/components/booking-cancel-dialog.svelte';
+	import BookingDrawer from '$lib/components/booking-drawer.svelte';
+	import BookingEditDialog from '$lib/components/booking-edit-dialog.svelte';
+	import BookingTicketCard from '$lib/components/booking-ticket-card.svelte';
+	import CountBadge from '$lib/components/count-badge.svelte';
+	import EmptyState from '$lib/components/empty-state.svelte';
+	import PageColumn from '$lib/components/page-column.svelte';
+	import PaginationNav from '$lib/components/pagination-nav.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
+	import { BOOKINGS_PAGE_SIZE } from '$lib/constants';
+	import { spotChipProps } from '$lib/spot-containers';
+	import { createBookingDeepLink } from '$lib/utils/booking-deep-link.svelte';
+	import { findBookingById, splitBookingsByLiveness } from '$lib/utils/bookings';
 	import { createBookingSSE } from '$lib/utils/sse';
-	import { formatDuration } from '$lib/utils/time';
 
 	let { data } = $props();
 
 	let sse: ReturnType<typeof createBookingSSE> | null = null;
 	let cancellingBookingId = $state<number | null>(null);
+	let selectedBookingId = $state<number | null>(null);
+	// Visibility source for the drawer (the content id persists through the
+	// exit animation so the panel never slides out empty).
+	let drawerOpen = $state(false);
+	let editingBookingId = $state<number | null>(null);
+	let pastPage = $state(1);
+	const isDark = $derived(mode.current === 'dark');
+
+	// Drawer deep link (?booking=id): highlight + scroll via the shared helper,
+	// with auto-open + URL sync mirroring the admin Réservations tab.
+	const deepLink = createBookingDeepLink();
 
 	onMount(() => {
 		sse = createBookingSSE({
@@ -24,152 +42,238 @@ import Trash2 from '@lucide/svelte/icons/trash-2';
 			onCancelled: () => invalidateAll(),
 			onUpdated: () => invalidateAll()
 		});
+		deepLink.scrollToHighlighted();
 	});
 
 	onDestroy(() => {
 		sse?.destroy();
 	});
 
-	async function cancelBooking(id: number) {
-		try {
-			const res = await fetch(`/api/bookings/${id}`, { method: 'DELETE' });
-			if (res.ok) {
-				toast.success('Réservation annulée');
-				invalidateAll();
-			} else {
-				const result = await res.json();
-				toast.error(result.error || "Impossible d'annuler");
-			}
-		} catch {
-			toast.error('Erreur de connexion');
-		}
-		cancellingBookingId = null;
-	}
-
 	function confirmCancel(id: number) {
 		cancellingBookingId = id;
 	}
 
-	async function executeCancelBooking() {
-		if (cancellingBookingId !== null) {
-			await cancelBooking(cancellingBookingId);
+	const selectedBooking = $derived(findBookingById(data.bookings, selectedBookingId) ?? null);
+	const editBooking = $derived(findBookingById(data.bookings, editingBookingId) ?? null);
+
+	function openDrawer(
+		booking: { id: number; startTime: string; endTime: string; note?: string | null },
+		pushUrl = true
+	) {
+		selectedBookingId = booking.id;
+		drawerOpen = true;
+		if (pushUrl) {
+			const params = new URLSearchParams(window.location.search);
+			params.set('booking', String(booking.id));
+			goto(`?${params.toString()}`, { keepFocus: true, noScroll: true });
 		}
 	}
 
-	function formatMainLine(start: string, end: string): string {
-		const startDate = parseISO(start);
-		const endDate = parseISO(end);
-
-		if (isSameDay(startDate, endDate)) {
-			// "lundi 5 mai, 14h00 → 18h00"
-			return `${format(startDate, "EEEE d MMMM, HH'h'mm", { locale: fr })} → ${format(endDate, "HH'h'mm")}`;
+	// Stripped on close; the param effect must not reopen mid-flight.
+	let strippingBookingParam = false;
+	function closeDrawer() {
+		drawerOpen = false;
+		if (page.url.searchParams.has('booking')) {
+			strippingBookingParam = true;
+			const params = new URLSearchParams(window.location.search);
+			params.delete('booking');
+			goto(`?${params.toString()}`, { replaceState: true, keepFocus: true, noScroll: true });
 		}
-
-		if (isSameMonth(startDate, endDate)) {
-			// "lun. 5, 14h00 → mer. 7 mai, 10h00"
-			return `${format(startDate, "EEE d, HH'h'mm", { locale: fr })} → ${format(endDate, "EEE d MMMM, HH'h'mm", { locale: fr })}`;
-		}
-
-		// "lun. 30 avril, 14h00 → mer. 2 mai, 10h00"
-		return `${format(startDate, "EEE d MMMM, HH'h'mm", { locale: fr })} → ${format(endDate, "EEE d MMMM, HH'h'mm", { locale: fr })}`;
 	}
 
-	function formatCreatedAt(iso: string): string {
-		return `Réservé le ${format(parseISO(iso), 'd MMMM', { locale: fr })}`;
+	/** Modifier opens the edit dialog over the open drawer (drawer untouched — cf. conflict dialog). */
+	function openEditDialog(id: number) {
+		editingBookingId = id;
 	}
 
-	// Séparer en à venir et passées
+	// Séparer en à venir et passées (ongoing first chronologically = same order)
+	const split = $derived(splitBookingsByLiveness(data.bookings));
+	// Cancelled bookings stay hidden unless the toggle asks for them.
+	let showCancelled = $state(false);
+	const hasCancelled = $derived(data.bookings.some((b) => b.status === 'cancelled'));
 	const upcoming = $derived(
-		data.bookings.filter((b) => !isPast(parseISO(b.endTime))).sort((a, b) => a.startTime.localeCompare(b.startTime))
+		[...split.ongoing, ...split.upcoming].filter((b) => showCancelled || b.status !== 'cancelled')
 	);
+	const past = $derived(split.past.filter((b) => showCancelled || b.status !== 'cancelled'));
 
-	const past = $derived(
-		data.bookings.filter((b) => isPast(parseISO(b.endTime))).sort((a, b) => b.startTime.localeCompare(a.startTime))
-	);
+	const pastTotalPages = $derived(Math.max(1, Math.ceil(past.length / BOOKINGS_PAGE_SIZE)));
+	const pastItems = $derived(past.slice((pastPage - 1) * BOOKINGS_PAGE_SIZE, pastPage * BOOKINGS_PAGE_SIZE));
+
+	// Step back when the list shrinks below the page (e.g. after data refresh).
+	$effect(() => {
+		if (pastPage > pastTotalPages) pastPage = pastTotalPages;
+	});
+
+	// Deep link (?booking=id): open the drawer on load and on back/forward.
+	// Upcoming is unpaginated; past bookings resolve their page first.
+	// Unknown ids drop the param. data.bookings holds own bookings only,
+	// so ownership holds by construction.
+	$effect(() => {
+		const raw = page.url.searchParams.get('booking');
+		data.bookings;
+		if (!raw) {
+			strippingBookingParam = false; // strip landed — re-arm
+			// Back button out of the drawer: URL lost ?booking= while it is
+			// still open — close it.
+			if (drawerOpen) closeDrawer();
+			return;
+		}
+		if (strippingBookingParam) return; // close in flight — do NOT reopen
+		if (!/^\d+$/.test(raw)) {
+			dropBookingParam();
+			return;
+		}
+		const id = Number(raw);
+		if (drawerOpen && selectedBookingId === id) return; // already open — hold (no resolve churn)
+		const target = findBookingById(data.bookings, id);
+		if (!target) {
+			dropBookingParam();
+			return;
+		}
+		const pastIndex = past.findIndex((b) => b.id === target.id);
+		if (pastIndex >= 0) {
+			pastPage = Math.floor(pastIndex / BOOKINGS_PAGE_SIZE) + 1;
+		}
+		openDrawer(target, false);
+		tick().then(() => {
+			deepLink.scrollToHighlighted();
+		});
+	});
+
+	function dropBookingParam() {
+		const params = new URLSearchParams(window.location.search);
+		params.delete('booking');
+		goto(`?${params.toString()}`, { replaceState: true, keepFocus: true, noScroll: true });
+	}
 </script>
 
-<div class="space-y-6">
-	<h2 class="page-title">Mes réservations</h2>
+<PageColumn>
+	<div class="flex items-center justify-between gap-3">
+		<h2 class="page-title">Mes réservations</h2>
+		{#if hasCancelled}
+			<Button variant="outline" size="sm" onclick={() => (showCancelled = !showCancelled)}>
+				{showCancelled ? 'Masquer les annulées' : 'Afficher les annulées'}
+			</Button>
+		{/if}
+	</div>
 
 	{#if upcoming.length === 0 && past.length === 0}
+		<EmptyState
+			icon={CalendarDays}
+			title="Aucune réservation"
+			message="Réservez une place partagée en quelques secondes."
+		>
+			<a href="/book">
+				<Button variant="default">Réserver une place de parking</Button>
+			</a>
+		</EmptyState>
+	{/if}
+
+	{#if upcoming.length > 0}
+		{@const next = upcoming[0]}
+		{@const rest = upcoming.slice(1)}
 		<Card.Root>
-			<Card.Content class="py-8 text-center">
-				<p class="text-muted-foreground">Vous n'avez aucune réservation.</p>
-				<a href="/book">
-					<Button class="mt-4">Réserver une place de parking</Button>
-				</a>
+			<Card.Header>
+				<Card.Title class="card-title-row">
+					À venir
+					<CountBadge count={upcoming.length} />
+				</Card.Title>
+			</Card.Header>
+			<Card.Content>
+				<div class="space-y-3">
+					<BookingTicketCard
+						variant="hero"
+						bookingId={next.id}
+						spotNumber={next.spotNumber}
+						startTime={next.startTime}
+						endTime={next.endTime}
+						status={next.status}
+						highlighted={deepLink.highlightedId === String(next.id)}
+						{...spotChipProps(data.spots, next.spotNumber, isDark)}
+						onOpen={() => openDrawer(next)}
+					/>
+					{#each rest as booking (booking.id)}
+						<BookingTicketCard
+							variant="standard"
+						bookingId={booking.id}
+						spotNumber={booking.spotNumber}
+						startTime={booking.startTime}
+						endTime={booking.endTime}
+						status={booking.status}
+						highlighted={deepLink.highlightedId === String(booking.id)}
+						{...spotChipProps(data.spots, booking.spotNumber, isDark)}
+						onOpen={() => openDrawer(booking)}
+					/>
+					{/each}
+				</div>
 			</Card.Content>
 		</Card.Root>
 	{/if}
 
-	{#if upcoming.length > 0}
-		<div class="space-y-3">
-			<h3 class="text-lg font-semibold">À venir</h3>
-			{#each upcoming as booking}
-				<Card.Root>
-					<Card.Content class="p-4">
-						<div class="flex items-start justify-between gap-3">
-							<div class="min-w-0 space-y-1">
-								<p class="font-medium capitalize">{formatMainLine(booking.startTime, booking.endTime)}</p>
-							<p class="text-muted-foreground text-sm">
-																{formatCreatedAt(booking.createdAt)} · <span class="inline-flex items-center gap-1"><CarFront class="h-3 w-3" />{booking.spotNumber}</span>{#if booking.note} · {booking.note}{/if}
-							</p>
-						</div>
-						<div class="flex shrink-0 items-center gap-2">
-							<Badge variant="outline">{formatDuration(booking.startTime, booking.endTime)}</Badge>
-							<Button variant="default" size="sm" class="bg-destructive text-white hover:bg-destructive/80 dark:text-[#1e1e2e]" onclick={() => confirmCancel(booking.id)}>Annuler</Button>
-							</div>
-						</div>
-					</Card.Content>
-				</Card.Root>
-			{/each}
-		</div>
-	{/if}
-
 	{#if past.length > 0}
-		<div class="space-y-3">
-			<h3 class="text-muted-foreground text-lg font-semibold">Passées</h3>
-			{#each past as booking}
-				<Card.Root class="opacity-60">
-					<Card.Content class="p-4">
-						<div class="flex items-start justify-between gap-3">
-							<div class="min-w-0 space-y-1">
-								<p class="font-medium capitalize">{formatMainLine(booking.startTime, booking.endTime)}</p>
-							<p class="text-muted-foreground text-sm">
-																{formatCreatedAt(booking.createdAt)} · <span class="inline-flex items-center gap-1"><CarFront class="h-3 w-3" />{booking.spotNumber}</span>{#if booking.note} · {booking.note}{/if}
-							</p>
+		<Card.Root>
+			<Card.Header>
+				<Card.Title class="text-muted-foreground flex items-center gap-2">
+					Passées
+					<CountBadge count={past.length} tone="muted" />
+				</Card.Title>
+			</Card.Header>
+			<Card.Content>
+				<div class="space-y-3">
+					{#each pastItems as booking (booking.id)}
+						<BookingTicketCard
+							variant="past"
+						bookingId={booking.id}
+						spotNumber={booking.spotNumber}
+						startTime={booking.startTime}
+						endTime={booking.endTime}
+						status={booking.status}
+						highlighted={deepLink.highlightedId === String(booking.id)}
+						{...spotChipProps(data.spots, booking.spotNumber, isDark)}
+						onOpen={() => openDrawer(booking)}
+					/>
+					{/each}
+					{#if pastTotalPages > 1}
+						<div class="flex justify-end">
+							<PaginationNav page={pastPage} totalPages={pastTotalPages} onPage={(p) => (pastPage = p)} />
 						</div>
-							<Badge variant="outline">{formatDuration(booking.startTime, booking.endTime)}</Badge>
-						</div>
-					</Card.Content>
-				</Card.Root>
-			{/each}
-		</div>
+					{/if}
+				</div>
+			</Card.Content>
+		</Card.Root>
 	{/if}
-</div>
+</PageColumn>
 
-<!-- AlertDialog: Cancel confirmation -->
-<AlertDialog.Root
-	open={cancellingBookingId !== null}
-	onOpenChange={(o) => {
-		if (!o) cancellingBookingId = null;
+<!-- Dialog: Cancel confirmation -->
+<BookingCancelDialog
+	bookingId={cancellingBookingId}
+	onClose={() => (cancellingBookingId = null)}
+	onCancelled={() => {
+		invalidateAll();
+		drawerOpen = false;
 	}}
->
-	<AlertDialog.Content class="sm:p-6">
-		<AlertDialog.Header>
-			<div class="flex items-center gap-3">
-				<div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-destructive/20 bg-destructive/10 text-destructive">
-					<Trash2 class="h-6 w-6" />
-				</div>
-				<div class="min-w-0">
-					<AlertDialog.Title>Annuler la réservation</AlertDialog.Title>
-					<AlertDialog.Description>Êtes-vous sûr de vouloir annuler cette réservation ?</AlertDialog.Description>
-				</div>
-			</div>
-		</AlertDialog.Header>
-		<AlertDialog.Footer class="bg-transparent border-t-0">
-			<AlertDialog.Cancel>Non</AlertDialog.Cancel>
-			<AlertDialog.Action variant="default" class="bg-destructive text-white hover:bg-destructive/80 dark:text-[#1e1e2e]" onclick={executeCancelBooking}>Annuler la réservation</AlertDialog.Action>
-		</AlertDialog.Footer>
-	</AlertDialog.Content>
-</AlertDialog.Root>
+/>
+
+<!-- Shared booking drawer (detail + Modifier/Annuler) -->
+<BookingDrawer
+	open={drawerOpen}
+	onClose={(o) => {
+		if (!o) {
+			closeDrawer();
+		}
+	}}
+	booking={selectedBooking}
+	canModify
+	onEdit={openEditDialog}
+	onCancel={confirmCancel}
+	onNoteChanged={() => invalidateAll()}
+/>
+
+<!-- Edit dialog stacks over the open drawer (drawer untouched — cf. conflict dialog) -->
+<BookingEditDialog
+	booking={editBooking}
+	spots={data.spots}
+	{isDark}
+	onClose={() => (editingBookingId = null)}
+	onSaved={() => invalidateAll()}
+/>

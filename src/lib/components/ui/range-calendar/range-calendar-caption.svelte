@@ -13,7 +13,8 @@
 		yearFormat,
 		month,
 		locale,
-		placeholder = $bindable(),
+		placeholder,
+		onPlaceholderChange,
 		monthIndex = 0
 	}: {
 		captionLayout: ComponentProps<typeof RangeCalendar>['captionLayout'];
@@ -23,6 +24,7 @@
 		yearFormat: ComponentProps<typeof RangeCalendarYearSelect>['yearFormat'];
 		month: DateValue;
 		placeholder: DateValue | undefined;
+		onPlaceholderChange?: (date: DateValue) => void;
 		locale: string;
 		monthIndex: number;
 	} = $props();
@@ -48,8 +50,7 @@
 		onchange={(e) => {
 			if (!placeholder) return;
 			const v = Number.parseInt(e.currentTarget.value);
-			const newPlaceholder = placeholder.set({ month: v });
-			placeholder = newPlaceholder.subtract({ months: monthIndex });
+			onPlaceholderChange?.(placeholder.set({ month: v }).subtract({ months: monthIndex }));
 		}}
 	/>
 {/snippet}

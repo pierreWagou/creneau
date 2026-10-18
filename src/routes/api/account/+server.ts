@@ -5,6 +5,7 @@ import { hashPin, validatePin, verifyPin } from '$lib/server/auth';
 import {
 	getFlatEmails,
 	getFlatPhones,
+	replaceValidatedContacts,
 	setFlatEmails,
 	setFlatPhones,
 	validateEmails,
@@ -13,7 +14,7 @@ import {
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
 import { requireAuth } from '$lib/server/guards';
-import { handleHandlerError } from '$lib/server/handler';
+import { errorJson, handleHandlerError } from '$lib/server/handler';
 import type { RequestHandler } from './$types';
 
 export const PATCH: RequestHandler = async ({ request, locals }) => {
@@ -27,27 +28,25 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
 		if ('displayName' in body) {
 			const name = body.displayName?.trim() || null;
 			if (name && name.length > DISPLAY_NAME_MAX_LENGTH) {
-				return json({ error: `Le nom ne doit pas dépasser ${DISPLAY_NAME_MAX_LENGTH} caractères` }, { status: 400 });
+				return errorJson(`Le nom ne doit pas dépasser ${DISPLAY_NAME_MAX_LENGTH} caractères`, 400);
 			}
 			allowedFields.displayName = name;
 		}
 
 		// Handle email updates
 		if ('emails' in body) {
-			const validatedEmails = validateEmails(body.emails);
-			if (typeof validatedEmails === 'string') {
-				return json({ error: validatedEmails }, { status: 400 });
-			}
-			await setFlatEmails(db, locals.flat!.number, validatedEmails);
+			const emailError = await replaceValidatedContacts(body.emails, validateEmails, (values) =>
+				setFlatEmails(db, locals.flat!.number, values)
+			);
+			if (emailError) return errorJson(emailError, 400);
 		}
 
 		// Handle phone updates
 		if ('phones' in body) {
-			const validatedPhones = validatePhones(body.phones);
-			if (typeof validatedPhones === 'string') {
-				return json({ error: validatedPhones }, { status: 400 });
-			}
-			await setFlatPhones(db, locals.flat!.number, validatedPhones);
+			const phoneError = await replaceValidatedContacts(body.phones, validatePhones, (values) =>
+				setFlatPhones(db, locals.flat!.number, values)
+			);
+			if (phoneError) return errorJson(phoneError, 400);
 		}
 
 		if (Object.keys(allowedFields).length > 0) {
@@ -80,23 +79,23 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		const { currentPin, newPin } = await request.json();
 
 		if (!currentPin || !newPin) {
-			return json({ error: 'Champs obligatoires manquants' }, { status: 400 });
+			return errorJson('Champs obligatoires manquants', 400);
 		}
 
 		const pinError = validatePin(newPin);
 		if (pinError) {
-			return json({ error: pinError }, { status: 400 });
+			return errorJson(pinError, 400);
 		}
 
 		// Verify current PIN
 		const existing = await db.select().from(flat).where(eq(flat.number, locals.flat!.number)).get();
 		if (!existing?.pinHash) {
-			return json({ error: 'Aucun PIN configuré' }, { status: 400 });
+			return errorJson('Aucun PIN configuré', 400);
 		}
 
 		const valid = await verifyPin(currentPin, existing.pinHash);
 		if (!valid) {
-			return json({ error: 'PIN actuel incorrect' }, { status: 401 });
+			return errorJson('PIN actuel incorrect', 401);
 		}
 
 		// Update PIN

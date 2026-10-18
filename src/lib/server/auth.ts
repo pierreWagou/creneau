@@ -2,7 +2,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { hash, verify } from '@node-rs/argon2';
 import type { Cookies } from '@sveltejs/kit';
 import { and, eq, gt } from 'drizzle-orm';
-import { ACTIVATION_CODE_LENGTH, PIN_MAX_LENGTH, PIN_MIN_LENGTH, SESSION_DURATION_MS } from '$lib/constants';
+import { ACTIVATION_CODE_LENGTH, SESSION_DURATION_MS } from '$lib/constants';
 import type { SessionFlat } from '$lib/types';
 import { db } from './db';
 import { flat, flatEmail, flatPhone, session } from './db/schema';
@@ -31,16 +31,9 @@ export async function verifyPin(pin: string, hashedPin: string): Promise<boolean
 
 /**
  * Validate a PIN string. Returns an error message if invalid, or null if valid.
+ * Re-exported from the client-safe shared module (single implementation).
  */
-export function validatePin(pin: string): string | null {
-	if (pin.length < PIN_MIN_LENGTH || pin.length > PIN_MAX_LENGTH) {
-		return `Le PIN doit contenir ${PIN_MIN_LENGTH} à ${PIN_MAX_LENGTH} chiffres`;
-	}
-	if (!/^\d+$/.test(pin)) {
-		return 'Le PIN ne doit contenir que des chiffres';
-	}
-	return null;
-}
+export { validatePin } from '$lib/validation';
 
 export function generateActivationCode(): string {
 	// Alphanumeric code (uppercase, no ambiguous chars like O/0, I/1)

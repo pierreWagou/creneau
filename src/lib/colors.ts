@@ -2,7 +2,7 @@
  * Hex palette — the JS twin of the CSS variables in `src/app.css` (@layer base).
  *
  * Both must stay in sync: CSS vars can't reach (a) e-mail HTML
- * (`lib/server/mail-templates.ts`) or (b) JS-driven inline styles / SVG fills
+ * (`lib/server/mail/`) or (b) JS-driven inline styles / SVG fills
  * (`getFlatColor`, avatar and calendar slot colors). Do NOT consolidate one
  * into the other — each side serves a renderer the other cannot reach.
  */
@@ -16,6 +16,8 @@ export const latte = {
 	heading: '#1e1e2e',
 	subtext0: '#6c6f85',
 	blue: '#1e66f5',
+	/** latte.blue 10% over white (= bg-primary/10) — mail spot-chip tint */
+	chipTintBlue: '#e8effe',
 	white: '#ffffff',
 	footerBg: '#f8f9fb',
 	overlay0: '#9ca0b0'
@@ -57,15 +59,32 @@ export const FLAT_COLORS_DARK = [
 ] as const;
 
 /**
- * The flat color: deterministic per flat number (same input → same color, both themes).
- * Single choke point for flat identity color — when flats gain a selectable color,
- * resolution becomes `flat.color ?? hash(flatNumber)` here without touching call sites.
+ * The palette index for a flat number (0–7): deterministic hash, theme-independent.
+ * This index (not a hex) is the storable form for user-selectable lot colors.
  */
-export function getFlatColor(flatNumber: string, isDark: boolean): string {
-	const colors = isDark ? FLAT_COLORS_DARK : FLAT_COLORS_LIGHT;
+export function flatColorIndex(flatNumber: string): number {
 	let hash = 0;
 	for (let i = 0; i < flatNumber.length; i++) {
 		hash = flatNumber.charCodeAt(i) + ((hash << 5) - hash);
 	}
-	return colors[Math.abs(hash) % colors.length];
+	return Math.abs(hash) % FLAT_COLORS_LIGHT.length;
+}
+
+/**
+ * Hex for a palette index in the given theme. Modulo-wrapped so negatives and
+ * overflow land valid — never throws, never undefined.
+ */
+export function flatColorForIndex(index: number, isDark: boolean): string {
+	const colors = isDark ? FLAT_COLORS_DARK : FLAT_COLORS_LIGHT;
+	const i = ((Math.floor(index) % colors.length) + colors.length) % colors.length;
+	return colors[i];
+}
+
+/**
+ * The flat color: deterministic per flat number (same input → same color, both themes).
+ * Single choke point for flat identity color — when flats gain selectable color,
+ * resolution becomes `flat.colorIndex ?? hash(flatNumber)` here without touching call sites.
+ */
+export function getFlatColor(flatNumber: string, isDark: boolean): string {
+	return flatColorForIndex(flatColorIndex(flatNumber), isDark);
 }

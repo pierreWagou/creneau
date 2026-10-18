@@ -2,7 +2,7 @@
 		import CarFront from '@lucide/svelte/icons/car-front';
 	import { Input } from '$lib/components/ui/input';
 	import * as Tabs from '$lib/components/ui/tabs';
-	import { formatSpotNumber, isValidSpotNumber } from '$lib/constants';
+	import { formatSpotNumber, isValidSpotNumber, SPOT_PICKER_PREVIEW_LIMIT } from '$lib/constants';
 
 	export interface PickerSpot {
 		number: string;
@@ -38,8 +38,7 @@
 	let showAll = $state(false);
 
 	const t = $derived(typed.trim());
-	/** Unfiltered preview stays small — search does the heavy lifting */
-	const PREVIEW_LIMIT = 8;
+	/** Unfiltered preview stays small — search does the heavy lifting (cap in constants, last slot kept for show-all) */
 	/**
 	 * One list everywhere: unassigned first-hand, then shared pool, then
 	 * bound — numeric inside each group. Warnings (not order) vary per flow.
@@ -59,8 +58,8 @@
 					(a.number < b.number ? -1 : a.number > b.number ? 1 : 0)
 			)
 	);
-	const listShown = $derived(!showAll ? matched.slice(0, PREVIEW_LIMIT - 1) : matched);
-	const truncated = $derived(matched.length > PREVIEW_LIMIT);
+	const listShown = $derived(!showAll ? matched.slice(0, SPOT_PICKER_PREVIEW_LIMIT - 1) : matched);
+	const truncated = $derived(matched.length > SPOT_PICKER_PREVIEW_LIMIT);
 
 	function commitTyped() {
 		rejectNote = null;
@@ -129,13 +128,13 @@
 		<div class="grid grid-cols-4 gap-1.5 max-h-36 overflow-y-auto overscroll-contain">
 			{#each listShown as s (s.number)}
 				{@const holderNote = maskHolder ? 'Déjà attribuée' : `Attribuée au lot ${s.flatNumber}`}
-				{@const poolNote = 'Place partagée — la demander la retire du pool commun'}
+				{@const poolNote = 'Place partagée — la demander la retire des places partagées'}
 				{#if s.status === 'unassigned'}
 					<button
 						type="button"
 						onclick={() => onSelect(s.number)}
 						aria-label="Choisir la place {s.number}"
-						class="flex items-center justify-center gap-1 rounded-md border border-border px-2 py-1.5 text-sm font-semibold transition-colors hover:border-foreground/30 hover:bg-muted/50"
+						class="flex items-center justify-center gap-1 rounded-md border border-border px-2 py-1.5 text-sm font-semibold hoverable-card"
 					>
 						<CarFront class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
 						{s.number}

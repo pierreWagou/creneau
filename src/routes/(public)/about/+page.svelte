@@ -1,18 +1,14 @@
 <script lang="ts">
-	import CalendarDays from '@lucide/svelte/icons/calendar-days';
-	import ChartBar from '@lucide/svelte/icons/chart-bar';
+	import BookOpen from '@lucide/svelte/icons/book-open';
 	import CircleHelp from '@lucide/svelte/icons/circle-help';
-	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
 	import ExternalLink from '@lucide/svelte/icons/external-link';
 	import Info from '@lucide/svelte/icons/info';
-	import Lock from '@lucide/svelte/icons/lock';
 	import Mail from '@lucide/svelte/icons/mail';
 	import Play from '@lucide/svelte/icons/play';
-	import ShieldCheck from '@lucide/svelte/icons/shield-check';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
-	import Zap from '@lucide/svelte/icons/zap';
 	import Logo from '$lib/components/logo.svelte';
 	import * as Card from '$lib/components/ui/card';
+	import { PREVIEW_URL, REPO_URL, SUPPORT_URL } from '$lib/constants';
 </script>
 
 <div class="mx-auto max-w-2xl space-y-6">
@@ -26,7 +22,7 @@
 	<!-- Ce que fait Créneau -->
 	<Card.Root class="border-t-2 border-success">
 		<Card.Header>
-			<Card.Title class="flex items-center gap-2">
+			<Card.Title class="card-title-row">
 				<Sparkles class="h-5 w-5 text-success" />
 				Ce que fait Créneau
 			</Card.Title>
@@ -54,199 +50,25 @@
 		</Card.Content>
 	</Card.Root>
 
-	<!-- Commencer -->
+	<!-- Guide d'utilisation -->
 	<Card.Root class="border-t-2 border-primary">
 		<Card.Header>
-			<Card.Title class="flex items-center gap-2">
-				<Zap class="text-primary h-5 w-5" />
-				Commencer
+			<Card.Title class="card-title-row">
+				<BookOpen class="text-primary h-5 w-5" />
+				Guide d'utilisation
 			</Card.Title>
-			<Card.Description>Comment accéder à l'application</Card.Description>
+			<Card.Description>Le manuel du résident, étape par étape</Card.Description>
 		</Card.Header>
 		<Card.Content>
-			<ol class="text-muted-foreground space-y-3 text-sm">
-				<li class="flex items-start gap-3">
-					<span class="bg-primary text-primary-foreground flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">1</span>
-					<span><strong class="text-foreground">Demandez l'accès</strong> via le formulaire avec votre numéro d'appartement, vos places de parking souhaitées et vos coordonnées</span>
-				</li>
-				<li class="flex items-start gap-3">
-					<span class="bg-primary text-primary-foreground flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">2</span>
-					<span>L'administrateur approuve votre demande et vous envoie un <strong class="text-foreground">code d'activation</strong> (valable 24h)</span>
-				</li>
-				<li class="flex items-start gap-3">
-					<span class="bg-primary text-primary-foreground flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">3</span>
-					<span>Activez votre compte et choisissez un <strong class="text-foreground">code PIN secret</strong> (4 à 6 chiffres)</span>
-				</li>
-				<li class="flex items-start gap-3">
-					<span class="bg-primary text-primary-foreground flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">4</span>
-					<span><strong class="text-foreground">C'est prêt !</strong> Vous pouvez réserver vos places de parking</span>
-				</li>
-			</ol>
-		</Card.Content>
-	</Card.Root>
-
-	<!-- Réserver une place -->
-	<Card.Root class="border-t-2 border-warning">
-		<Card.Header>
-			<Card.Title class="flex items-center gap-2">
-				<CalendarDays class="h-5 w-5 text-warning" />
-			Réserver une place de parking
-		</Card.Title>
-			<Card.Description>Quelques clics et c'est fait</Card.Description>
-		</Card.Header>
-		<Card.Content>
-			<ol class="text-muted-foreground space-y-3 text-sm">
-				<li class="flex items-start gap-3">
-					<span class="bg-warning text-background flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">1</span>
-					<span>Ouvrez le <strong class="text-foreground">Calendrier</strong></span>
-				</li>
-				<li class="flex items-start gap-3">
-					<span class="bg-warning text-background flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">2</span>
-					<span>Choisissez une <strong class="text-foreground">date</strong> (les cases vertes sont libres)</span>
-				</li>
-				<li class="flex items-start gap-3">
-					<span class="bg-warning text-background flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">3</span>
-					<span>Sélectionnez votre <strong class="text-foreground">créneau horaire</strong></span>
-				</li>
-				<li class="flex items-start gap-3">
-					<span class="bg-warning text-background flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">4</span>
-					<span><strong class="text-foreground">Confirmez</strong> — c'est réservé !</span>
-				</li>
-			</ol>
-		</Card.Content>
-	</Card.Root>
-
-	<!-- Gérer vos réservations -->
-	<Card.Root class="border-t-2 border-accent">
-		<Card.Header>
-			<Card.Title class="flex items-center gap-2">
-				<ClipboardList class="text-accent h-5 w-5" />
-				Gérer vos réservations
-			</Card.Title>
-			<Card.Description>Modifiez, annulez, consultez</Card.Description>
-		</Card.Header>
-		<Card.Content>
-			<ul class="text-muted-foreground space-y-2 text-sm">
-				<li class="flex items-start gap-2">
-					<span class="text-accent mt-0.5">•</span>
-					<span>Consultez <strong class="text-foreground">Mes réservations</strong> pour voir vos créneaux à venir</span>
-				</li>
-				<li class="flex items-start gap-2">
-					<span class="text-accent mt-0.5">•</span>
-					<span><strong class="text-foreground">Modifiez</strong> un créneau en le déplaçant dans le calendrier (glisser-déposer)</span>
-				</li>
-				<li class="flex items-start gap-2">
-					<span class="text-accent mt-0.5">•</span>
-					<span><strong class="text-foreground">Annulez</strong> à tout moment depuis Mes réservations</span>
-				</li>
-				<li class="flex items-start gap-2">
-					<span class="text-accent mt-0.5">•</span>
-					<span>Tout se met à jour <strong class="text-foreground">en direct</strong> pour tous les résidents</span>
-				</li>
-			</ul>
-		</Card.Content>
-	</Card.Root>
-
-	<!-- Règles simples -->
-	<Card.Root class="border-t-2 border-booking-busy">
-		<Card.Header>
-			<Card.Title class="flex items-center gap-2">
-				<ShieldCheck class="h-5 w-5 text-booking-busy" />
-				Règles simples
-			</Card.Title>
-			<Card.Description>Pas de surprise, tout est clair</Card.Description>
-		</Card.Header>
-		<Card.Content>
-			<ul class="text-muted-foreground space-y-2 text-sm">
-				<li class="flex items-start gap-2">
-					<span class="mt-0.5 text-booking-busy">•</span>
-					<span><strong class="text-foreground">Max 7 jours</strong> consécutifs par réservation</span>
-				</li>
-				<li class="flex items-start gap-2">
-					<span class="mt-0.5 text-booking-busy">•</span>
-					<span><strong class="text-foreground">Annulation libre</strong> à tout moment (pour les réservations à venir)</span>
-				</li>
-				<li class="flex items-start gap-2">
-					<span class="mt-0.5 text-booking-busy">•</span>
-					<span><strong class="text-foreground">Pas de conflit possible</strong> — si une place de parking est prise, l'appli l'empêche</span>
-				</li>
-			</ul>
-		</Card.Content>
-	</Card.Root>
-
-	<!-- Activité -->
-	<Card.Root class="border-t-2 border-accent">
-		<Card.Header>
-			<Card.Title class="flex items-center gap-2">
-				<ChartBar class="h-5 w-5 text-accent" />
-				Activité
-			</Card.Title>
-			<Card.Description>Statistiques et transparence</Card.Description>
-		</Card.Header>
-		<Card.Content>
-			<ul class="text-muted-foreground space-y-2 text-sm">
-				<li class="flex items-start gap-2">
-					<span class="mt-0.5 text-accent">•</span>
-					<span>Consultez vos <strong class="text-foreground">statistiques personnelles</strong> : heures de réservation, nombre de créneaux</span>
-				</li>
-				<li class="flex items-start gap-2">
-					<span class="mt-0.5 text-accent">•</span>
-					<span>Suivez l'<strong class="text-foreground">utilisation globale</strong> de l'immeuble</span>
-				</li>
-				<li class="flex items-start gap-2">
-					<span class="mt-0.5 text-accent">•</span>
-					<span>Découvrez le <strong class="text-foreground">classement des résidents</strong> — transparent pour tous</span>
-				</li>
-			</ul>
-		</Card.Content>
-	</Card.Root>
-
-	<!-- Vos coordonnées -->
-	<Card.Root class="border-t-2 border-info">
-		<Card.Header>
-			<Card.Title class="flex items-center gap-2">
-				<Mail class="h-5 w-5 text-info" />
-				Vos coordonnées
-			</Card.Title>
-			<Card.Description>Gardez vos contacts à jour</Card.Description>
-		</Card.Header>
-		<Card.Content>
-			<ul class="text-muted-foreground space-y-2 text-sm">
-				<li class="flex items-start gap-2">
-					<span class="mt-0.5 text-info">•</span>
-					<span>Ajoutez ou modifiez vos <strong class="text-foreground">emails</strong> et <strong class="text-foreground">téléphones</strong> depuis la page Mon compte</span>
-				</li>
-				<li class="flex items-start gap-2">
-					<span class="mt-0.5 text-info">•</span>
-					<span>Au moins <strong class="text-foreground">1 email et 1 téléphone</strong> sont requis pour pouvoir réserver</span>
-				</li>
-				<li class="flex items-start gap-2">
-					<span class="mt-0.5 text-info">•</span>
-					<span>Vos coordonnées ne sont visibles que par vous et les administrateurs</span>
-				</li>
-			</ul>
-		</Card.Content>
-	</Card.Root>
-
-	<!-- Confidentialité -->
-	<Card.Root class="border-t-2 border-info">
-		<Card.Header>
-			<Card.Title class="flex items-center gap-2">
-				<Lock class="h-5 w-5 text-info" />
-				Confidentialité
-			</Card.Title>
-			<Card.Description>Vos données sont protégées</Card.Description>
-		</Card.Header>
-		<Card.Content class="space-y-2">
-			<p class="text-muted-foreground text-sm">
-				Les données stockées sont les numéros d'appartement, les places de parking, les horaires de réservation
-				et vos coordonnées (emails et téléphones) pour faciliter la communication entre résidents.
-			</p>
-			<p class="text-muted-foreground text-sm">
-				Aucune donnée n'est transmise à un service externe. Le serveur est situé dans l'immeuble.
-			</p>
-			<p class="text-muted-foreground text-sm">
-				Les administrateurs de l'application sont les membres du conseil syndical.
+			<a
+				href="/guide"
+				class="text-foreground inline-flex items-center gap-1 text-sm font-medium hover:underline"
+			>
+				Ouvrir le guide résident
+				<ExternalLink class="text-muted-foreground h-3 w-3" />
+			</a>
+			<p class="text-muted-foreground mt-1 text-sm">
+				Réserver, modifier, annuler, gérer votre compte : tout y est expliqué.
 			</p>
 		</Card.Content>
 	</Card.Root>
@@ -254,7 +76,7 @@
 	<!-- Tester l'application -->
 	<Card.Root class="border-t-2 border-accent">
 		<Card.Header>
-			<Card.Title class="flex items-center gap-2">
+			<Card.Title class="card-title-row">
 				<Play class="h-5 w-5 text-accent" />
 				Tester l'application
 			</Card.Title>
@@ -267,17 +89,17 @@
 			<div class="rounded-md border p-3">
 				<p class="text-sm">
 					<a
-						href="https://creneau-preview.wagou.fr"
+						href={PREVIEW_URL}
 						target="_blank"
 						rel="noopener noreferrer"
 						class="text-foreground inline-flex items-center gap-1 font-medium hover:underline"
 					>
-						creneau-preview.wagou.fr
+						{PREVIEW_URL.replace(/^https?:\/\//, '')}
 						<ExternalLink class="text-muted-foreground h-3 w-3" />
 					</a>
 				</p>
-				<p class="text-muted-foreground mt-1 text-xs">
-					Connectez-vous avec l'appartement <strong>A01</strong> et le code PIN <strong>1234</strong>
+				<p class="text-muted-foreground mt-1 text-sm">
+					Connectez-vous avec le lot <strong>A01</strong> et le code PIN <strong>1234</strong>
 				</p>
 			</div>
 		</Card.Content>
@@ -286,7 +108,7 @@
 	<!-- FAQ -->
 	<Card.Root class="border-t-2 border-primary">
 		<Card.Header>
-			<Card.Title class="flex items-center gap-2">
+			<Card.Title class="card-title-row">
 				<CircleHelp class="h-5 w-5 text-primary" />
 				Questions fréquentes
 			</Card.Title>
@@ -307,7 +129,7 @@
 			</div>
 			<div class="space-y-1">
 				<p class="font-medium text-foreground">Comment modifier une réservation ?</p>
-				<p class="text-muted-foreground">Depuis le calendrier en glissant-déposant, ou depuis Mes réservations.</p>
+				<p class="text-muted-foreground">Depuis Mes réservations (dates, horaires et même la place) ou depuis le calendrier en glissant-déposant. Le détail est dans le guide d'utilisation.</p>
 			</div>
 			<div class="space-y-1">
 				<p class="font-medium text-foreground">Comment mettre à jour mes coordonnées ?</p>
@@ -319,7 +141,7 @@
 	<!-- Contact -->
 	<Card.Root class="border-t-2 border-border">
 		<Card.Header>
-			<Card.Title class="flex items-center gap-2">
+			<Card.Title class="card-title-row">
 				<Mail class="text-muted-foreground h-5 w-5" />
 				Contact
 			</Card.Title>
@@ -334,7 +156,7 @@
 				pierre.romon@gmail.com
 			</a>
 			<a
-				href="https://wa.me/33641673279"
+				href={SUPPORT_URL}
 				target="_blank"
 				rel="noopener noreferrer"
 				class="text-foreground flex items-center gap-2 text-sm font-medium hover:underline"
@@ -352,7 +174,7 @@
 				WhatsApp (+33 6 41 67 32 79)
 			</a>
 			<a
-				href="https://github.com/pierrewagou/creneau"
+				href={REPO_URL}
 				target="_blank"
 				rel="noopener noreferrer"
 				class="text-foreground flex items-center gap-2 text-sm font-medium hover:underline"
@@ -376,7 +198,7 @@
 	<!-- À propos -->
 	<Card.Root class="border-t-2 border-muted">
 		<Card.Header>
-			<Card.Title class="flex items-center gap-2">
+			<Card.Title class="card-title-row">
 				<Info class="text-muted-foreground h-5 w-5" />
 				À propos
 			</Card.Title>

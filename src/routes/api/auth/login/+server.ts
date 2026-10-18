@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { createSession, setSessionCookie, verifyPin } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
-import { handleHandlerError, requireRateLimit } from '$lib/server/handler';
+import { errorJson, handleHandlerError, requireRateLimit } from '$lib/server/handler';
 import { recordFailedAttempt, resetAttempts } from '$lib/server/rate-limit';
 import type { RequestHandler } from './$types';
 
@@ -12,7 +12,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		const { flatNumber, pin } = await request.json();
 
 		if (!flatNumber || !pin) {
-			return json({ error: 'Champs obligatoires manquants' }, { status: 400 });
+			return errorJson('Champs obligatoires manquants', 400);
 		}
 
 		// Rate limiting
@@ -23,13 +23,13 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 		if (existingFlat?.status !== 'active' || !existingFlat.pinHash) {
 			recordFailedAttempt(flatNumber);
-			return json({ error: 'Numéro de lot ou PIN invalide' }, { status: 401 });
+			return errorJson('Numéro de lot ou PIN invalide', 401);
 		}
 
 		const valid = await verifyPin(pin, existingFlat.pinHash);
 		if (!valid) {
 			recordFailedAttempt(flatNumber);
-			return json({ error: 'Numéro de lot ou PIN invalide' }, { status: 401 });
+			return errorJson('Numéro de lot ou PIN invalide', 401);
 		}
 
 		// Success — reset rate limit

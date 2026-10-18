@@ -2,9 +2,9 @@
 	import Plus from '@lucide/svelte/icons/plus';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import type { Component } from 'svelte';
-	import { Button } from '$lib/components/ui/button';
 	import { MAX_CONTACTS_PER_TYPE } from '$lib/constants';
 	import EditableField from './editable-field.svelte';
+	import IconButton from './icon-button.svelte';
 	import InlineEditField from './inline-edit-field.svelte';
 
 	interface Props {
@@ -110,7 +110,7 @@
 </script>
 
 {#snippet listBody()}
-	{#each items as item, i}
+	{#each items as item, i (item)}
 		{#snippet itemDisplay()}
 			{#if linkPrefix}
 				<a
@@ -122,9 +122,7 @@
 				<span class="block truncate text-sm font-semibold">{display(item)}</span>
 			{/if}
 		{/snippet}
-		<div class="flex items-center gap-2 min-h-8">
-			<Icon class="h-4 w-4 shrink-0 text-muted-foreground" />
-			<EditableField
+		<EditableField
 				editing={editable && editingIndex === i}
 				editable={editable}
 				editLabel={editLabel}
@@ -137,11 +135,14 @@
 				error={draft.length > 0 && !draftValid ? invalidMessage : null}
 				errorDisplay="tooltip"
 				committable={draftValid}
-				autofocus={editingIndex === i}
+				focusOnOpen={editingIndex === i}
 				onCommit={commit}
 				onCancel={cancel}
 				display={itemDisplay}
 			>
+				{#snippet leading()}
+					<Icon class="h-4 w-4 shrink-0 text-muted-foreground" />
+				{/snippet}
 				{#snippet editingActions()}
 					{#if editable && items.length > minItems}
 						<span class="w-7 shrink-0" aria-hidden="true"></span>
@@ -149,20 +150,10 @@
 				{/snippet}
 				{#snippet actions()}
 					{#if editable && items.length > minItems}
-						<Button
-							type="button"
-							variant="ghost"
-							size="icon-sm"
-							class="shrink-0 text-muted-foreground hover:text-destructive hover:!bg-destructive/10"
-							aria-label={removeLabel}
-							onclick={() => remove(i)}
-						>
-							<Trash2 class="h-3.5 w-3.5" />
-						</Button>
+						<IconButton icon={Trash2} label={removeLabel} tone="destructive" onclick={() => remove(i)} />
 					{/if}
 				{/snippet}
 			</EditableField>
-		</div>
 	{/each}
 	{#if editable && items.length < MAX_CONTACTS_PER_TYPE}
 		{#if adding}
@@ -176,7 +167,7 @@
 					error={draft.length > 0 && !draftValid ? invalidMessage : null}
 					errorDisplay="tooltip"
 					committable={draftValid}
-					autofocus={adding}
+					focusOnOpen={adding}
 					onCommit={commit}
 					onCancel={cancel}
 				/>

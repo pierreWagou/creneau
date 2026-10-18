@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { flat, session } from '$lib/server/db/schema';
 import { requireAdmin } from '$lib/server/guards';
-import { handleHandlerError } from '$lib/server/handler';
+import { errorJson, handleHandlerError } from '$lib/server/handler';
 import type { RequestHandler } from './$types';
 
 /**
@@ -18,22 +18,22 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
 	// Prevent admin from resetting their own account
 	if (flatNumber === locals.flat!.number) {
-		return json({ error: 'Impossible de réinitialiser votre propre compte' }, { status: 400 });
+		return errorJson('Impossible de réinitialiser votre propre lot', 400);
 	}
 
 	try {
 		const { confirm } = await request.json();
 		if (!confirm) {
-			return json({ error: 'Confirmation requise' }, { status: 400 });
+			return errorJson('Confirmation requise', 400);
 		}
 
 		const existing = await db.select().from(flat).where(eq(flat.number, flatNumber)).get();
 		if (!existing) {
-			return json({ error: 'Lot introuvable' }, { status: 404 });
+			return errorJson('Lot introuvable', 404);
 		}
 
 		if (existing.status !== 'active') {
-			return json({ error: "Ce lot n'est pas actif" }, { status: 400 });
+			return errorJson("Ce lot n'est pas actif", 400);
 		}
 
 		// Reset to inactive state

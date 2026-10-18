@@ -1,10 +1,9 @@
 import { json } from '@sveltejs/kit';
-import { FLAT_NUMBER_REGEX } from '$lib/constants';
 import { createSession, hashPin, setSessionCookie, validatePin } from '$lib/server/auth';
 import { setFlatEmails, setFlatPhones } from '$lib/server/contacts';
 import { db } from '$lib/server/db';
 import { flat } from '$lib/server/db/schema';
-import { handleHandlerError, validateContactInputs } from '$lib/server/handler';
+import { errorJson, handleHandlerError, parseFlatNumber, validateContactInputs } from '$lib/server/handler';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
@@ -12,24 +11,22 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		// Ensure no flats exist (first-time setup only)
 		const existingFlats = await db.select().from(flat).all();
 		if (existingFlats.length > 0) {
-			return json({ error: "L'application est déjà configurée" }, { status: 409 });
+			return errorJson("L'application est déjà configurée", 409);
 		}
 
 		const { flatNumber, displayName, pin, emails, phones } = await request.json();
 
 		// Validate input
 		if (!flatNumber || !pin) {
-			return json({ error: 'Champs obligatoires manquants' }, { status: 400 });
+			return errorJson('Champs obligatoires manquants', 400);
 		}
 
-		const normalizedFlat = flatNumber.trim().toUpperCase();
-		if (!FLAT_NUMBER_REGEX.test(normalizedFlat)) {
-			return json({ error: 'Format de lot invalide (ex. A01, B12)' }, { status: 400 });
-		}
+		const normalizedFlat = parseFlatNumber(flatNumber);
+		if (normalizedFlat instanceof Response) return normalizedFlat;
 
 		const pinError = validatePin(pin);
 		if (pinError) {
-			return json({ error: pinError }, { status: 400 });
+			return errorJson(pinError, 400);
 		}
 
 		const validated = validateContactInputs(emails, phones);

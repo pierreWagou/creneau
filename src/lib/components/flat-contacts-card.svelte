@@ -30,7 +30,7 @@
 
 <div class="rounded-xl border border-border p-4 space-y-4">
 	<div>
-		<p class="text-xs text-muted-foreground uppercase tracking-wide mb-1.5">E-mails ({emails.length}){#if required}<span class="text-destructive">*</span>{/if}</p>
+		<p class="dialog-section-label mb-2">E-mails ({emails.length}){#if required}<span class="text-destructive">*</span>{/if}</p>
 		<FlatContactList
 			bare
 			icon={Mail}
@@ -50,14 +50,14 @@
 		/>
 	</div>
 	<div class="border-t border-border pt-4">
-		<p class="text-xs text-muted-foreground uppercase tracking-wide mb-1.5">
+		<p class="dialog-section-label mb-2">
 			Téléphones ({phones.length}){#if required}<span class="text-destructive">*</span>{/if}
 		</p>
 		<FlatContactList
 			bare
 			icon={Phone}
 			bind:items={phones}
-			placeholder="+33 6 12 34 56 78"
+			placeholder="ex. +33 6 12 34 56 78"
 			inputType="tel"
 			invalidMessage="Téléphone invalide"
 			addLabel="Ajouter un téléphone"

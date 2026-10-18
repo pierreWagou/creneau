@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { index, integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 export const spot = sqliteTable('spot', {
 	number: text('number').primaryKey(),
@@ -93,19 +93,28 @@ export const flatPhone = sqliteTable(
 	(t) => [primaryKey(t.flatNumber, t.phone)]
 );
 
-export const booking = sqliteTable('booking', {
-	id: integer('id').primaryKey({ autoIncrement: true }),
-	spotNumber: text('spot_number')
-		.notNull()
-		.references(() => spot.number, { onDelete: 'cascade' }),
-	flatNumber: text('flat_number')
-		.notNull()
-		.references(() => flat.number, { onDelete: 'cascade' }),
-	startTime: text('start_time').notNull(),
-	endTime: text('end_time').notNull(),
-	note: text('note'),
-	createdAt: text('created_at').notNull().default(sql`(datetime('now'))`)
-});
+export const booking = sqliteTable(
+	'booking',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		spotNumber: text('spot_number')
+			.notNull()
+			.references(() => spot.number, { onDelete: 'cascade' }),
+		flatNumber: text('flat_number')
+			.notNull()
+			.references(() => flat.number, { onDelete: 'cascade' }),
+		startTime: text('start_time').notNull(),
+		endTime: text('end_time').notNull(),
+		note: text('note'),
+		// Lifecycle: active (bookable/blocking) · cancelled (soft-delete — kept
+		// for display, ignored by availability/conflicts/calendar/stats)
+		status: text('status', { enum: ['active', 'cancelled'] })
+			.notNull()
+			.default('active'),
+		createdAt: text('created_at').notNull().default(sql`(datetime('now'))`)
+	},
+	(table) => [index('booking_start_time_idx').on(table.startTime)]
+);
 
 export const session = sqliteTable('session', {
 	id: text('id').primaryKey(),

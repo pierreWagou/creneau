@@ -113,6 +113,27 @@
       "when": 1790937985487,
       "tag": "0015_heal_skipped_backfills",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1790937985488,
+      "tag": "0016_midnight_end_fold",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1790937985489,
+      "tag": "0017_booking_status",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1792095055000,
+      "tag": "0018_booking_start_time_index",
+      "breakpoints": true
     }
   ]
 }

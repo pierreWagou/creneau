@@ -2,11 +2,9 @@
 // Global constants
 // ============================================================
 
-/** Start of bookable day (hour) */
-export const DAY_START = 0;
-
-/** End of bookable day (hour) */
-export const DAY_END = 24;
+// Bookable-day bounds live in constants.ts (single home for shared values);
+// re-exported here so time-math importers keep a single import source.
+export { DAY_END, DAY_START } from './constants';
 
 // ============================================================
 // Types
@@ -35,6 +33,8 @@ export interface AvailableSlot {
 export interface CalendarDayStatus {
 	date: string;
 	status: 'free' | 'partial' | 'full';
+	/** Booked share of reservable hours, 0 (free) … 1 (fully booked) */
+	ratio: number;
 }
 
 /** Booking data joined with flat info */
@@ -46,6 +46,7 @@ export interface BookingWithFlat {
 	endTime: string;
 	note: string | null;
 	createdAt: string;
+	status: 'active' | 'cancelled';
 	flatDisplayName: string | null;
 }
 
@@ -60,4 +61,19 @@ export function getTimelineStatus(timeline: SpotTimeline): 'free' | 'partial' | 
 	if (timeline.bookings.length === 0) return 'free';
 	if (timeline.available.length === 0) return 'full';
 	return 'partial';
+}
+
+/**
+ * A spot currently bound to another flat — the 409-conflict contract,
+ * single-sourced here for server (`rebind.ts`) and client (`utils/spots.ts`).
+ */
+export interface SpotConflict {
+	spotNumber: string;
+	currentFlat: string;
+}
+
+/** Rebind 409 payload: optional conflicts plus the failure-only mail flag. */
+export interface RebindConflictResult {
+	conflicts?: SpotConflict[];
+	mailFailed?: boolean;
 }

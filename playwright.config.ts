@@ -43,6 +43,31 @@ export default defineConfig({
 			use: { ...devices['Desktop Chrome'] }
 		},
 		{
+			name: 'reservations-admin',
+			testMatch: /admin-reservations\.test\.ts/,
+			dependencies: ['admin'],
+			fullyParallel: false,
+			retries: 0,
+			use: { ...devices['Desktop Chrome'] }
+		},
+		{
+			// Rebind/ICS/SSE flows: self-contained fixtures, run after admin exists
+			name: 'flows',
+			testMatch: /mercato|requests-conflicts|ics-sse/,
+			dependencies: ['admin'],
+			fullyParallel: false,
+			retries: 0,
+			use: { ...devices['Desktop Chrome'] }
+		},
+		{
+			name: 'stats',
+			testMatch: /stats\.test\.ts/,
+			dependencies: ['activation'],
+			fullyParallel: false,
+			retries: 0,
+			use: { ...devices['Desktop Chrome'] }
+		},
+		{
 			name: 'main',
 			testMatch: /booking|calendar|drag|auth/,
 			dependencies: ['activation'],

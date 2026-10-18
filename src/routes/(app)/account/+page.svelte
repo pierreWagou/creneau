@@ -4,6 +4,8 @@
 	import FlatDetailView from '$lib/components/flat-detail-view.svelte';
 	import FlatPinForm from '$lib/components/flat-pin-form.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { apiFetch } from '$lib/utils/api';
+	import { notifyMailFailed, notifyResult, UPDATE_FAILED } from '$lib/utils/toasts';
 
 	let { data } = $props();
 
@@ -23,22 +25,21 @@
 
 	async function persistContacts(emailsToSave: string[], phonesToSave: string[]) {
 		if (emailsToSave.length === 0 || phonesToSave.length === 0) return;
-		try {
-			const res = await fetch('/api/account', {
+		const result = await apiFetch(
+			'/api/account',
+			{
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ emails: emailsToSave, phones: phonesToSave })
-			});
-			if (res.ok) {
-				emails = [...emailsToSave];
-				phones = [...phonesToSave];
-				toast.success('Contacts mis à jour');
-			} else {
-				const { error } = await res.json();
-				toast.error(error || 'Erreur lors de la mise à jour');
-			}
-		} catch {
-			toast.error('Erreur réseau');
+			},
+			UPDATE_FAILED
+		);
+		if (result.ok) {
+			emails = [...emailsToSave];
+			phones = [...phonesToSave];
+			toast.success('Contacts mis à jour');
+		} else {
+			notifyResult(result, null);
 		}
 	}
 
@@ -51,55 +52,46 @@
 			return true;
 		}
 		savingName = true;
-		try {
-			const res = await fetch('/api/account', {
+		const result = await apiFetch(
+			'/api/account',
+			{
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ displayName: trimmed || null })
-			});
-			if (res.ok) {
-				savedDisplayName = trimmed;
-				toast.success('Nom mis à jour');
-				editingName = false;
-				return true;
-			} else {
-				const { error } = await res.json();
-				toast.error(error || 'Erreur lors de la mise à jour');
-				return false;
-			}
-		} catch {
-			toast.error('Erreur réseau');
+			},
+			UPDATE_FAILED
+		);
+		savingName = false;
+		if (result.ok) {
+			savedDisplayName = trimmed;
+			toast.success('Nom mis à jour');
+			editingName = false;
+			return true;
+		} else {
+			notifyResult(result, null);
 			return false;
-		} finally {
-			savingName = false;
 		}
 	}
 
 	async function submitOwnerPin(pins: { currentPin: string; newPin: string }): Promise<boolean> {
-		try {
-			const res = await fetch('/api/account', {
+		const result = await apiFetch(
+			'/api/account',
+			{
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(pins)
-			});
-			if (res.ok) {
-				toast.success('PIN modifié avec succès');
-				return true;
-			} else {
-				const { error } = await res.json();
-				toast.error(error || 'Erreur lors du changement de PIN');
-				return false;
-			}
-		} catch {
-			toast.error('Erreur réseau');
-			return false;
-		}
+			},
+			'Erreur lors du changement de PIN'
+		);
+		notifyResult(result, 'PIN modifié avec succès', 'Erreur lors du changement de PIN');
+		return result.ok;
 	}
 
 	async function handleLogout() {
 		// Fire-and-forget by design: the page always navigates, even if the
 		// server call fails (a half-dead session on this page is worse).
-		await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+		// apiFetch never throws, so no catch is needed.
+		await apiFetch('/api/auth/logout', { method: 'POST' });
 		goto('/login');
 	}
 </script>
@@ -112,7 +104,6 @@
 		displayName={savedDisplayName}
 		stateLabel="Actif"
 		stateBadgeClass="flat-badge-active"
-		ownFlatNumber={data.flat.number}
 		isAdmin={data.flat.isAdmin}
 		spots={data.spots.map((s) => s.number)}
 		descriptions={Object.fromEntries(data.spots.map((s) => [s.number, s.description]))}
@@ -142,5 +133,5 @@
 		{/snippet}
 	</FlatDetailView>
 
-	<Button variant="default" class="w-full bg-destructive text-white hover:bg-destructive/80 dark:text-[#1e1e2e]" onclick={handleLogout}>Se déconnecter</Button>
+	<Button variant="default" class="w-full bg-destructive on-solid hover:bg-destructive/80" onclick={handleLogout}>Se déconnecter</Button>
 </div>

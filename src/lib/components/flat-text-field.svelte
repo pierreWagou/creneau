@@ -25,7 +25,7 @@
 </script>
 
 <div>
-	<p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+	<p class="dialog-section-label mb-2">
 		{label}
 		{#if required}<span class="text-destructive">*</span>{/if}
 	</p>

@@ -8,8 +8,10 @@
 
 	let {
 		ref = $bindable(null),
-		value = $bindable(),
-		placeholder = $bindable(),
+		value,
+		placeholder,
+		onValueChange,
+		onPlaceholderChange,
 		weekdayFormat = 'short',
 		class: className,
 		buttonVariant = 'ghost',
@@ -41,8 +43,10 @@
 
 <RangeCalendarPrimitive.Root
 	bind:ref
-	bind:value
-	bind:placeholder
+	value={value}
+	onValueChange={onValueChange}
+	placeholder={placeholder}
+	onPlaceholderChange={onPlaceholderChange}
 	{weekdayFormat}
 	{disableDaysOutsideMonth}
 	class={cn(
@@ -70,7 +74,8 @@
 							{years}
 							{yearFormat}
 							month={month.value}
-							bind:placeholder
+							placeholder={placeholder}
+							onPlaceholderChange={onPlaceholderChange}
 							{locale}
 							{monthIndex}
 						/>

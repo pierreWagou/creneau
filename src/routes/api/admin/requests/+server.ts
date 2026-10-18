@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { request } from '$lib/server/db/schema';
 import { requireAdmin } from '$lib/server/guards';
+import { handleHandlerError } from '$lib/server/handler';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals }) => {
@@ -14,7 +15,6 @@ export const GET: RequestHandler = async ({ locals }) => {
 
 		return json({ requests });
 	} catch (e) {
-		console.error('[GET /api/admin/requests]', e);
-		return json({ error: 'Erreur interne' }, { status: 500 });
+		return handleHandlerError('GET /api/admin/requests', e);
 	}
 };

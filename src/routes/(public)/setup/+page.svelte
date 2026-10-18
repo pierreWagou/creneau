@@ -6,15 +6,16 @@
 	import { goto } from '$app/navigation';
 	import FlatContactList from '$lib/components/flat-contact-list.svelte';
 	import FlatTextField from '$lib/components/flat-text-field.svelte';
-	import { Button } from '$lib/components/ui/button';
+	import FormField from '$lib/components/form-field.svelte';
 	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
 	import { Separator } from '$lib/components/ui/separator';
-	import ValidationTip from '$lib/components/validation-tip.svelte';
+	import ValidatedSubmit from '$lib/components/validated-submit.svelte';
 	import { isValidFlatNumber, PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '$lib/constants';
+	import { apiFetch } from '$lib/utils/api';
 	import { displayPhone, formatPhone } from '$lib/utils/phone';
-	import { isValidEmail, isValidPhone } from '$lib/validation';
+	import { notifyResult } from '$lib/utils/toasts';
+	import { isValidEmail, isValidPhone, normalizeFlatNumber, validatePin } from '$lib/validation';
 
 	let flatNumber = $state('');
 	let displayName = $state('');
@@ -25,12 +26,12 @@
 	let emails = $state<string[]>([]);
 	let phones = $state<string[]>([]);
 
-	const normalizedFlat = $derived(flatNumber.trim().toUpperCase());
+	const normalizedFlat = $derived(normalizeFlatNumber(flatNumber));
 	const flatValid = $derived(normalizedFlat.length > 0 && isValidFlatNumber(normalizedFlat));
 	const canSubmit = $derived(flatValid && emails.length > 0 && phones.length > 0 && !loading);
 	const missingFields = $derived(
 		[
-			!flatValid && "Numéro d'appartement invalide",
+			!flatValid && "Numéro de lot invalide",
 			emails.length === 0 && 'Au moins un e-mail valide',
 			phones.length === 0 && 'Au moins un téléphone valide'
 		].filter((r): r is string => r !== false)
@@ -44,38 +45,31 @@
 			return;
 		}
 
-		if (pin.length < PIN_MIN_LENGTH || pin.length > PIN_MAX_LENGTH) {
-			toast.error(`Le PIN doit contenir ${PIN_MIN_LENGTH} à ${PIN_MAX_LENGTH} chiffres`);
-			return;
-		}
-
-		if (!/^\d+$/.test(pin)) {
-			toast.error('Le PIN ne doit contenir que des chiffres');
+		const pinError = validatePin(pin);
+		if (pinError) {
+			toast.error(pinError);
 			return;
 		}
 
 		loading = true;
 
-		try {
-			const res = await fetch('/api/auth/setup', {
+		const result = await apiFetch(
+			'/api/auth/setup',
+			{
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ flatNumber: normalizedFlat, displayName, pin, emails, phones })
-			});
+			},
+			'Échec de la configuration'
+		);
 
-			const result = await res.json();
-
-			if (res.ok) {
-				toast.success('Compte administrateur créé !');
-				goto('/calendar');
-			} else {
-				toast.error(result.error || 'Échec de la configuration');
-			}
-		} catch {
-			toast.error('Erreur de connexion');
-		} finally {
-			loading = false;
+		if (result.ok) {
+			toast.success('Compte administrateur créé');
+			goto('/calendar');
+		} else {
+			notifyResult(result, null, 'Échec de la configuration');
 		}
+		loading = false;
 	}
 </script>
 
@@ -91,14 +85,14 @@
 	<Card.Content>
 		<form onsubmit={(e) => { e.preventDefault(); handleSetup(); }} class="space-y-4">
 			<FlatTextField
-				label="Numéro d'appartement"
+				label="Numéro de lot"
 				placeholder="ex. B12"
 				uppercase
 				bind:value={flatNumber}
 			/>
 			<FlatTextField
 				label="Votre prénom"
-				placeholder="ex. Marc"
+				placeholder="ex. Famille Dupont"
 				required={false}
 				bind:value={displayName}
 			/>
@@ -106,12 +100,12 @@
 			<Separator />
 
 			<FlatContactList
-				title="Emails"
+				title="E-mails"
 				icon={Mail}
 				items={emails}
 				placeholder="ex. dupont@email.com"
 				inputType="email"
-				invalidMessage="Email invalide"
+				invalidMessage="E-mail invalide"
 				addLabel="Ajouter un e-mail"
 				minItems={0}
 				validate={isValidEmail}
@@ -124,7 +118,7 @@
 				title="Téléphones"
 				icon={Phone}
 				items={phones}
-				placeholder="+33 6 12 34 56 78"
+				placeholder="ex. +33 6 12 34 56 78"
 				inputType="tel"
 				invalidMessage="Téléphone invalide"
 				addLabel="Ajouter un téléphone"
@@ -137,8 +131,7 @@
 
 			<Separator />
 
-			<div class="space-y-2">
-				<Label for="pin">Code PIN <span class="text-destructive">*</span></Label>
+			<FormField label="Code PIN" for="pin" required>
 				<Input
 					id="pin"
 					type="password"
@@ -149,9 +142,8 @@
 				bind:value={pin}
 				required
 			/>
-		</div>
-		<div class="space-y-2">
-			<Label for="pin-confirm">Confirmer le PIN <span class="text-destructive">*</span></Label>
+			</FormField>
+			<FormField label="Confirmer le PIN" for="pin-confirm" required>
 			<Input
 				id="pin-confirm"
 				type="password"
@@ -162,22 +154,17 @@
 				bind:value={confirmPin}
 					required
 				/>
-			</div>
-			{#if !canSubmit}
-				<ValidationTip
-					show={missingFields.length > 0}
-					title="Éléments manquants :"
-					items={missingFields}
-				>
-					<Button type="submit" class="w-full" disabled>
-						{loading ? 'Configuration...' : 'Créer le compte administrateur'}
-					</Button>
-				</ValidationTip>
-			{:else}
-				<Button type="submit" class="w-full" disabled={loading}>
-					{loading ? 'Configuration...' : 'Créer le compte administrateur'}
-				</Button>
-			{/if}
+			</FormField>
+			<ValidatedSubmit
+				valid={canSubmit}
+				showTip={missingFields.length > 0}
+				tipItems={missingFields}
+				type="submit"
+				submitLabel="Créer le compte administrateur"
+				loadingLabel="Configuration…"
+				disabled={loading}
+				{loading}
+			/>
 		</form>
 	</Card.Content>
 </Card.Root>

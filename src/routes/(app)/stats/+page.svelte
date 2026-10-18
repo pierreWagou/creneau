@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { mode } from 'mode-watcher';
+	import { getFlatColor } from '$lib/colors';
+	import Stat from '$lib/components/stat.svelte';
 	import * as Card from '$lib/components/ui/card';
 	import * as Tabs from '$lib/components/ui/tabs';
 
@@ -8,6 +11,7 @@
 
 	let currentRanking = $derived(rankingPeriod === 'month' ? data.building.ranking.thisMonth : data.building.ranking.allTime);
 	let maxHours = $derived(currentRanking.length > 0 ? currentRanking[0].hours : 1);
+	const isDark = $derived(mode.current === 'dark');
 </script>
 
 <div class="mx-auto max-w-2xl space-y-6">
@@ -20,22 +24,10 @@
 		</Card.Header>
 		<Card.Content>
 			<div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
-				<div class="text-center">
-					<p class="stat-value">{data.personal.totalHours}h</p>
-					<p class="stat-label">Total heures</p>
-				</div>
-				<div class="text-center">
-					<p class="stat-value">{data.personal.monthHours}h</p>
-					<p class="stat-label">Ce mois</p>
-				</div>
-				<div class="text-center">
-					<p class="stat-value">{data.personal.upcomingBookings}</p>
-					<p class="stat-label">À venir</p>
-				</div>
-				<div class="text-center">
-					<p class="stat-value">{data.personal.totalBookings}</p>
-					<p class="stat-label">Réservations</p>
-				</div>
+				<Stat value="{data.personal.totalHours}h" label="Total heures" />
+				<Stat value="{data.personal.monthHours}h" label="Ce mois" />
+				<Stat value={String(data.personal.upcomingBookings)} label="À venir" />
+				<Stat value={String(data.personal.totalBookings)} label="Réservations" />
 			</div>
 			<p class="stat-hint">Les heures incluent les réservations passées et à venir.</p>
 		</Card.Content>
@@ -74,7 +66,7 @@
 					<p class="text-muted-foreground text-center text-sm">Aucune réservation pour cette période.</p>
 				{:else}
 					<div class="space-y-3">
-						{#each currentRanking as entry, i}
+						{#each currentRanking as entry, i (entry.flatNumber)}
 							<div class="flex items-center gap-3">
 								<span class="text-muted-foreground w-5 text-right text-sm font-medium">{i + 1}.</span>
 								<div class="min-w-0 flex-1">
@@ -82,12 +74,12 @@
 										<span class="truncate text-sm font-medium">
 											{entry.flatNumber}{entry.displayName ? ` — ${entry.displayName}` : ''}
 										</span>
-										<span class="text-muted-foreground shrink-0 text-xs">{entry.hours}h</span>
+										<span class="text-muted-foreground shrink-0 text-sm">{entry.hours}h</span>
 									</div>
 									<div class="ranking-bar-track">
 										<div
 											class="ranking-bar-fill"
-											style="width: {(entry.hours / maxHours) * 100}%"
+											style="width: {(entry.hours / maxHours) * 100}%; background-color: {getFlatColor(entry.flatNumber, isDark)}"
 										></div>
 									</div>
 								</div>

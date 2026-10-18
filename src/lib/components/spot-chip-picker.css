@@ -1,0 +1,13 @@
+/* Spot picker focus ring: transparent at rest (no layout shift — outline
+ * never takes space), primary on keyboard focus. Selection needs no ring:
+ * the solid chip fill is the signal. Uses the theme token so light/dark
+ * follow for free. */
+.spot-pick {
+	border-radius: 10px;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
+}
+
+.spot-pick:focus-visible {
+	outline-color: var(--color-primary);
+}

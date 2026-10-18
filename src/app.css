@@ -63,6 +63,7 @@
 		--destructive-foreground: 220 23% 95%;
 		--ring: 220 91% 54%;
 		--radius: 0.625rem;
+		--ink-on-solid: 240 21% 15%; /* Mocha base #1e1e2e — dark ink for lightened solid surfaces, both modes */
 	}
 
 	.dark {
@@ -97,7 +98,7 @@
  * Styling conventions:
  * - shadcn components: DO NOT modify internals (except bug fixes). Override via `class` prop.
  * - Repeated patterns: Add to @layer components below.
- * - Page-specific styles: Use <style> block in the .svelte file or a colocated .css file.
+ * - Page-specific styles: use a colocated .css file (never a Svelte <style> block).
  * - Third-party overrides: Extract into separate .css files (e.g., calendar.css).
  */
 
@@ -164,6 +165,37 @@
 	.dialog-section-label {
 		@apply text-xs font-medium text-muted-foreground uppercase tracking-wide;
 	}
+
+	/* Text on saturated brand surfaces (solid buttons, pills): white in
+	   light mode, dark ink in dark mode where the surfaces lighten.
+	   Load-bearing contrast — plain CSS on purpose: no layers, no variants,
+	   no var(), no @apply. Nothing to mis-generate, nothing to lose. */
+	.on-solid {
+		color: #fff;
+	}
+	.dark .on-solid {
+		color: #1e1e2e;
+	}
+
+	/* Warning notice box (form hints, conflict callouts) */
+	.notice-warning {
+		@apply rounded-lg border border-warning/40 bg-warning/10 p-3;
+	}
+
+	/* Small bordered pill (countdowns, slot labels) — colors stay per-caller */
+	.pill-chip {
+		@apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium;
+	}
+
+	/* Card hover affordance (ticket cards, pickers, drawer link rows) */
+	.hoverable-card {
+		@apply transition-colors hover:border-foreground/30 hover:bg-muted/50;
+	}
+
+	/* Card header title row (icon + label) */
+	.card-title-row {
+		@apply flex items-center gap-2;
+	}
 }
 
 /* Flat state badges — Catppuccin palette (TRIAL: solid recipe mirroring the pills).
@@ -171,29 +203,41 @@
    so these win over shadcn Badge styles without !important. */
 .flat-badge-active {
 	background-color: hsl(var(--success));
-	color: #1e1e2e;
+	color: hsl(var(--ink-on-solid));
 }
 .flat-badge-pending {
 	background-color: hsl(var(--booking-busy));
-	color: #1e1e2e;
+	color: hsl(var(--ink-on-solid));
 }
 .flat-badge-request {
 	background-color: hsl(var(--primary));
 	color: white;
 }
 .dark .flat-badge-request {
-	color: #1e1e2e;
-}
-.flat-badge-warning {
-	background-color: hsl(var(--warning));
-	color: #1e1e2e;
+	color: hsl(var(--ink-on-solid));
 }
 .flat-badge-inactive {
 	background-color: hsl(var(--muted-foreground));
-	color: #1e1e2e;
+	color: white;
+}
+.dark .flat-badge-inactive {
+	color: hsl(var(--ink-on-solid));
+}
+
+/* Vaul disables text selection inside drawers on desktop pointers
+   (user-select: none !important on [data-vaul-drawer]); our drawers are
+   info-dense — emails, codes, descriptions get copied daily — so restore it.
+   Doubled attribute beats vaul's single-attribute specificity; unlayered to
+   match this file's vendor-override convention. Mobile untouched (vaul's own
+   rule is desktop-media-gated, so touch swipe-dismiss behavior is unchanged). */
+[data-vaul-drawer][data-vaul-drawer],
+[data-vaul-drawer][data-vaul-drawer] * {
+	/* biome-ignore lint/complexity/noImportantStyles: must beat vaul's own !important rule */
+	user-select: text !important;
 }
 
 @layer base {
+	/* biome-ignore lint/style/noDescendingSpecificity: the vaul rule above sets user-select, this sets border-color — different properties, order is irrelevant */
 	* {
 		border-color: hsl(var(--border));
 	}

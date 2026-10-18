@@ -11,15 +11,25 @@ export const PIN_MAX_LENGTH = 6;
 
 /** Maximum display name length */
 export const DISPLAY_NAME_MAX_LENGTH = 50;
-
 /** Number of months to look ahead in the calendar */
 export const CALENDAR_LOOKAHEAD_MONTHS = 3;
+/** Maximum availability window in days (headroom over month views + the calendar lookahead) */
+export const MAX_TIMELINE_RANGE_DAYS = CALENDAR_LOOKAHEAD_MONTHS * 31;
 
 /** Activation code TTL in milliseconds (24 hours) */
 export const ACTIVATION_CODE_TTL_MS = 24 * 60 * 60 * 1000;
 
 /** Maximum booking duration in hours (1 week) */
 export const MAX_BOOKING_HOURS = 168;
+
+/** Start of bookable day (hour) */
+export const DAY_START = 0;
+
+/** End of bookable day (hour) */
+export const DAY_END = 24;
+
+/** Maximum booking duration in days (derived from MAX_BOOKING_HOURS) */
+export const MAX_BOOKING_DAYS = MAX_BOOKING_HOURS / 24;
 
 /** Length of generated activation codes (characters) */
 export const ACTIVATION_CODE_LENGTH = 4;
@@ -30,8 +40,11 @@ export const MS_PER_MINUTE = 60_000;
 /** Milliseconds per hour */
 export const MS_PER_HOUR = 3_600_000;
 
+/** Milliseconds per day */
+export const MS_PER_DAY = MS_PER_HOUR * 24;
+
 /** Session duration in days */
-export const SESSION_DURATION_DAYS = 30;
+const SESSION_DURATION_DAYS = 30;
 
 /** Session duration in milliseconds (derived — single source for cookie + expiry math) */
 export const SESSION_DURATION_MS = SESSION_DURATION_DAYS * 24 * MS_PER_HOUR;
@@ -60,17 +73,54 @@ export const UI_DEBOUNCE_MS = 150;
 /** Debounce window for search input before hitting the server */
 export const SEARCH_DEBOUNCE_MS = 300;
 
+/** Hover delay before a tooltip/popover opens */
+export const TOOLTIP_DELAY_MS = 300;
+
+/** Viewport width below which the calendar switches to its mobile layout (matches `md:` CSS) */
+export const MOBILE_BREAKPOINT_PX = 768;
+
+/** Viewport width at and above which drawers open as side panels (matches `sm:` drawer CSS) */
+export const DESKTOP_DRAWER_BREAKPOINT_PX = 640;
+
+/** Floating-UI offset for popovers (px) */
+export const POPOVER_OFFSET_PX = 8;
+
+/** Floating-UI offset for tooltips (px) */
+export const TOOLTIP_OFFSET_PX = 6;
+
 /** Settle delay before moving focus after a popover closes */
 export const UI_FOCUS_DELAY_MS = 50;
 
 /** Spots shown per lot-card in the conflict resolver before overflow count */
 export const CONFLICT_CHIP_CAP = 6;
 
+/** Unfiltered spot-picker preview cap (one slot reserved for the show-all control) */
+export const SPOT_PICKER_PREVIEW_LIMIT = 8;
+
+/** Ghost-flight durations (the bounce settles longer than the flight) */
+export const FLIGHT_DURATION_MS = 450;
+export const BOUNCE_DURATION_MS = 750;
+
+/** Chips shown inline in the flight strip before the +n overflow */
+export const SPOT_STRIP_COMPACT_COUNT = 3;
+
+/** DnD list flip duration (mercato board) */
+export const DND_FLIP_DURATION_MS = 100;
+
 /** Maximum number of emails or phones per flat */
 export const MAX_CONTACTS_PER_TYPE = 5;
 
+/** Rejection reasons are email-only (never stored) — silently truncated here */
+export const REJECTION_REASON_MAX_LENGTH = 500;
+
 /** Flats per page in the admin list (server-side pagination) */
 export const FLATS_PAGE_SIZE = 10;
+
+/** Bookings per page in booking lists (client-side pagination) */
+export const BOOKINGS_PAGE_SIZE = 10;
+
+/** Shared dialog footer chrome (both Dialog and AlertDialog): borderless, transparent */
+export const DIALOG_FOOTER_CLASS = 'bg-transparent border-t-0';
 
 /** Flat number format: letter A/B + 2 digits (e.g. A01, B12) */
 export const FLAT_NUMBER_REGEX = /^[AB]\d{2}$/;
@@ -92,3 +142,18 @@ export function isValidSpotNumber(n: string): boolean {
 export function formatSpotNumber(n: string): string {
 	return n.trim().padStart(2, '0');
 }
+
+/** Public preview deployment URL (shown on the about page) */
+export const PREVIEW_URL = 'https://creneau-preview.wagou.fr';
+
+/** Support contact link (WhatsApp) */
+export const SUPPORT_URL = 'https://wa.me/33641673279';
+
+/** Project repository (about page + dialog) */
+export const REPO_URL = 'https://github.com/pierrewagou/creneau';
+
+/** Activation route path (shared by the activation email link) */
+export const ACTIVATE_PATH = '/activate';
+
+/** Fallback sender when SMTP_FROM is unset */
+export const DEFAULT_SENDER = 'noreply-creneau@wagou.fr';

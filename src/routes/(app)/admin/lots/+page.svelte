@@ -2,48 +2,59 @@
 import Ban from '@lucide/svelte/icons/ban';
 import Check from '@lucide/svelte/icons/check';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
-	import ClipboardCopy from '@lucide/svelte/icons/clipboard-copy';
-	import Clock from '@lucide/svelte/icons/clock';
-	import HousePlus from '@lucide/svelte/icons/house-plus';
+import ClipboardCopy from '@lucide/svelte/icons/clipboard-copy';
+import HousePlus from '@lucide/svelte/icons/house-plus';
 	import Info from '@lucide/svelte/icons/info';
 	import Link2 from '@lucide/svelte/icons/link-2';
-	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
-	import Mail from '@lucide/svelte/icons/mail';
+import Mail from '@lucide/svelte/icons/mail';
+import Phone from '@lucide/svelte/icons/phone';
 	import Plus from '@lucide/svelte/icons/plus';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
-	import Search from '@lucide/svelte/icons/search';
 import Trash2 from '@lucide/svelte/icons/trash-2';
 import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
 import X from '@lucide/svelte/icons/x';
 	import { mode } from 'mode-watcher';
+import { onDestroy, tick } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { goto, invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
 	import { getFlatColor } from '$lib/colors';
-	import AdminShield from '$lib/components/admin-shield.svelte';
-	import FlatDetailView from '$lib/components/flat-detail-view.svelte';
+import AdminShield from '$lib/components/admin-shield.svelte';
+import AsyncButton from '$lib/components/async-button.svelte';
+import AvatarCircle from '$lib/components/detail/avatar-circle.svelte';
+import { statusBadgeClass } from '$lib/components/detail/status';
+import DialogHeader from '$lib/components/dialog-header.svelte';
+import DialogShell from '$lib/components/dialog-shell.svelte';
+import DrawerActionFooter from '$lib/components/drawer-action-footer.svelte';
+import DrawerShell from '$lib/components/drawer-shell.svelte';
+import ExpiryChip from '$lib/components/expiry-chip.svelte';
+import FilterBar from '$lib/components/filter-bar.svelte';
+import FlatDetailView from '$lib/components/flat-detail-view.svelte';
 	import FlatPinForm from '$lib/components/flat-pin-form.svelte';
+import IconButton from '$lib/components/icon-button.svelte';
+import IdentityRow from '$lib/components/identity-row.svelte';
+import ListRow from '$lib/components/list-row.svelte';
+import PaginationNav from '$lib/components/pagination-nav.svelte';
 	import QrCode from '$lib/components/qr-code.svelte';
+	import SearchField from '$lib/components/search-field.svelte';
 import SpotConflictDialog, { type ConflictChoice } from '$lib/components/spot-conflict-dialog.svelte';
 import { Badge } from '$lib/components/ui/badge';
 import { Button } from '$lib/components/ui/button';
 import * as Card from '$lib/components/ui/card';
 import * as Dialog from '$lib/components/ui/dialog';
-import * as Drawer from '$lib/components/ui/drawer';
 	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
-import { Separator } from '$lib/components/ui/separator';
-import { Textarea } from '$lib/components/ui/textarea';
 	import {
-		DISPLAY_NAME_MAX_LENGTH,
-		isValidFlatNumber,
+		DIALOG_FOOTER_CLASS,
 		SEARCH_DEBOUNCE_MS,
 		UI_DEBOUNCE_MS
 	} from '$lib/constants';
+import type { RebindConflictResult, SpotConflict } from '$lib/types';
+	import { apiFetch } from '$lib/utils/api';
 	import { createIsDesktop } from '$lib/utils/is-desktop.svelte';
-	import { displayPhone } from '$lib/utils/phone';
 	import { describeSharedPoolConflicts, describeSpotConflicts, findSpotConflicts } from '$lib/utils/spots';
-	import { isValidEmail, isValidPhone } from '$lib/validation';
+import { notifyMailFailed, notifyResult, UPDATE_FAILED } from '$lib/utils/toasts';
+import { normalizeFlatNumber, toWhatsAppNumber } from '$lib/validation';
 import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog.svelte';
 
 	let { data } = $props();
@@ -53,6 +64,11 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 	let openDialog = $state<AdminDialog>(null);
 
 	let detailOpen = $state(false);
+	// Set while the close-strip navigation (?lot= removal) is in flight: the URL
+	// still carries the param but the drawer is intentionally closed — the
+	// deep-link effect must not reopen it (that close→reopen→close churn orphans
+	// vaul overlays and eats all pointer events).
+	let strippingLotParam = $state(false);
 	let editingName = $state(false);
 	let detailTab = $state<'info' | 'security'>('info');
 	// Admin PIN drafts (parent-owned so tab switches can't wipe them)
@@ -76,7 +92,7 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 			createNumberEditing = true;
 		},
 		onCommit: (v: string) => {
-			newFlatNumber = v.trim().toUpperCase();
+			newFlatNumber = normalizeFlatNumber(v);
 			createNumberEditing = false;
 		},
 		onCancel: () => {
@@ -113,18 +129,23 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 	let editReqPhones = $state<string[]>([]);
 	let inviteModalOpen = $state(false);
 	let inviteLoading = $state(false);
+	let sendingEmail = $state<string | null>(null);
 	let togglingAdmin = $state(false);
 
 	// Spot conflict state (kind marks shared-pool entries alongside bound ones)
 	let spotConflicts = $state<{ spotNumber: string; currentFlat: string; kind?: 'assigned' | 'shared-pool' }[]>([]);
 	let pendingConflictSpots = $state<string[]>([]);
 	let conflictMode = $state<'edit' | 'create'>('edit');
-	let pendingCreateFlatData = $state<{ number: string; spotNumbers: string[]; emails: string[]; phones: string[] } | null>(null);
 
 	// Search + pagination (server-driven via URL ?q= & ?page=)
 	let searchInput = $state(data.q);
+	let searchFocused = $state(false);
 	let searchTimer: ReturnType<typeof setTimeout> | null = null;
 	const totalPages = $derived(Math.max(1, Math.ceil(data.total / data.pageSize)));
+
+	onDestroy(() => {
+		if (searchTimer) clearTimeout(searchTimer);
+	});
 
 	function updateUrl(params: URLSearchParams, replace = false) {
 		goto(`?${params.toString()}`, { replaceState: replace, keepFocus: true, noScroll: true });
@@ -166,9 +187,41 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 		updateUrl(new URLSearchParams(), true);
 	}
 
-	// Sync input when the URL query changes elsewhere (e.g. back button)
+	// Sync input when the URL query changes elsewhere (e.g. back button) —
+	// but never while the user is typing (a background SSE refresh would wipe the draft).
 	$effect(() => {
-		searchInput = data.q;
+		if (!searchFocused) searchInput = data.q;
+	});
+
+	// Deep link (?lot=): open the flat drawer on load and on back/forward.
+	// A flat missing from the loaded page is resolved by narrowing the search
+	// to it (server returns full records); an unknown number drops the param.
+	$effect(() => {
+		const lot = normalizeFlatNumber(page.url.searchParams.get('lot') ?? '');
+		if (!lot) {
+			strippingLotParam = false; // strip landed — re-arm
+			// Back button out of a flat drawer: URL lost ?lot= while the
+			// drawer is still open — close it (request drawers untouched).
+			if (detailOpen && selectedItem?.type === 'flat') detailOpen = false;
+			return;
+		}
+		if (strippingLotParam) return; // close in flight — do NOT reopen
+		if (selectedItem?.type === 'flat' && selectedItem.item.number === lot && detailOpen) return;
+		const found = data.flats.find((f) => f.number === lot);
+		if (found) {
+			openFlatDetail(found, { pushUrl: false });
+			return;
+		}
+		if (data.q !== lot) {
+			const params = new URLSearchParams(window.location.search);
+			params.set('q', lot);
+			params.delete('page');
+			updateUrl(params, true);
+		} else {
+			const params = new URLSearchParams(window.location.search);
+			params.delete('lot');
+			updateUrl(params, true);
+		}
 	});
 
 	// Step back when the current page becomes empty (e.g. deleted last item)
@@ -251,7 +304,9 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 		if (f.status === 'active') return 'active';
 		if (f.status === 'pending') {
 			if (!f.activationCode) {
-				console.warn(`[getFlatState] ${f.number}: pending without invitation, showing inactive`);
+				if (import.meta.env.DEV) {
+					console.warn(`[getFlatState] ${f.number}: pending without invitation, showing inactive`);
+				}
 				return 'inactive';
 			}
 			return 'pending';
@@ -267,44 +322,15 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 		}
 	}
 
-	function getStateBadgeClass(state: FlatState): string {
-		switch (state) {
-			case 'active': return 'flat-badge-active';
-			case 'pending': return 'flat-badge-pending';
-			case 'inactive': return 'flat-badge-inactive';
-			default: return '';
-		}
-	}
-
-	function getExpiryLabel(expiresAt: string): string {
-		const diff = new Date(expiresAt).getTime() - Date.now();
-		if (diff <= 0) return 'Expiré';
-		const hours = Math.floor(diff / (1000 * 60 * 60));
-		const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-		if (hours > 0) return `expire dans ${hours}h${String(minutes).padStart(2, '0')}`;
-		return `expire dans ${minutes}min`;
-	}
-
-	/**
-	 * Countdown chip data for the invitation section. Null when there is nothing
-	 * to count down to (no expiry set, or already past — lazy reap normally prevents
-	 * the latter; render nothing rather than a state that doesn't exist).
-	 */
-	function getExpiryChip(expiresAt: string | null): { text: string; urgent: boolean; title: string } | null {
-		if (!expiresAt) return null;
-		const diff = new Date(expiresAt).getTime() - Date.now();
-		if (diff <= 0) return null;
-		const hours = Math.floor(diff / (1000 * 60 * 60));
-		const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-		return {
-			text: hours > 0 ? `Expire dans ${hours}h${String(minutes).padStart(2, '0')}` : `Expire dans ${minutes}min`,
-			urgent: diff < 1000 * 60 * 60,
-			title: new Date(expiresAt).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-		};
-	}
-
 	function getActivationLink(f: (typeof data.flats)[0]): string {
 		return `${window.location.origin}/activate?flat=${encodeURIComponent(f.number)}&code=${f.activationCode}`;
+	}
+
+	function getWhatsAppInviteHref(flatNumber: string, phone: string, link: string): string | null {
+		const digits = toWhatsAppNumber(phone);
+		if (!digits) return null;
+		const text = `Bonjour, voici votre lien pour activer votre compte Créneau (lot ${flatNumber}) : ${link}`;
+		return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
 	}
 
 	function getBoundSpots(f: (typeof data.flats)[0]): string[] {
@@ -315,7 +341,7 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 		return findSpotConflicts(r.requestedSpots, runtimeSpots, r.flatNumber);
 	}
 
-	function openFlatDetail(f: (typeof data.flats)[0]) {
+	function openFlatDetail(f: (typeof data.flats)[0], opts: { pushUrl?: boolean } = {}) {
 		selectedItem = { type: 'flat', item: f };
 		detailTab = 'info';
 		editFlatSpotInputs = getBoundSpots(f);
@@ -323,6 +349,17 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 		editFlatPhones = [...f.phones];
 		editingName = false;
 		detailOpen = true;
+		// Deep link: opening a drawer pushes ?lot= (back button closes it);
+		// URL-driven opens pass pushUrl: false to avoid stacking entries.
+		// Explicit user opens always win over a stale strip flag.
+		strippingLotParam = false;
+		if (opts.pushUrl !== false) {
+			const params = new URLSearchParams(window.location.search);
+			if (params.get('lot') !== f.number) {
+				params.set('lot', f.number);
+				updateUrl(params);
+			}
+		}
 	}
 
 	function openRequestDetail(r: (typeof data.requests)[0]) {
@@ -346,32 +383,30 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 			return true;
 		}
 		editFlatLoading = true;
-		try {
-			const res = await fetch(`/api/admin/flats/${encodeURIComponent(flatNumber)}`, {
+		const result = await apiFetch<{ flat: (typeof data.flats)[number] }>(
+			`/api/admin/flats/${encodeURIComponent(flatNumber)}`,
+			{
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ displayName: trimmed || null })
-			});
-			if (res.ok) {
-				const { flat } = await res.json();
-				if (selectedItem?.type === 'flat' && selectedItem.item.number === flatNumber) {
-					selectedItem = { ...selectedItem, item: { ...selectedItem.item, ...flat } };
-				}
-				toast.success('Nom mis à jour');
-				await invalidateAll();
-				editingName = false;
-				return true;
-			} else {
-				const { error } = await res.json();
-				toast.error(error || 'Erreur lors de la mise à jour');
-				return false;
+			},
+			UPDATE_FAILED
+		);
+		editFlatLoading = false;
+		if (result.ok && result.data) {
+			const { flat } = result.data;
+			if (selectedItem?.type === 'flat' && selectedItem.item.number === flatNumber) {
+				selectedItem = { ...selectedItem, item: { ...selectedItem.item, ...flat } };
 			}
-		} catch {
-			toast.error('Erreur réseau');
+			toast.success('Nom mis à jour');
+			await invalidateAll();
+			editingName = false;
+			return true;
+		} else if (!result.ok) {
+			notifyResult(result, null);
 			return false;
-		} finally {
-			editFlatLoading = false;
 		}
+		return false;
 	}
 
 	async function persistEditFlatSpots(force = false, proposedSpots?: string[]) {		const spots = proposedSpots ?? validEditFlatSpots;
@@ -386,64 +421,61 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 			invalidateAll();
 		} else if (result.conflicts) {
 			conflictMode = 'edit';
+			stagedEditReassigns = [];
 			pendingConflictSpots = spots;
 			spotConflicts = result.conflicts;
 		} else {
-			toast.error(result.error || 'Erreur lors de la mise à jour');
+			notifyResult(result, null);
 		}
 	}
 
-	type PatchSpotsResult =
-		| { ok: true }
-		| { ok: false; conflicts?: { spotNumber: string; currentFlat: string }[]; error?: string };
+	type PatchSpotsResult = { ok: true } | { ok: false; conflicts?: SpotConflict[]; error?: string };
 
 	/** Raw PATCH without UI side effects — row-level conflict actions manage their own state */
 	async function patchFlatSpots(flatNumber: string, spots: string[], force: boolean): Promise<PatchSpotsResult> {
-		try {
-			const res = await fetch(`/api/admin/flats/${encodeURIComponent(flatNumber)}`, {
+		const result = await apiFetch<RebindConflictResult>(
+			`/api/admin/flats/${encodeURIComponent(flatNumber)}`,
+			{
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ spotNumbers: spots, ...(force ? { force: true } : {}) })
-			});
-			if (res.ok) return { ok: true };
-			const result = await res.json();
-			if (res.status === 409 && result.conflicts?.length > 0) {
-				return { ok: false, conflicts: result.conflicts };
 			}
-			return {
-				ok: false,
-				error: result.error || (res.status === 409 ? 'Conflit de place de parking' : 'Erreur lors de la mise à jour')
-			};
-		} catch {
-			return { ok: false, error: 'Erreur réseau' };
+		);
+		if (result.ok) return { ok: true };
+		const conflicts = result.data?.conflicts;
+		if (result.status === 409 && conflicts && conflicts.length > 0) {
+			return { ok: false, conflicts };
 		}
+		return {
+			ok: false,
+			error: result.error ?? (result.status === 409 ? 'Conflit de place de parking' : UPDATE_FAILED)
+		};
 	}
 
 	async function persistEditFlatContacts(emailsToSave: string[], phonesToSave: string[]) {
 		if (selectedItem?.type !== 'flat') return;
 		const f = selectedItem.item;
 		if (emailsToSave.length === 0 || phonesToSave.length === 0) return;
-		try {
-			const res = await fetch(`/api/admin/flats/${encodeURIComponent(f.number)}`, {
+		const result = await apiFetch<{ flat: (typeof data.flats)[number] }>(
+			`/api/admin/flats/${encodeURIComponent(f.number)}`,
+			{
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ emails: emailsToSave, phones: phonesToSave })
-			});
-			if (res.ok) {
-				const { flat } = await res.json();
-				editFlatEmails = [...emailsToSave];
-				editFlatPhones = [...phonesToSave];
-				if (selectedItem?.type === 'flat' && selectedItem.item.number === f.number) {
-					selectedItem = { ...selectedItem, item: { ...selectedItem.item, ...flat } };
-				}
-				toast.success('Contacts mis à jour');
-				invalidateAll();
-			} else {
-				const { error } = await res.json();
-				toast.error(error || 'Erreur lors de la mise à jour');
+			},
+			UPDATE_FAILED
+		);
+		if (result.ok && result.data) {
+			const { flat } = result.data;
+			editFlatEmails = [...emailsToSave];
+			editFlatPhones = [...phonesToSave];
+			if (selectedItem?.type === 'flat' && selectedItem.item.number === f.number) {
+				selectedItem = { ...selectedItem, item: { ...selectedItem.item, ...flat } };
 			}
-		} catch {
-			toast.error('Erreur réseau');
+			toast.success('Contacts mis à jour');
+			invalidateAll();
+		} else if (!result.ok) {
+			notifyResult(result, null);
 		}
 	}
 
@@ -455,57 +487,54 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 			return true;
 		}
 		editReqLoading = true;
-		try {
-			const res = await fetch(`/api/admin/requests/${requestId}`, {
+		const result = await apiFetch<{ request: (typeof data.requests)[number] }>(
+			`/api/admin/requests/${requestId}`,
+			{
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ requesterName: trimmed || null })
-			});
-			if (res.ok) {
-				const { request: updated } = await res.json();
-				if (selectedItem?.type === 'request' && selectedItem.item.id === requestId) {
-					selectedItem = { ...selectedItem, item: { ...selectedItem.item, ...updated } };
-				}
-				toast.success('Nom mis à jour');
-				await invalidateAll();
-				editingReqName = false;
-				return true;
-			} else {
-				const { error } = await res.json();
-				toast.error(error || 'Erreur lors de la mise à jour');
-				return false;
+			},
+			UPDATE_FAILED
+		);
+		editReqLoading = false;
+		if (result.ok && result.data) {
+			const { request: updated } = result.data;
+			if (selectedItem?.type === 'request' && selectedItem.item.id === requestId) {
+				selectedItem = { ...selectedItem, item: { ...selectedItem.item, ...updated } };
 			}
-		} catch {
-			toast.error('Erreur réseau');
+			toast.success('Nom mis à jour');
+			await invalidateAll();
+			editingReqName = false;
+			return true;
+		} else if (!result.ok) {
+			notifyResult(result, null);
 			return false;
-		} finally {
-			editReqLoading = false;
 		}
+		return false;
 	}
 
 	async function persistEditReqSpots(proposedSpots: string[]) {
 		if (selectedItem?.type !== 'request' || proposedSpots.length === 0) return;
 		const r = selectedItem.item;
-		try {
-			const res = await fetch(`/api/admin/requests/${r.id}`, {
+		const result = await apiFetch<{ request: (typeof data.requests)[number] }>(
+			`/api/admin/requests/${r.id}`,
+			{
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ spotNumbers: proposedSpots })
-			});
-			if (res.ok) {
-				const { request: updated } = await res.json();
-				editReqSpotInputs = [...proposedSpots];
-				if (selectedItem?.type === 'request' && selectedItem.item.id === r.id) {
-					selectedItem = { ...selectedItem, item: { ...selectedItem.item, ...updated } };
-				}
-				toast.success('Places de parking mises à jour');
-				invalidateAll();
-			} else {
-				const { error } = await res.json();
-				toast.error(error || 'Erreur lors de la mise à jour');
+			},
+			UPDATE_FAILED
+		);
+		if (result.ok && result.data) {
+			const { request: updated } = result.data;
+			editReqSpotInputs = [...proposedSpots];
+			if (selectedItem?.type === 'request' && selectedItem.item.id === r.id) {
+				selectedItem = { ...selectedItem, item: { ...selectedItem.item, ...updated } };
 			}
-		} catch {
-			toast.error('Erreur réseau');
+			toast.success('Places de parking mises à jour');
+			invalidateAll();
+		} else if (!result.ok) {
+			notifyResult(result, null);
 		}
 	}
 
@@ -513,27 +542,26 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 		if (selectedItem?.type !== 'request') return;
 		const r = selectedItem.item;
 		if (emailsToSave.length === 0 || phonesToSave.length === 0) return;
-		try {
-			const res = await fetch(`/api/admin/requests/${r.id}`, {
+		const result = await apiFetch<{ request: (typeof data.requests)[number] }>(
+			`/api/admin/requests/${r.id}`,
+			{
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ emails: emailsToSave, phones: phonesToSave })
-			});
-			if (res.ok) {
-				const { request: updated } = await res.json();
-				editReqEmails = [...emailsToSave];
-				editReqPhones = [...phonesToSave];
-				if (selectedItem?.type === 'request' && selectedItem.item.id === r.id) {
-					selectedItem = { ...selectedItem, item: { ...selectedItem.item, ...updated } };
-				}
-				toast.success('Contacts mis à jour');
-				invalidateAll();
-			} else {
-				const { error } = await res.json();
-				toast.error(error || 'Erreur lors de la mise à jour');
+			},
+			UPDATE_FAILED
+		);
+		if (result.ok && result.data) {
+			const { request: updated } = result.data;
+			editReqEmails = [...emailsToSave];
+			editReqPhones = [...phonesToSave];
+			if (selectedItem?.type === 'request' && selectedItem.item.id === r.id) {
+				selectedItem = { ...selectedItem, item: { ...selectedItem.item, ...updated } };
 			}
-		} catch {
-			toast.error('Erreur réseau');
+			toast.success('Contacts mis à jour');
+			invalidateAll();
+		} else if (!result.ok) {
+			notifyResult(result, null);
 		}
 	}
 
@@ -553,49 +581,50 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 			return;
 		}
 		inviteLoading = true;
-		try {
-			const res = await fetch(`/api/admin/flats/${encodeURIComponent(flatNumber)}/activation`, {
-				method: 'POST'
-			});
-			if (res.ok) {
-				const { flat } = await res.json();
-				if (selectedItem?.type === 'flat' && selectedItem.item.number === flatNumber) {
-					selectedItem = { ...selectedItem, item: { ...selectedItem.item, ...flat } };
-				}
-				await invalidateAll();
-				toast.success("Code d'activation généré");
-				inviteModalOpen = true;
-			} else {
-				const result = await res.json();
-				toast.error(result.error || 'Impossible de générer le code');
+		const result = await apiFetch<{ flat: (typeof data.flats)[number] }>(
+			`/api/admin/flats/${encodeURIComponent(flatNumber)}/activation`,
+			{ method: 'POST' },
+			'Impossible de générer le code'
+		);
+		if (result.ok && result.data) {
+			const { flat } = result.data;
+			if (selectedItem?.type === 'flat' && selectedItem.item.number === flatNumber) {
+				selectedItem = { ...selectedItem, item: { ...selectedItem.item, ...flat } };
 			}
-		} finally {
-			inviteLoading = false;
+			await invalidateAll();
+			toast.success("Code d'activation généré");
+			inviteModalOpen = true;
+		} else if (!result.ok) {
+			notifyResult(result, null, 'Impossible de générer le code');
 		}
+		inviteLoading = false;
 	}
 
-	async function resendInvite() {
+	async function resendInvite(onlyEmail?: string) {
 		if (selectedItem?.type !== 'flat') return;
 		const flatNumber = selectedItem.item.number;
 		inviteLoading = true;
-		try {
-			const res = await fetch(`/api/admin/flats/${encodeURIComponent(flatNumber)}/activation/send`, {
-				method: 'POST'
-			});
-			if (res.ok) {
-				const { emailSent, emails } = await res.json();
-				if (emailSent) {
-					toast.success(`Invitation envoyée à ${emails.join(', ')}`);
-				} else {
-					toast.warning("L'envoi a échoué — vérifiez la configuration du serveur mail");
-				}
-			} else {
-				const result = await res.json();
-				toast.error(result.error || "Impossible d'envoyer l'email");
+		sendingEmail = onlyEmail ?? null;
+		const result = await apiFetch<{ emails: string[]; mailFailed?: boolean }>(
+			`/api/admin/flats/${encodeURIComponent(flatNumber)}/activation/send`,
+			{
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: onlyEmail ? JSON.stringify({ email: onlyEmail }) : undefined
+			},
+			"Impossible d'envoyer l'email"
+		);
+		if (result.ok && result.data) {
+			const { emails } = result.data;
+			notifyMailFailed(result.data.mailFailed);
+			if (!result.data.mailFailed) {
+				toast.success(`Invitation envoyée à ${emails.join(', ')}`);
 			}
-		} finally {
-			inviteLoading = false;
+		} else if (!result.ok) {
+			notifyResult(result, null, "Impossible d'envoyer l'email");
 		}
+		inviteLoading = false;
+		sendingEmail = null;
 	}
 
 	async function regenerateInvite() {
@@ -606,38 +635,37 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 			return;
 		}
 		inviteLoading = true;
-		try {
-			const res = await fetch(`/api/admin/flats/${encodeURIComponent(flatNumber)}/activation`, {
-				method: 'POST'
-			});
-			if (res.ok) {
-				const { flat } = await res.json();
-				selectedItem = { ...selectedItem, item: { ...selectedItem.item, ...flat } };
-				await invalidateAll();
-				toast.success("Lien régénéré");
-			} else {
-				const result = await res.json();
-				toast.error(result.error || 'Impossible de régénérer le lien');
-			}
-		} finally {
-			inviteLoading = false;
+		const result = await apiFetch<{ flat: (typeof data.flats)[number] }>(
+			`/api/admin/flats/${encodeURIComponent(flatNumber)}/activation`,
+			{ method: 'POST' },
+			'Impossible de régénérer le lien'
+		);
+		if (result.ok && result.data) {
+			const { flat } = result.data;
+			selectedItem = { ...selectedItem, item: { ...selectedItem.item, ...flat } };
+			await invalidateAll();
+			toast.success("Lien régénéré");
+		} else if (!result.ok) {
+			notifyResult(result, null, 'Impossible de régénérer le lien');
 		}
+		inviteLoading = false;
 	}
 
 	async function revokeInvite() {
 		if (selectedItem?.type !== 'flat') return;
 		const flatNumber = selectedItem.item.number;
-		const res = await fetch(`/api/admin/flats/${encodeURIComponent(flatNumber)}/activation`, {
-			method: 'DELETE'
-		});
-		if (res.ok) {
-			const { flat } = await res.json();
+		const result = await apiFetch<{ flat: (typeof data.flats)[number] }>(
+			`/api/admin/flats/${encodeURIComponent(flatNumber)}/activation`,
+			{ method: 'DELETE' },
+			'Impossible de révoquer'
+		);
+		if (result.ok && result.data) {
+			const { flat } = result.data;
 			selectedItem = { ...selectedItem, item: { ...selectedItem.item, ...flat } };
 			await invalidateAll();
 			toast.success("Invitation révoquée");
-		} else {
-			const result = await res.json();
-			toast.error(result.error || 'Impossible de révoquer');
+		} else if (!result.ok) {
+			notifyResult(result, null, 'Impossible de révoquer');
 		}
 	}
 
@@ -659,7 +687,7 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 	}
 
 	const validFlatSpots = $derived(flatSpotInputs.map((s) => s.trim()).filter((s) => s.length > 0));
-	const normalizedNewFlat = $derived(newFlatNumber.trim().toUpperCase());
+	const normalizedNewFlat = $derived(normalizeFlatNumber(newFlatNumber));
 	// Create-draft conflicts: the lot doesn't exist yet, so any spot bound to
 	// another lot conflicts. Spots runtime-assigned to the new lot itself are clean.
 	// Shared-pool spots join the same solve gate (approving them drains the pool).
@@ -739,6 +767,8 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 
 	// Transactional staging (create/approve): reassign picks wait for submit, keeps narrow drafts now
 	let stagedCreateReassigns = $state<string[]>([]);
+	/** Edit-flow staged reassigns, accumulated across partial batches within one open session */
+	let stagedEditReassigns = $state<string[]>([]);
 	let stagedApproval = $state<{ requestId: number; reassigns: string[]; narrowedSpots: string[] | null } | null>(null);
 	// Auto-continue flags: main action clicked while undecided → resolver opens,
 	// then the resolver result continues the original action automatically.
@@ -846,8 +876,8 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 		if (pool.length > 0) {
 			parts.push(
 				pool.length > 1
-					? `Places laissées dans le pool commun : ${pool.join(', ')}`
-					: `Place ${pool[0]} laissée dans le pool commun`
+					? `Places restées partagées : ${pool.join(', ')}`
+					: `Place ${pool[0]} restée partagée`
 			);
 		}
 		return parts.join(' — ');
@@ -859,17 +889,28 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 		if (applyingConflicts) return;
 		const reassign = choices.filter((c) => c.action === 'reassign').map((c) => c.spotNumber);
 		const keep = choices.filter((c) => c.action === 'keep').map((c) => c.spotNumber);
+		const applied = choices.map((c) => c.spotNumber);
+		// Partial apply: shrink the dialog to the undecided remainder. The
+		// shared dialog auto-closes at zero via open={spotConflicts.length > 0};
+		// commits below run only on the last batch.
+		const shrinkToRemainder = () => {
+			spotConflicts = spotConflicts.filter((c) => !applied.includes(c.spotNumber));
+			pendingConflictSpots = pendingConflictSpots.filter((s) => !applied.includes(s));
+			return spotConflicts.length === 0;
+		};
 		if (conflictMode === 'edit') {
 			if (selectedItem?.type !== 'flat') return;
 			const f = selectedItem.item;
 			// Runtime: reassigned spots leave their old holders immediately (badges clear pre-commit)
 			for (const n of reassign)
 				runtimeHolders[n] = { flatNumber: f.number, status: 'assigned', flow: 'edit' };
-			const next = [...new Set([...getBoundSpots(f), ...reassign])];
+			stagedEditReassigns = [...new Set([...stagedEditReassigns, ...reassign])];
+			if (!shrinkToRemainder()) return; // stage only — persist on the last batch
+			const next = [...new Set([...getBoundSpots(f), ...stagedEditReassigns])];
+			stagedEditReassigns = [];
 			if (next.length === 0) {
 				// keep-all on a spotless flat: nothing to persist — runtime only
 				editFlatSpotInputs = [];
-				spotConflicts = [];
 				pendingConflictSpots = [];
 				return;
 			}
@@ -892,8 +933,8 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 			// Runtime: reassigned spots leave the pool/other holders immediately (badges clear pre-commit)
 			for (const n of reassign)
 				runtimeHolders[n] = { flatNumber: normalizedNewFlat, status: 'assigned', flow: 'create' };
-			stagedCreateReassigns = reassign;
-			spotConflicts = [];
+			stagedCreateReassigns = [...new Set([...stagedCreateReassigns, ...reassign])];
+			if (!shrinkToRemainder()) return; // stage only — commit on the last batch
 			pendingConflictSpots = [];
 			if (autoCreateAfterResolve) {
 				autoCreateAfterResolve = false;
@@ -916,67 +957,80 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 	async function addFlat(force = false) {
 		if (!createFormValid) return;
 
-		const res = await fetch('/api/admin/flats', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				number: normalizedNewFlat,
-				displayName: newFlatDisplayName.trim() || null,
-				spotNumbers: validFlatSpots,
-				emails: validFlatEmails,
-				phones: validFlatPhones,
-				...(force ? { force: true } : {})
-			})
-		});
+		const result = await apiFetch<RebindConflictResult>(
+			'/api/admin/flats',
+			{
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					number: normalizedNewFlat,
+					displayName: newFlatDisplayName.trim() || null,
+					spotNumbers: validFlatSpots,
+					emails: validFlatEmails,
+					phones: validFlatPhones,
+					...(force ? { force: true } : {})
+				})
+			},
+			"Impossible d'ajouter le lot"
+		);
 
-		if (res.ok) {
-			toast.success(`Lot ${normalizedNewFlat} ajouté`);
+		if (result.ok) {
+			const createdNumber = normalizedNewFlat;
+			toast.success(`Lot ${createdNumber} ajouté`);
 			newFlatNumber = '';
 			newFlatDisplayName = '';
 			flatSpotInputs = [];
 			flatEmailInputs = [];
 			flatPhoneInputs = [];
-			pendingCreateFlatData = null;
 			openDialog = null;
 			clearRuntimeFlow('create');
-			invalidateAll();
-		} else if (res.status === 409) {
-			const result = await res.json();
-			if (result.conflicts?.length > 0) {
-				pendingCreateFlatData = {
-					number: normalizedNewFlat,
-					spotNumbers: validFlatSpots,
-					emails: validFlatEmails,
-					phones: validFlatPhones
-				};
+			await invalidateAll();
+			// The spot binding lands in data.spots asynchronously — wait for
+			// it (generate refuses spotless lots), then chain into the invite
+			// modal so the code can be sent right away. If the binding never
+			// shows, generate's own guard toasts and we stay on the list.
+			for (let i = 0; i < 50 && !data.spots.some((s) => s.flatNumber === createdNumber); i++) {
+				await new Promise((r) => setTimeout(r, 100));
+				await tick();
+			}
+			const created = data.flats.find((f) => f.number === createdNumber);
+			if (created) {
+				selectedItem = { type: 'flat', item: created };
+				await generateActivationCode(created.number);
+			}
+		} else if (result.status === 409) {
+			const conflicts = result.data?.conflicts;
+			if (conflicts && conflicts.length > 0) {
 				conflictMode = 'create';
 				pendingConflictSpots = validFlatSpots;
-				spotConflicts = result.conflicts;
+				spotConflicts = conflicts;
 			} else {
-				toast.error(result.error || 'Conflit de place de parking');
+				notifyResult(result, null, 'Conflit de place de parking');
 			}
 		} else {
-			const result = await res.json();
-			toast.error(result.error || "Impossible d'ajouter le lot");
+			notifyResult(result, null, "Impossible d'ajouter le lot");
 		}
 	}
 
 	async function resetFlat(flatNumber: string) {
-		const res = await fetch(`/api/admin/flats/${encodeURIComponent(flatNumber)}/reset`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ confirm: true })
-		});
+		const result = await apiFetch(
+			`/api/admin/flats/${encodeURIComponent(flatNumber)}/reset`,
+			{
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ confirm: true })
+			},
+			'Impossible de réinitialiser'
+		);
 
-		if (res.ok) {
+		if (result.ok) {
 			toast.success('Lot réinitialisé');
 			openDialog = null;
 			// Keep selectedItem mounted through the close animation (Vaul overlay teardown)
 			detailOpen = false;
 			invalidateAll();
 		} else {
-			const result = await res.json();
-			toast.error(result.error || 'Impossible de réinitialiser');
+			notifyResult(result, null, 'Impossible de réinitialiser');
 		}
 	}
 
@@ -984,22 +1038,25 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 		if (togglingAdmin) return;
 		togglingAdmin = true;
 		try {
-			const res = await fetch(`/api/admin/flats/${encodeURIComponent(flatNumber)}`, {
-				method: 'PATCH',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ isAdmin: !currentIsAdmin })
-			});
+			const result = await apiFetch<{ flat: (typeof data.flats)[number] }>(
+				`/api/admin/flats/${encodeURIComponent(flatNumber)}`,
+				{
+					method: 'PATCH',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ isAdmin: !currentIsAdmin })
+				},
+				'Impossible de modifier le statut'
+			);
 
-			if (res.ok) {
-				const { flat } = await res.json();
+			if (result.ok && result.data) {
+				const { flat } = result.data;
 				if (selectedItem?.type === 'flat' && selectedItem.item.number === flatNumber) {
 					selectedItem = { ...selectedItem, item: { ...selectedItem.item, ...flat } };
 				}
 				await invalidateAll();
 				toast.success(!currentIsAdmin ? 'Droits admin accordés' : 'Droits admin retirés');
-			} else {
-				const result = await res.json().catch(() => null);
-				toast.error(result?.error || 'Impossible de modifier le statut');
+			} else if (!result.ok) {
+				notifyResult(result, null, 'Impossible de modifier le statut');
 			}
 		} finally {
 			togglingAdmin = false;
@@ -1007,38 +1064,35 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 	}
 
 	async function submitAdminPin(flatNumber: string, pins: { newPin: string }): Promise<boolean> {
-		try {
-			const res = await fetch(`/api/admin/flats/${encodeURIComponent(flatNumber)}`, {
+		const result = await apiFetch(
+			`/api/admin/flats/${encodeURIComponent(flatNumber)}`,
+			{
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ pin: pins.newPin })
-			});
-			if (res.ok) {
-				toast.success('PIN mis à jour');
-				return true;
-			} else {
-				const result = await res.json().catch(() => null);
-				toast.error(result?.error || 'Impossible de modifier le PIN');
-				return false;
-			}
-		} catch {
-			toast.error('Erreur réseau');
-			return false;
-		}
+			},
+			'Impossible de modifier le PIN'
+		);
+		notifyResult(result, 'PIN mis à jour', 'Impossible de modifier le PIN');
+		return result.ok;
 	}
 
 	async function deleteFlat(flatNumber: string) {
-		const res = await fetch(`/api/admin/flats/${encodeURIComponent(flatNumber)}`, { method: 'DELETE' });
+		const result = await apiFetch<{ mailFailed?: boolean }>(
+			`/api/admin/flats/${encodeURIComponent(flatNumber)}`,
+			{ method: 'DELETE' },
+			'Impossible de supprimer'
+		);
 
-		if (res.ok) {
+		if (result.ok) {
 			toast.success('Lot supprimé');
+			notifyMailFailed(result.data?.mailFailed);
 			openDialog = null;
 			// Keep selectedItem mounted through the close animation (Vaul overlay teardown)
 			detailOpen = false;
 			invalidateAll();
 		} else {
-			const result = await res.json();
-			toast.error(result.error || 'Impossible de supprimer');
+			notifyResult(result, null, 'Impossible de supprimer');
 		}
 	}
 
@@ -1086,35 +1140,34 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 	async function approveRequest(requestId: number, force = false) {
 		approvingRequest = requestId;
 		pendingApprovalConflicts = null;
-		try {
-			const res = await fetch(`/api/admin/requests/${requestId}`, {
+		const result = await apiFetch<RebindConflictResult>(
+			`/api/admin/requests/${requestId}`,
+			{
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: force ? JSON.stringify({ force: true }) : undefined
-			});
-			if (res.ok) {
-				const req = data.requests.find((r) => r.id === requestId);
-				toast.success(`Lot ${req?.flatNumber ?? ''} approuvé`);
-				// Keep selectedItem mounted through the close animation (Vaul overlay teardown)
-				detailOpen = false;
-				clearRuntimeFlow('request');
-				invalidateAll();
-			} else if (res.status === 409) {
-				const result = await res.json();
-				if (result.conflicts?.length > 0) {
-					pendingApprovalConflicts = { requestId, conflicts: result.conflicts };
-				} else {
-					toast.error(result.error || 'Conflit de place de parking');
-				}
+			},
+			"Impossible d'approuver la demande"
+		);
+		if (result.ok) {
+			const req = data.requests.find((r) => r.id === requestId);
+			toast.success(`Lot ${req?.flatNumber ?? ''} approuvé`);
+			notifyMailFailed(result.data?.mailFailed);
+			// Keep selectedItem mounted through the close animation (Vaul overlay teardown)
+			detailOpen = false;
+			clearRuntimeFlow('request');
+			invalidateAll();
+		} else if (result.status === 409) {
+			const conflicts = result.data?.conflicts;
+			if (conflicts && conflicts.length > 0) {
+				pendingApprovalConflicts = { requestId, conflicts };
 			} else {
-				const result = await res.json();
-				toast.error(result.error || "Impossible d'approuver la demande");
+				notifyResult(result, null, 'Conflit de place de parking');
 			}
-		} catch {
-			toast.error('Erreur de connexion');
-		} finally {
-			approvingRequest = null;
+		} else {
+			notifyResult(result, null, "Impossible d'approuver la demande");
 		}
+		approvingRequest = null;
 	}
 
 	/** Raw request-spots PUT without toasts — commit step used by commitApproval and direct draft edits */
@@ -1122,23 +1175,22 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 		requestId: number,
 		spots: string[]
 	): Promise<(typeof data.requests)[0] | null> {
-		try {
-			const res = await fetch(`/api/admin/requests/${requestId}`, {
+		const result = await apiFetch<{ request: (typeof data.requests)[number] }>(
+			`/api/admin/requests/${requestId}`,
+			{
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ spotNumbers: spots })
-			});
-			if (!res.ok) return null;
-			const { request: updated } = await res.json();
-			if (selectedItem?.type === 'request' && selectedItem.item.id === requestId) {
-				editReqSpotInputs = [...spots];
-				selectedItem = { ...selectedItem, item: { ...selectedItem.item, ...updated } };
 			}
-			await invalidateAll();
-			return updated;
-		} catch {
-			return null;
+		);
+		if (!result.ok || !result.data) return null;
+		const { request: updated } = result.data;
+		if (selectedItem?.type === 'request' && selectedItem.item.id === requestId) {
+			editReqSpotInputs = [...spots];
+			selectedItem = { ...selectedItem, item: { ...selectedItem.item, ...updated } };
 		}
+		await invalidateAll();
+		return updated;
 	}
 
 	// Batch apply for the approval dialog: transactional — keeps strip the request now,
@@ -1153,15 +1205,20 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 		}
 		const keep = choices.filter((c) => c.action === 'keep').map((c) => c.spotNumber);
 		const reassign = choices.filter((c) => c.action === 'reassign').map((c) => c.spotNumber);
+		const applied = choices.map((c) => c.spotNumber);
 		applyingConflicts = true;
 		try {
 			// Runtime only: narrow the draft the user sees, never persist here — commitApproval writes.
 			// Draft mirror when the drawer is open on this request, server snapshot otherwise (row path).
+			// Narrowing accumulates across partial batches via the previous staged value.
 			const base =
 				selectedItem?.type === 'request' && selectedItem.item.id === pending.requestId
 					? editReqSpotInputs
 					: req.requestedSpots;
-			const remaining = base.filter((s) => !keep.includes(s));
+			const prevStaged =
+				stagedApproval?.requestId === pending.requestId ? stagedApproval : null;
+			const effectiveBase = prevStaged?.narrowedSpots ?? base;
+			const remaining = effectiveBase.filter((s) => !keep.includes(s));
 			if (keep.length > 0) {
 				if (remaining.length === 0) {
 					toast.error('La demande doit conserver au moins une place');
@@ -1179,9 +1236,16 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 				runtimeHolders[n] = { flatNumber: req.flatNumber, status: 'assigned', flow: 'request' };
 			stagedApproval = {
 				requestId: pending.requestId,
-				reassigns: reassign,
-				narrowedSpots: keep.length > 0 ? remaining : null
+				reassigns: [...new Set([...(prevStaged?.reassigns ?? []), ...reassign])],
+				narrowedSpots: keep.length > 0 || prevStaged?.narrowedSpots ? remaining : null
 			};
+			// Partial apply: shrink to the undecided remainder, dialog stays open.
+			// The commit below runs only on the last batch.
+			const remainder = pending.conflicts.filter((c) => !applied.includes(c.spotNumber));
+			if (remainder.length > 0) {
+				pendingApprovalConflicts = { requestId: pending.requestId, conflicts: remainder };
+				return;
+			}
 			pendingApprovalConflicts = null;
 			if (autoApproveAfterResolve === pending.requestId) {
 				autoApproveAfterResolve = null;
@@ -1204,23 +1268,31 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 			}
 			const updated = await putRequestSpots(requestId, narrowed);
 			if (!updated) {
-				toast.error('Erreur lors de la mise à jour');
+				toast.error(UPDATE_FAILED);
 				return;
 			}
 		}
 		await approveRequest(requestId, true);
 	}
 
-	async function rejectRequest(requestId: number) {
-		const res = await fetch(`/api/admin/requests/${requestId}`, { method: 'PATCH' });
-		if (res.ok) {
+	async function rejectRequest(requestId: number, reason: string | null = null) {
+		const result = await apiFetch<{ mailFailed?: boolean }>(
+			`/api/admin/requests/${requestId}`,
+			{
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: reason ? JSON.stringify({ reason }) : undefined
+			},
+			'Impossible de rejeter la demande'
+		);
+			if (result.ok) {
 				toast.success('Demande rejetée');
+				notifyMailFailed(result.data?.mailFailed);
 				// Keep selectedItem mounted through the close animation (Vaul overlay teardown)
 				detailOpen = false;
 				invalidateAll();
 		} else {
-			const result = await res.json();
-			toast.error(result.error || 'Impossible de rejeter la demande');
+			notifyResult(result, null, 'Impossible de rejeter la demande');
 		}
 	}
 
@@ -1230,28 +1302,24 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 		} else if (action.type === 'delete') {
 			await deleteFlat(action.flatNumber);
 		} else if (action.type === 'rejectRequest') {
-			await rejectRequest(action.requestId);
+			await rejectRequest(action.requestId, action.reason ?? null);
 		}
 		confirmAction = null;
 	}
 </script>
 
-	<!-- Demandes en attente -->
+<!-- Demandes en attente -->
 	{#if data.requests.length > 0}
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>Demandes en attente</Card.Title>
 				<Card.Description>Demandes d'accès en attente de validation.</Card.Description>
 			</Card.Header>
-			<Card.Content class="space-y-2">
-				{#each data.requests as r}
+			<Card.Content class="grid gap-2 sm:grid-cols-2">
+				{#each data.requests as r (r.id)}
 					{@const reqConflicts = getRequestSpotConflicts(r)}
-					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions: row click is a mouse/touch shortcut; the info button is the keyboard/screen-reader path -->
-					<div
-						class="flex items-center justify-between rounded-md border border-dashed p-3 cursor-pointer hover:bg-muted/50 transition-colors"
-						onclick={() => openRequestDetail(r)}
-					>
-						<div class="flex min-w-0 flex-wrap items-center gap-2">
+					<ListRow dashed onclick={() => openRequestDetail(r)}>
+						{#snippet content()}
 							{#if reqConflicts.length > 0}
 								<TriangleAlert class="h-3.5 w-3.5 shrink-0 text-warning" />
 							{:else}
@@ -1262,36 +1330,25 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 							{#if r.requesterName}
 								<span class="text-muted-foreground text-sm">{r.requesterName}</span>
 							{/if}
-						</div>
-						<div class="flex shrink-0 items-center gap-1">
-							<Button size="icon-sm" variant="ghost" aria-label="Voir détails" onclick={() => openRequestDetail(r)}>
-								<Info class="h-3.5 w-3.5" />
-							</Button>
-							<Button
-								size="icon-sm"
-								variant="ghost"
-								class="text-success hover:text-success hover:!bg-success/10"
-								aria-label="Approuver"
+						{/snippet}
+						{#snippet actions()}
+							<IconButton icon={Info} label="Voir détails" onclick={() => openRequestDetail(r)} />
+							<IconButton
+								icon={Check}
+								label="Approuver"
+								tone="success"
+								loading={approvingRequest === r.id}
 								disabled={approvingRequest === r.id}
 								onclick={(e) => { e.stopPropagation(); autoApproveAfterResolve = r.id; confirmApproveRequest(r); }}
-							>
-								{#if approvingRequest === r.id}
-									<LoaderCircle class="h-3.5 w-3.5 animate-spin" />
-								{:else}
-									<Check class="h-3.5 w-3.5" />
-								{/if}
-							</Button>
-							<Button
-								size="icon-sm"
-								variant="ghost"
-								class="text-destructive hover:text-destructive hover:!bg-destructive/10"
-								aria-label="Rejeter"
+							/>
+							<IconButton
+								icon={X}
+								label="Rejeter"
+								tone="destructive"
 								onclick={(e) => { e.stopPropagation(); confirmRejectRequest(r.id); }}
-							>
-								<X class="h-3.5 w-3.5" />
-							</Button>
-						</div>
-					</div>
+							/>
+						{/snippet}
+					</ListRow>
 				{/each}
 			</Card.Content>
 		</Card.Root>
@@ -1316,40 +1373,31 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 		</Card.Header>
 		<Card.Content class="space-y-4">
 			{#if data.grandTotal > 0}
-				{@const pillBase = 'h-7 shrink-0 rounded-full border px-2.5 sm:px-3 text-xs font-medium tabular-nums transition-colors'}
 				{@const pillSolid = {
-					active: 'bg-success text-[#1e1e2e] border-transparent font-semibold',
-					inactive: 'bg-muted-foreground text-[#1e1e2e] border-transparent font-semibold',
-					pending: 'bg-booking-busy text-[#1e1e2e] border-transparent font-semibold'
+					active: 'bg-success on-solid border-transparent font-semibold',
+					inactive: 'bg-foreground on-solid border-transparent font-semibold',
+					pending: 'bg-booking-busy on-solid border-transparent font-semibold'
 				} as const}
 				{@const pillMuted = {
 					active: 'bg-success/15 text-success hover:opacity-90',
 					inactive: 'bg-muted text-muted-foreground hover:opacity-90',
 					pending: 'bg-booking-busy/15 text-booking-busy hover:opacity-90'
 				} as const}
-				<div class="flex items-center gap-2">
-					<div class="relative w-28 sm:w-44 shrink-0">
-						<Search class="text-muted-foreground absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2" />
-						<Input
-							placeholder="Rechercher..."
-							bind:value={searchInput}
-							oninput={onSearchInput}
-							class="h-9 w-full pl-8 text-sm"
-						/>
-					</div>
-					<div class="flex min-w-0 flex-1 gap-2 overflow-x-auto" role="group" aria-label="Filtrer par statut">
-						{#each ALL_STATUSES as s}
-							<button
-								type="button"
-								class="{pillBase} {data.status.includes(s) ? pillSolid[s] : pillMuted[s]}"
-								aria-pressed={data.status.includes(s)}
-								onclick={() => onStatusChange(s)}
-							>
-								{getStateLabel(s)}
-							</button>
-						{/each}
-					</div>
-				</div>
+				<FilterBar
+					bind:search={searchInput}
+					groupLabel="Filtrer par statut"
+					pills={ALL_STATUSES.map((s) => ({
+						value: s,
+						label: getStateLabel(s),
+						selected: data.status.includes(s),
+						solidClass: pillSolid[s],
+						mutedClass: pillMuted[s]
+					}))}
+					onSearchInput={onSearchInput}
+					onSearchFocus={() => (searchFocused = true)}
+					onSearchBlur={() => (searchFocused = false)}
+					onToggle={onStatusChange}
+				/>
 			{/if}
 			{#if data.flats.length === 0}
 				{#if data.grandTotal === 0}
@@ -1365,22 +1413,18 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 					</Button>
 				{/if}
 			{:else}
-				<div class="space-y-2">
-			{#each data.flats as f}
+				<div class="grid gap-2 sm:grid-cols-2">
+			{#each data.flats as f (f.number)}
 				{@const state = getFlatState(f)}
-				<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions: row click is a mouse/touch shortcut; the info button is the keyboard/screen-reader path -->
-				<div
-					class="flex items-center justify-between rounded-md border p-3 cursor-pointer hover:bg-muted/50 transition-colors"
-					onclick={() => openFlatDetail(f)}
-				>
-					<div class="flex min-w-0 flex-wrap items-center gap-2">
+				<ListRow onclick={() => openFlatDetail(f)}>
+					{#snippet content()}
 						{#if f.isAdmin}
 							<AdminShield active size="sm" />
 						{:else}
 							<span class="h-3.5 w-3.5 shrink-0"></span>
 						{/if}
 						<span class="font-medium">{f.number}</span>
-						<Badge class={getStateBadgeClass(state)}>
+						<Badge class={statusBadgeClass(state)}>
 							{getStateLabel(state)}
 						</Badge>
 						{#if !data.spots.some((s) => s.flatNumber === f.number)}
@@ -1389,17 +1433,13 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 						{#if f.displayName}
 							<span class="text-muted-foreground text-sm">{f.displayName}</span>
 						{/if}
-					</div>
-							<div class="flex shrink-0 items-center gap-1">
-								<Button size="icon-sm" variant="ghost" aria-label="Voir détails" onclick={() => openFlatDetail(f)}>
-									<Info class="h-3.5 w-3.5" />
-								</Button>
-							<Button size="sm" variant="ghost" class="text-destructive hover:text-destructive hover:!bg-destructive/10" aria-label="Supprimer" onclick={(e) => { e.stopPropagation(); confirmDeleteFlat(f.number); }}>
-								<Trash2 class="h-3.5 w-3.5" />
-							</Button>
-							</div>
-					</div>
-					{/each}
+					{/snippet}
+					{#snippet actions()}
+						<IconButton icon={Info} label="Voir détails" onclick={() => openFlatDetail(f)} />
+						<IconButton icon={Trash2} label="Supprimer" tone="destructive" onclick={(e) => { e.stopPropagation(); confirmDeleteFlat(f.number); }} />
+					{/snippet}
+				</ListRow>
+				{/each}
 				</div>
 			{/if}
 
@@ -1409,15 +1449,7 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 						{data.total} lot{data.total > 1 ? 's' : ''}{data.q ? ` pour « ${data.q} »` : ''}
 					</p>
 					{#if totalPages > 1}
-						<div class="flex items-center gap-2">
-							<span class="text-muted-foreground text-xs">Page {data.page}/{totalPages}</span>
-							<Button size="sm" variant="outline" disabled={data.page <= 1} onclick={() => gotoPage(data.page - 1)}>
-								Précédent
-							</Button>
-							<Button size="sm" variant="outline" disabled={data.page >= totalPages} onclick={() => gotoPage(data.page + 1)}>
-								Suivant
-							</Button>
-						</div>
+						<PaginationNav page={data.page} totalPages={totalPages} onPage={gotoPage} />
 					{/if}
 				</div>
 			{/if}
@@ -1425,46 +1457,62 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 		</Card.Content>
 	</Card.Root>
 <!-- Drawer: Detail (flat or request) -->
-<Drawer.Root
+<DrawerShell
 	bind:open={detailOpen}
-	direction={desktop.value ? 'right' : 'bottom'}
-	onOpenChange={(o) => {
-		if (!o) {
-			editingName = false;
-			editingReqName = false;
-			detailTab = 'info';
-			adminPinCurrent = '';
-			adminPinNew = '';
-			adminPinConfirm = '';
-			// NOTE: selectedItem intentionally NOT nulled here — content must stay
-			// mounted through Vaul's close animation or its overlay orphans and
-			// eats pointer events (openers always set fresh data before reopening).
-			inviteLoading = false;
-			clearRuntimeFlow('edit');
-			clearRuntimeFlow('request');
-		}
-	}}
->
-	<Drawer.Content bind:ref={drawerContentEl} class="overflow-hidden overflow-clip data-[vaul-drawer-direction=bottom]:max-h-[92svh] sm:max-w-xl">
+	bind:contentEl={drawerContentEl}
+	onClose={(o) => {
+			if (!o) {
+				editingName = false;
+				editingReqName = false;
+				detailTab = 'info';
+				adminPinCurrent = '';
+				adminPinNew = '';
+				adminPinConfirm = '';
+				// NOTE: selectedItem intentionally NOT nulled here — content must stay
+				// mounted through Vaul's close animation or its overlay orphans and
+				// eats pointer events (openers always set fresh data before reopening).
+				inviteLoading = false;
+				clearRuntimeFlow('edit');
+				clearRuntimeFlow('request');
+				// Abandon uncommitted approval staging: a conflict resolution
+				// exists only once committed (Approuver) — closing the drawer
+				// drops it, so reopen shows true server state and approval
+				// 409s honestly until re-resolved. Post-commit closes find it
+				// already consumed (idempotent with the self-clean effect).
+				stagedApproval = null;
+				autoApproveAfterResolve = null;
+				// Deep link: closing the drawer drops ?lot= so refresh/back
+				// doesn't reopen it. Covers every close path (this handler runs
+				// for UI, Escape, and programmatic closes alike). The flag
+				// suppresses the deep-link effect until the navigation lands —
+				// without it the effect reopens mid-exit (URL still has ?lot=),
+				// churning vaul presence into orphaned overlays.
+				const params = new URLSearchParams(window.location.search);
+				if (params.has('lot')) {
+					params.delete('lot');
+					strippingLotParam = true;
+					updateUrl(params, true);
+				}
+			}
+		}}>
 		{#if selectedItem?.type === 'flat'}
 			{@const f = selectedItem.item}
 			{@const state = getFlatState(f)}
 			{@const boundSpots = getBoundSpots(f)}
 
-			<div class="flex flex-1 flex-col min-h-0 overflow-y-auto overscroll-none px-6 pb-6" data-vaul-no-drag>
-				<FlatDetailView
+			<FlatDetailView
 					bind:tab={detailTab}
 					stickyHeader
 					number={f.number}
 					displayName={f.displayName}
 					stateLabel={getStateLabel(state)}
-					stateBadgeClass={getStateBadgeClass(state)}
-					ownFlatNumber={data.viewerFlatNumber}
+					stateBadgeClass={statusBadgeClass(state)}
 					isAdmin={f.isAdmin}
 					spots={editFlatSpotInputs}
 					descriptions={Object.fromEntries(
 						data.spots.filter((s) => s.flatNumber === f.number).map((s) => [s.number, s.description])
 					)}
+					spotHref={(n) => `/admin/spots?spot=${encodeURIComponent(n)}`}
 					spotsEditable
 					onSpotsChange={(spots) => {
 						// Shared-pool additions need explicit confirmation (server binds silently)
@@ -1475,6 +1523,7 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 						);
 						if (addedPool.length > 0) {
 							conflictMode = 'edit';
+							stagedEditReassigns = [];
 							pendingConflictSpots = spots;
 							spotConflicts = addedPool.map((spotNumber) => ({
 								spotNumber,
@@ -1520,71 +1569,44 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 						{#if state !== 'active'}
 							<p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Invitation</p>
 							<div class="rounded-xl border border-border p-4">
-								{#if f.activationCode}
-									{@const expiryChip = f.activationCodeExpiresAt ? getExpiryChip(f.activationCodeExpiresAt) : null}
-									<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions: row click is a mouse/touch shortcut; the icon-buttons are the keyboard/screen-reader path -->
-									<div
-										role="presentation"
-										onclick={() => (inviteModalOpen = true)}
-										class="flex w-full cursor-pointer items-center gap-2 rounded-lg px-1 py-1 transition-colors hover:bg-muted/50"
-									>
-										<span class="flex-1 min-w-0">
-											<span class="block truncate font-mono text-sm font-semibold">{f.activationCode}</span>
-											{#if expiryChip}
-												<span
-													class="mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium {expiryChip.urgent
-														? 'border-destructive/30 bg-destructive/10 text-destructive'
-														: 'border-warning/30 bg-warning/10 text-warning'}"
-													title={expiryChip.title}
-												>
-													<Clock class="h-3 w-3" />
-													{expiryChip.text}
-												</span>
-											{/if}
+							{#if f.activationCode}
+								<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions: row click is a mouse/touch shortcut; the icon-buttons are the keyboard/screen-reader path -->
+								<div
+									role="presentation"
+									onclick={() => (inviteModalOpen = true)}
+									class="flex w-full cursor-pointer items-center gap-2 rounded-lg px-1 py-1 transition-colors hover:bg-muted/50"
+								>
+									<span class="flex-1 min-w-0">
+										<span class="block truncate font-mono text-sm font-semibold">{f.activationCode}</span>
+										<span class="mt-1 block">
+											<ExpiryChip expiresAt={f.activationCodeExpiresAt} />
 										</span>
-										<Button
-											type="button"
-											variant="ghost"
-											size="icon-sm"
-											class="shrink-0"
-											aria-label="Régénérer le lien"
+									</span>
+										<IconButton
+											icon={RefreshCw}
+											label="Régénérer le lien"
 											disabled={inviteLoading}
 											onclick={(e) => { e.stopPropagation(); regenerateInvite(); }}
-										>
-											<RefreshCw class="h-3.5 w-3.5" />
-										</Button>
-										<Button
-											type="button"
-											variant="ghost"
-											size="icon-sm"
-											class="shrink-0 text-destructive hover:text-destructive hover:!bg-destructive/10"
-											aria-label="Révoquer l'invitation"
+										/>
+										<IconButton
+											icon={Ban}
+											label="Révoquer l'invitation"
+											tone="destructive"
 											onclick={(e) => { e.stopPropagation(); revokeInvite(); }}
-										>
-											<Ban class="h-3.5 w-3.5" />
-										</Button>
-										<Button
-											type="button"
-											variant="ghost"
-											size="icon-sm"
-											class="shrink-0 text-muted-foreground hover:text-foreground hover:!bg-muted"
-											aria-label="Voir l'invitation"
+										/>
+										<IconButton
+											icon={ChevronRight}
+											label="Voir l'invitation"
 											onclick={() => (inviteModalOpen = true)}
-										>
-											<ChevronRight class="h-4 w-4" />
-										</Button>
+										/>
 									</div>
 								{:else}
 									<div class="space-y-2">
 										<p class="text-sm text-muted-foreground">Aucun lien généré.</p>
-										<Button size="sm" onclick={() => generateActivationCode(f.number)} disabled={inviteLoading}>
-											{#if inviteLoading}
-												⏳ Génération…
-											{:else}
-												<RefreshCw class="h-4 w-4 mr-1.5" />
-												Générer un lien
-											{/if}
-										</Button>
+										<AsyncButton variant="default" size="sm" onclick={() => generateActivationCode(f.number)} disabled={inviteLoading} loading={inviteLoading} loadingLabel="Génération…">
+											<RefreshCw class="h-4 w-4 mr-1.5" />
+											Générer un lien
+										</AsyncButton>
 									</div>
 								{/if}
 							</div>
@@ -1596,36 +1618,37 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 								bind:confirmPin={adminPinConfirm}
 								onSubmit={(pins) => submitAdminPin(f.number, pins)}
 							/>
-							{#if state === 'active'}
-								<button
-									type="button"
-									class="mt-2 flex w-full items-center justify-center gap-2 rounded-lg py-2 text-sm text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-									onclick={() => confirmResetFlat(f.number)}
-								>
-									<RotateCcw class="h-4 w-4" />
-									Réinitialiser le lot
-								</button>
-							{/if}
 						</div>
 					{/snippet}
 				</FlatDetailView>
-				<div class="mt-auto pt-1">
-					<Button variant="default" class="w-full bg-destructive text-white hover:bg-destructive/80 dark:text-[#1e1e2e]" onclick={() => confirmDeleteFlat(f.number)}>
-						<Trash2 class="h-4 w-4 mr-2" />
-						Supprimer le lot
-					</Button>
-				</div>
-			</div>
+				<DrawerActionFooter
+					actions={[
+						...(state === 'active'
+							? [
+									{
+										label: 'Réinitialiser',
+										icon: RotateCcw,
+										tone: 'secondary' as const,
+										onclick: () => confirmResetFlat(f.number)
+									}
+								]
+							: []),
+						{
+							label: 'Supprimer',
+							icon: Trash2,
+							tone: 'destructive' as const,
+							onclick: () => confirmDeleteFlat(f.number)
+						}
+					]}
+				/>
 
 		{:else if selectedItem?.type === 'request'}
 			{@const r = selectedItem.item}
-			<div class="flex flex-1 flex-col min-h-0 overflow-y-auto overscroll-none px-6 pt-6 pb-6" data-vaul-no-drag>
-				<FlatDetailView
+			<FlatDetailView
 					number={r.flatNumber}
 					displayName={r.requesterName}
 					stateLabel="Demande"
 					stateBadgeClass="flat-badge-request"
-					ownFlatNumber={data.viewerFlatNumber}
 					spots={editReqSpotInputs}
 					descriptions={Object.fromEntries(
 						data.spots.filter((s) => r.requestedSpots.includes(s.number)).map((s) => [s.number, s.description])
@@ -1669,43 +1692,41 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 						{/if}
 					{/snippet}
 				</FlatDetailView>
-				<div class="mt-auto pt-1">
-					<div class="flex gap-2">
-					<Button variant="default" class="flex-1 bg-success text-white hover:bg-success/80 dark:text-[#1e1e2e]" aria-label="Approuver" onclick={() => handleApproveClick(r)} disabled={approvingRequest === r.id}>
-						{#if approvingRequest === r.id}
-							<LoaderCircle class="h-4 w-4 mr-2 animate-spin" />
-						{:else}
-							<Check class="h-4 w-4 mr-2" />
-						{/if}
-						<span class="truncate">Approuver</span>
-					</Button>
-					<Button variant="default" class="flex-1 bg-destructive text-white hover:bg-destructive/80 dark:text-[#1e1e2e]" aria-label="Rejeter" onclick={() => confirmRejectRequest(r.id)}>
-						<X class="h-4 w-4 mr-2" />
-						<span class="truncate">Rejeter</span>
-					</Button>
-				</div>
-				</div>
-			</div>
+				<DrawerActionFooter
+					actions={[
+						{
+							label: 'Approuver',
+							icon: Check,
+							tone: 'success',
+							onclick: () => handleApproveClick(r),
+							loading: approvingRequest === r.id
+						},
+						{
+							label: 'Rejeter',
+							icon: X,
+							tone: 'destructive',
+							onclick: () => confirmRejectRequest(r.id)
+						}
+					]}
+				/>
 		{/if}
-	</Drawer.Content>
-</Drawer.Root>
+</DrawerShell>
 
 <!-- Dialog: Invitation -->
-<Dialog.Root bind:open={inviteModalOpen}>
-	<Dialog.Content class="sm:max-w-2xl sm:p-6">
-		<Dialog.Header>
-			<div class="flex items-center gap-3">
-				<div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
-					<Link2 class="h-6 w-6" />
-				</div>
-				<div class="min-w-0">
-					<Dialog.Title>Invitation</Dialog.Title>
-					{#if selectedItem?.type === 'flat'}
-						<Dialog.Description>Lot {selectedItem.item.number}</Dialog.Description>
-					{/if}
-				</div>
-			</div>
-		</Dialog.Header>
+{#snippet inviteTitleExtra()}
+	{#if selectedItem?.type === 'flat'}
+		<ExpiryChip expiresAt={selectedItem.item.activationCodeExpiresAt} />
+	{/if}
+{/snippet}
+<DialogShell kind="dialog" size="xl" open={inviteModalOpen} onClose={() => (inviteModalOpen = false)}>
+	<DialogHeader
+		kind="dialog"
+		icon={Link2}
+		title="Invitation"
+		subtitle={selectedItem?.type === 'flat' ? `Lot ${selectedItem.item.number}` : null}
+		onClose={() => (inviteModalOpen = false)}
+		titleExtra={inviteTitleExtra}
+	/>
 		{#if selectedItem?.type === 'flat'}
 			{@const mf = selectedItem.item}
 			{@const mstate = getFlatState(mf)}
@@ -1718,66 +1739,81 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 							<Button variant="outline" size="sm" onclick={() => copyLink(mf)}>
 								<ClipboardCopy class="h-4 w-4" />
 							</Button>
-							<Button
-								variant="outline"
-								size="icon-sm"
-								aria-label="Régénérer le lien"
-								onclick={regenerateInvite}
-								disabled={inviteLoading}
-							>
-								<RefreshCw class="h-4 w-4" />
-							</Button>
 						</div>
-						{#if mf.activationCodeExpiresAt}
-							<p class="text-xs text-warning">{getExpiryLabel(mf.activationCodeExpiresAt)}</p>
-						{/if}
 						<div class="flex justify-center">
 							<div class="rounded-lg bg-white p-3">
 								<QrCode value={getActivationLink(mf)} size={200} />
 							</div>
 						</div>
-						<p class="text-center text-xs text-muted-foreground">
+						<p class="text-center text-sm text-muted-foreground">
 							Scannez ce code avec votre téléphone pour activer le compte.
 						</p>
 					</div>
 					<div class="space-y-3">
-						{#each mf.emails as email}
-							<div class="flex items-center gap-3">
-								<span
-									class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
-									style="background-color: color-mix(in srgb, {flatColor} 18%, transparent); color: {flatColor}"
-								>
-									{email.charAt(0).toUpperCase()}
-								</span>
-								<span class="flex-1 min-w-0 truncate text-sm">{email}</span>
-								{#if mstate === 'active'}
-									<Badge class="flat-badge-active shrink-0">Activé</Badge>
-								{:else}
-									<Badge class="flat-badge-pending shrink-0">En attente</Badge>
-								{/if}
-							</div>
+						{#each mf.emails as email (email)}
+							<IdentityRow
+								avatar={{ icon: Mail, tint: flatColor }}
+								avatarSize="sm"
+								title={email}
+							>
+								{#snippet trailing()}
+									<AsyncButton
+										type="button"
+										variant="default"
+										size="xs"
+										class="shrink-0"
+										disabled={inviteLoading}
+										loading={sendingEmail === email}
+										loadingLabel="Envoi…"
+										ariaLabel="Envoyer l'invitation à {email}"
+										onclick={() => resendInvite(email)}
+									>
+										Envoyer
+									</AsyncButton>
+								{/snippet}
+							</IdentityRow>
 						{/each}
+						{#if mf.emails.length > 1}
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								class="w-full"
+								disabled={inviteLoading}
+								onclick={() => resendInvite()}
+							>
+								Envoyer à {mf.emails.length} adresses
+							</Button>
+						{/if}
 						{#if mf.emails.length === 0}
 							<p class="text-sm text-muted-foreground">Aucune adresse email enregistrée pour ce lot.</p>
 						{/if}
-						<div class="flex gap-2">
-							<Button variant="outline" size="sm" onclick={resendInvite} disabled={inviteLoading}>
-								{#if inviteLoading}
-									⏳ Envoi…
-								{:else}
-									<Mail class="h-4 w-4 mr-1.5" />
-									Envoyer l'email
-								{/if}
-							</Button>
-						</div>
-						<button
-							type="button"
-							class="flex w-full items-center justify-center gap-2 rounded-lg py-2 text-sm text-destructive transition-colors hover:bg-destructive/10"
-							onclick={revokeInvite}
-						>
-							<Ban class="h-4 w-4" />
-							Révoquer l'invitation
-						</button>
+						{#if mf.phones.length > 0}
+							{#each mf.phones as phone (phone)}
+								{@const waHref = getWhatsAppInviteHref(mf.number, phone, getActivationLink(mf))}
+								<IdentityRow
+									avatar={{ icon: Phone, tint: flatColor }}
+									avatarSize="sm"
+									title={phone}
+								>
+									{#snippet trailing()}
+										{#if waHref}
+											<Button
+												type="button"
+												variant="default"
+												size="xs"
+												class="shrink-0"
+												href={waHref}
+												target="_blank"
+												rel="noopener"
+											>
+												Envoyer
+											</Button>
+										{/if}
+									{/snippet}
+								</IdentityRow>
+							{/each}
+						{/if}
 					</div>
 				</div>
 			{:else}
@@ -1785,32 +1821,37 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 					<p class="text-sm text-muted-foreground">Aucun lien généré.</p>
 				</div>
 			{/if}
-			<Dialog.Footer class="bg-transparent border-t-0">
-				<Button variant="outline" onclick={() => (inviteModalOpen = false)}>Fermer</Button>
+			<Dialog.Footer class={DIALOG_FOOTER_CLASS}>
 				{#if mf.activationCode}
-					<Button variant="default" onclick={() => copyLink(mf)}>Copier le lien</Button>
-				{:else}
-					<Button variant="default" onclick={() => generateActivationCode(mf.number)} disabled={inviteLoading}>
-						{#if inviteLoading}
-							⏳ Génération…
-						{:else}
-							<RefreshCw class="h-4 w-4 mr-2" />
-							Générer un lien
-						{/if}
+					<Button variant="outline" onclick={regenerateInvite} disabled={inviteLoading}>
+						<RefreshCw class="h-4 w-4 mr-2" />
+						Régénérer
 					</Button>
+					<Button
+						variant="default"
+						class="bg-destructive on-solid hover:bg-destructive/80"
+						onclick={revokeInvite}
+					>
+						<Ban class="h-4 w-4 mr-2" />
+						Révoquer
+					</Button>
+				{:else}
+					<AsyncButton variant="default" onclick={() => generateActivationCode(mf.number)} disabled={inviteLoading} loading={inviteLoading} loadingLabel="Génération…">
+						<RefreshCw class="h-4 w-4 mr-2" />
+						Générer un lien
+					</AsyncButton>
 				{/if}
 			</Dialog.Footer>
 		{/if}
-	</Dialog.Content>
-</Dialog.Root>
+	</DialogShell>
 
 <!-- SpotConflictDialog: shared (edit/create/share) -->
 	<SpotConflictDialog
 		open={spotConflicts.length > 0}
 		title={conflictDialogKinds.poolOnly
 			? spotConflicts.length > 1
-				? 'Places du pool commun'
-				: 'Place du pool commun'
+				? 'Places partagées'
+				: 'Place partagée'
 			: conflictDialogKinds.mixed
 				? 'Conflits de places'
 				: spotConflicts.length > 1
@@ -1821,7 +1862,7 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 				? 'Ces places sont dans le pool de réservation partagé.'
 				: 'Cette place est dans le pool de réservation partagé.'
 			: conflictDialogKinds.mixed
-				? 'Certaines places sont attribuées à d’autres lots ou dans le pool commun.'
+				? 'Certaines places sont attribuées à d’autres lots ou parmi les places partagées.'
 				: spotConflicts.length > 1
 					? 'Ces places sont déjà attribuées à d’autres lots.'
 					: 'Cette place est déjà attribuée à un autre lot.'}
@@ -1833,7 +1874,6 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 		onClose={() => {
 			spotConflicts = [];
 			pendingConflictSpots = [];
-			pendingCreateFlatData = null;
 			autoCreateAfterResolve = false;
 		}}
 	/>
@@ -1857,24 +1897,19 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 	/>
 
 <!-- Dialog: Ajouter un lot -->
-<Dialog.Root
+<DialogShell
+	kind="dialog"
+	size="md"
 	open={openDialog === 'addFlat'}
-	onOpenChange={(o) => {
-		if (!o) openDialog = null;
-	}}
+	onClose={() => (openDialog = null)}
 >
-	<Dialog.Content class="sm:max-w-md sm:p-6">
-		<Dialog.Header>
-			<div class="flex items-center gap-3">
-				<div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
-					<HousePlus class="h-6 w-6" />
-				</div>
-				<div class="min-w-0">
-					<Dialog.Title>Ajouter un lot</Dialog.Title>
-					<Dialog.Description>Le lot sera créé en état inactif. Vous pourrez l'inviter ensuite.</Dialog.Description>
-				</div>
-			</div>
-		</Dialog.Header>
+	<DialogHeader
+		kind="dialog"
+		icon={HousePlus}
+		title="Ajouter un lot"
+		subtitle="Le lot sera créé en état inactif, puis son invitation s'ouvrira pour envoyer le code."
+		onClose={() => (openDialog = null)}
+	/>
 			<FlatDetailView
 				showLifecycle={false}
 				bind:number={newFlatNumber}
@@ -1909,12 +1944,11 @@ import ConfirmDialog, { type ConfirmAction } from '../_components/confirm-dialog
 					{/if}
 				{/snippet}
 			</FlatDetailView>
-		<Dialog.Footer class="bg-transparent border-t-0">
+		<Dialog.Footer class={DIALOG_FOOTER_CLASS}>
 			<Button variant="outline" onclick={() => { openDialog = null; stagedCreateReassigns = []; autoCreateAfterResolve = false; clearRuntimeFlow('create'); }}>Annuler</Button>
 			<Button variant="default" disabled={!createFormValid} onclick={handleAddFlatClick}>Ajouter</Button>
 		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+	</DialogShell>
 
 <!-- Confirmation dialog (shared) -->
 <ConfirmDialog action={confirmAction} onClose={() => (confirmAction = null)} onExecute={executeConfirmAction} />

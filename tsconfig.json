@@ -12,5 +12,13 @@
 		"strict": true,
 		"moduleResolution": "bundler"
 	},
-	"include": [".svelte-kit/ambient.d.ts", "src/**/*.ts", "src/**/*.d.ts", "src/**/*.svelte"]
+	"include": [
+		".svelte-kit/ambient.d.ts",
+		"src/**/*.ts",
+		"src/**/*.d.ts",
+		"src/**/*.svelte",
+		"e2e/**/*.ts",
+		"scripts/**/*.ts",
+		"playwright.config.ts"
+	]
 }

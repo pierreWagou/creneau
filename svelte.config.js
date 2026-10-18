@@ -4,6 +4,8 @@ import adapter from '@sveltejs/adapter-node';
 const config = {
 	compilerOptions: {
 		runes: ({ filename }) => (filename.split(/[/\\]/).includes('node_modules') ? undefined : true),
+		// Project-wide suppression of state_referenced_locally warnings
+		// (runes-mode reactivity hints, noisy across the codebase).
 		warningFilter: (warning) => !warning.code.startsWith('state_referenced_locally')
 	},
 	kit: {

@@ -21,7 +21,7 @@ A shared parking spot booking system for apartment buildings. Residents pick a t
 - **Quick presets** — one-tap booking for morning, afternoon, evening, or full day
 - **Multi-day continuity** — overnight gaps are bridged automatically; one booking can span days
 - **Flat request flow** — new residents request access via `/request`, admin approves from the admin panel
-- **Admin panel** — manage flats, spots, activation codes, and review access requests
+- **Admin panel** — manage flats, spots, bookings, activation codes, and review access requests
 - **Usage stats** — building-wide utilization metrics and per-flat leaderboard
 - **Mobile-first** — responsive layout with bottom navigation
 
@@ -34,8 +34,10 @@ A shared parking spot booking system for apartment buildings. Residents pick a t
  │       Pages (SSR)          │       API Routes         │  routes
  │ /book /calendar /admin     │ /api/bookings           │
  │ /my-bookings /account      │ /api/bookings/[id]      │
- │ /stats                     │ /api/timeline           │
- │ /request (public)          │ /api/calendar-statuses  │
+ │ /stats                     │ /api/bookings/[id]/ics  │
+ │ /request (public)          │ /api/timeline           │
+ │ /guide (public)            │ /api/calendar-statuses  │
+ │ /login /activate /setup    │ /api/auth/*             │
  │                            │ /api/events (SSE)       │
  │                            │ /api/account            │
  │                            │ /api/spots*             │
@@ -43,6 +45,7 @@ A shared parking spot booking system for apartment buildings. Residents pick a t
  │                            │ /api/requests (public)  │
  │                            │ /api/admin/flats/*      │
  │                            │ /api/admin/spots/swap   │
+ │                            │ /api/admin/spots/moves  │
  │                            │ /api/admin/requests/*   │
  │                            │ /api/health             │
  ├────────────────────────────┼─────────────────────────┤
@@ -52,7 +55,9 @@ A shared parking spot booking system for apartment buildings. Residents pick a t
  │ sonner toasts              │ auth.ts / sse.ts        │
  │                            │ guards.ts / rate-limit  │
  │                            │ rebind.ts / handler.ts  │
- │                            │ mail.ts / flat-state    │
+ │                            │ mail/ (builders + sender) / flat-state│
+ │                            │ spot-machine / spot-state│
+ │                            │ contacts.ts             │
  ├────────────────────────────┴─────────────────────────┤
 ```
 
@@ -63,38 +68,66 @@ src/
 ├── lib/
 │   ├── types.ts              # DAY_START/DAY_END constants, shared types
 │   ├── constants.ts          # PIN lengths, booking limits, session duration
-│   ├── utils/time.ts         # padH, getHourFromISO, formatDateISO, formatDuration
-│   ├── utils/sse.ts          # createBookingSSE composable
-│   ├── utils.ts              # cn() utility (clsx + tailwind-merge)
+ │   ├── utils/time.ts         # padH, getHourFromISO, formatDateISO, formatDuration
+ │   ├── utils/sse.ts          # createBookingSSE composable
+ │   ├── utils.ts              # cn() utility (clsx + tailwind-merge)
+ │   ├── utils/                # phone, spots, booking-deep-link, is-desktop helpers
+ │   ├── validation.ts         # isValidEmail / isValidPhone
 │   ├── server/
 │   │   ├── availability.ts   # buildSpotTimeline(), getCalendarStatuses()
 │   │   ├── bookings.ts       # CRUD + conflict detection
 │   │   ├── auth.ts           # PIN hashing, session management
 │   │   ├── guards.ts         # requireAuth(), requireAdmin() helpers
-│   │   ├── sse.ts            # Server-Sent Events broadcaster
+│   │   ├── handler.ts        # shared error envelope + contact validation
+ │   │   ├── rebind.ts         # spot-rebind rule + batch validation
+ │   │   ├── flat-machine.ts   # XState flat lifecycle (pure, import-free)
+ │   │   ├── flat-state.ts     # flat lifecycle writes + invitation TTL / reap
+ │   │   ├── spot-machine.ts   # XState spot lifecycle (pure, import-free)
+ │   │   ├── spot-state.ts     # spot lifecycle writes + canTransition
+ │   │   ├── contacts.ts       # email/phone validation + persistence
+ │   │   ├── mail/             # activation/request/booking/lot builders + shell + sender
+ │   │   ├── ics.ts            # RFC 5545 event builder for calendar attachments
+ │   │   ├── sse.ts            # Server-Sent Events broadcaster
 │   │   ├── rate-limit.ts     # In-memory rate limiter
-│   │   └── db/
-│   │       ├── schema.ts     # Drizzle schema (10 tables: flat + contacts, spot, booking, session, request + junctions)
-│   │       └── index.ts      # DB connection, migrations, session cleanup
-│   └── components/
-│       ├── ui/               # shadcn-svelte components
-│       ├── qr-code.svelte   # QR code generator with logo
-│       └── logo.svelte      # App logo
+ │   │   └── db/
+ │   │       ├── schema.ts     # Drizzle schema (10 tables: flat + contacts, spot, booking (+ status soft-delete), session, request + junctions)
+ │   │       ├── migrate.ts    # Migration runner
+ │   │       └── index.ts      # DB connection, migrations, session cleanup
+ │   └── components/
+ │       ├── ui/               # shadcn-svelte components
+ │       ├── detail/           # DetailSection, DetailCard, StatusBadge, AvatarCircle
+ │       ├── qr-code.svelte   # QR code generator with logo
+ │       ├── site-toolbar.svelte  # Shared toolbar (classic when connected, minimal for guests)
+ │       ├── drawer-shell.svelte  # Shared drawer frame
+ │       ├── booking-flow.svelte  # Shared booking flow (used by /book + edit dialog)
+ │       ├── booking-ticket-card.svelte  # Shared booking card (both booking lists)
+  │       ├── guide-content.svelte  # Admin guide body (/admin/guide)
+  │       ├── resident-guide-content.svelte  # Resident manual (public /guide)
+  │       ├── dialog-shell.svelte + dialog-header.svelte  # Dialog composition (all dialogs)
+  │       ├── booking-edit-dialog.svelte / booking-cancel-dialog.svelte  # Shared booking dialogs
+  │       ├── booking-slot-timeline.svelte / booking-status-pill.svelte  # Booking display atoms
+  │       ├── spot-chip.svelte + spot-chip-picker.svelte  # Spot chips + picker radiogroup
+  │       ├── flat-detail-view.svelte + spot-conflict-dialog.svelte  # Lot drawer + conflict resolver
+  │       ├── filter-bar.svelte + search-field.svelte + pagination-nav.svelte + page-column.svelte
+  │       ├── empty-state.svelte + stat.svelte + count-badge.svelte  # List/stats atoms
+  │       ├── async-button.svelte + validated-submit.svelte + form-field.svelte + icon-button.svelte
+  │       └── logo.svelte      # App logo
 ├── routes/
-│   ├── (public)/
-│   │   ├── login/            # PIN login
-│   │   ├── activate/         # First-time activation via invitation link
-│   │   ├── setup/            # First-time admin setup wizard
-│   │   ├── request/          # Public flat access request form
-│   │   └── about/            # Public about/landing page
-│   ├── (app)/
-│   │   ├── book/             # Booking page (date + time selection)
-│   │   ├── calendar/         # Interactive week/day calendar view
-│   │   ├── my-bookings/      # User's booking list
-│   │   ├── stats/            # Usage stats & leaderboard
-│   │   ├── account/          # Account settings (display name, PIN change)
-│   │   └── admin/            # Admin: manage flats, spots, requests
-│   │       └── guide/        # Admin guide
+ │   ├── (public)/
+ │   │   ├── login/            # PIN login
+ │   │   ├── activate/         # First-time activation via invitation link
+ │   │   ├── setup/            # First-time admin setup wizard
+ │   │   ├── request/          # Public flat access request form
+ │   │   ├── guide/            # Public guide (unauthenticated)
+ │   │   └── about/            # Public about/landing page
+ │   ├── (app)/
+ │   │   ├── book/             # Booking page (date + time selection)
+ │   │   ├── calendar/         # Interactive week/day calendar view
+ │   │   ├── my-bookings/      # User's booking list
+ │   │   ├── stats/            # Usage stats & leaderboard
+ │   │   ├── account/          # Account settings (display name, PIN change)
+ │   │   └── admin/            # Admin: lots, spots, reservations (+ guide)
+ │   │       └── guide/        # Admin guide (connected, classic toolbar)
 │   └── api/                  # REST endpoints + SSE
 ├── scripts/
 │   ├── seed.ts               # Database seeding (generates drizzle/seed.db)
