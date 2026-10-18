@@ -1,10 +1,11 @@
 <script lang="ts">
 	import Pencil from '@lucide/svelte/icons/pencil';
 	import { untrack } from 'svelte';
-	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '$lib/constants';
+	import { validatePin } from '$lib/validation';
 	import CommitIcon from './commit-icon.svelte';
+	import IconButton from './icon-button.svelte';
 
 	interface Props {
 		/** Show the current-PIN field (owner flow; admins set PINs without it) */
@@ -50,9 +51,7 @@
 
 	const pinMismatch = $derived(newPin.length > 0 && confirmPin.length > 0 && newPin !== confirmPin);
 	const pinValid = $derived(
-		newPin.length >= PIN_MIN_LENGTH &&
-			newPin.length <= PIN_MAX_LENGTH &&
-			/^\d+$/.test(newPin) &&
+		validatePin(newPin) === null &&
 			newPin === confirmPin &&
 			(!requireCurrentPin || currentPin.length >= PIN_MIN_LENGTH)
 	);
@@ -118,7 +117,7 @@
 		else cancelEdit();
 	}}
 >
-	<p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Authentification</p>
+	<p class="dialog-section-label mb-2">Authentification</p>
 	<div class="rounded-xl border border-border p-4 space-y-4">
 		{#if modes.length > 1}
 		<div>
@@ -154,16 +153,7 @@
 						/>
 					</div>
 				{:else}
-					<Button
-						type="button"
-						variant="ghost"
-						size="icon-sm"
-						class="shrink-0 text-muted-foreground hover:text-foreground hover:!bg-muted"
-						aria-label="Modifier le PIN"
-						onclick={startEdit}
-					>
-						<Pencil class="h-3.5 w-3.5" />
-						</Button>
+					<IconButton icon={Pencil} label="Modifier le PIN" onclick={startEdit} />
 					{/if}
 				{/if}
 				</div>

@@ -1,6 +1,9 @@
 services:
   creneau:
-    image: ghcr.io/pierrewagou/creneau:latest
+    # Preview-only combo: :canary image + SEED_ON_INIT seeds the named volume
+    # with demo data on first boot. Production uses :X.Y.Z/:latest WITHOUT
+    # SEED_ON_INIT (see AGENTS.md Deployment).
+    image: ghcr.io/pierrewagou/creneau:canary
     ports:
       - '3000:3000'
     volumes:

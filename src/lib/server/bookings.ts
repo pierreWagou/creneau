@@ -1,8 +1,8 @@
 import { and, eq, gt, lt, ne } from 'drizzle-orm';
-import { MAX_BOOKING_HOURS, MS_PER_HOUR } from '$lib/constants';
+import { MAX_BOOKING_DAYS, MAX_BOOKING_HOURS, MS_PER_HOUR } from '$lib/constants';
 import type { BookingWithFlat } from '$lib/types';
 import { DAY_END, DAY_START } from '$lib/types';
-import { getHourFromISO, padH } from '$lib/utils/time';
+import { dayBounds, foldMidnightEnd, getHourFromISO } from '$lib/utils/time';
 import { db } from './db';
 import { booking, flat, spot } from './db/schema';
 
@@ -34,7 +34,7 @@ export function validateBookingTimes(
 	if (durationHours > MAX_BOOKING_HOURS) {
 		return {
 			success: false,
-			error: `La durée maximale d'une réservation est de ${MAX_BOOKING_HOURS / 24} jours`,
+			error: `La durée maximale d'une réservation est de ${MAX_BOOKING_DAYS} jours`,
 			status: 400
 		};
 	}
@@ -50,6 +50,7 @@ const bookingWithFlatColumns = {
 	endTime: booking.endTime,
 	note: booking.note,
 	createdAt: booking.createdAt,
+	status: booking.status,
 	flatDisplayName: flat.displayName
 } as const;
 
@@ -64,6 +65,7 @@ async function hasConflict(
 ): Promise<boolean> {
 	const conditions = [
 		eq(booking.spotNumber, spotNumber),
+		eq(booking.status, 'active'),
 		lt(booking.startTime, endTime),
 		gt(booking.endTime, startTime)
 	];
@@ -81,7 +83,7 @@ async function hasConflict(
 /**
  * Get a booking by ID with flat information
  */
-async function getBookingById(id: number): Promise<BookingWithFlat | null> {
+export async function getBookingById(id: number): Promise<BookingWithFlat | null> {
 	const result = await db
 		.select(bookingWithFlatColumns)
 		.from(booking)
@@ -106,13 +108,18 @@ export async function createBooking(
 	// Verify spot exists
 	const spotExists = await db.select().from(spot).where(eq(spot.number, input.spotNumber)).get();
 	if (!spotExists) {
-		return { success: false, error: 'Place de parking introuvable', status: 400 };
+		return { success: false, error: 'Place de parking introuvable', status: 404 };
 	}
 
-	const timesError = validateBookingTimes(input.startTime, input.endTime);
+	// Midnight-frontier fold: an end at 00:00 closes the previous day, so it is
+	// stored folded (`…T24:00:00`) before validation, conflicts and persistence.
+	const startTime = input.startTime;
+	const endTime = foldMidnightEnd(input.startTime, input.endTime);
+
+	const timesError = validateBookingTimes(startTime, endTime);
 	if (timesError) return timesError;
 
-	const conflict = await hasConflict(input.spotNumber, input.startTime, input.endTime);
+	const conflict = await hasConflict(input.spotNumber, startTime, endTime);
 	if (conflict) {
 		return { success: false, error: 'Ce créneau est déjà réservé', status: 409 };
 	}
@@ -122,8 +129,8 @@ export async function createBooking(
 		.values({
 			spotNumber: input.spotNumber,
 			flatNumber: input.flatNumber,
-			startTime: input.startTime,
-			endTime: input.endTime,
+			startTime,
+			endTime,
 			note: input.note ?? null
 		})
 		.returning()
@@ -143,10 +150,10 @@ export async function createBooking(
 export async function getBookingsInRange(from: string, to: string, spotNumber?: string): Promise<BookingWithFlat[]> {
 	// Expand bare date strings to full datetime boundaries so that
 	// lexicographic comparison against stored ISO datetimes is correct.
-	const rangeStart = from.includes('T') ? from : `${from}T${padH(DAY_START)}:00:00`;
-	const rangeEnd = to.includes('T') ? to : `${to}T${padH(DAY_END)}:00:00`;
+	const rangeStart = from.includes('T') ? from : dayBounds(from).start;
+	const rangeEnd = to.includes('T') ? to : dayBounds(to).end;
 
-	const conditions = [lt(booking.startTime, rangeEnd), gt(booking.endTime, rangeStart)];
+	const conditions = [eq(booking.status, 'active'), lt(booking.startTime, rangeEnd), gt(booking.endTime, rangeStart)];
 
 	if (spotNumber) {
 		conditions.push(eq(booking.spotNumber, spotNumber));
@@ -161,7 +168,9 @@ export async function getBookingsInRange(from: string, to: string, spotNumber?: 
 }
 
 /**
- * Get bookings for a specific flat
+ * Get bookings for a specific flat — inclusive of cancelled rows, which the
+ * owner's list displays (Annulée pill + toggle). Use getBookingsInRange
+ * for bookability (active only).
  */
 export async function getBookingsByFlat(flatNumber: string): Promise<BookingWithFlat[]> {
 	return await db
@@ -169,6 +178,19 @@ export async function getBookingsByFlat(flatNumber: string): Promise<BookingWith
 		.from(booking)
 		.innerJoin(flat, eq(booking.flatNumber, flat.number))
 		.where(eq(booking.flatNumber, flatNumber))
+		.all();
+}
+
+/**
+ * Get all bookings across flats (admin views) — inclusive of cancelled rows,
+ * which the admin list displays. Use getBookingsInRange for bookability
+ * (active only).
+ */
+export async function getAllBookings(): Promise<BookingWithFlat[]> {
+	return await db
+		.select(bookingWithFlatColumns)
+		.from(booking)
+		.innerJoin(flat, eq(booking.flatNumber, flat.number))
 		.all();
 }
 
@@ -196,17 +218,23 @@ export async function cancelBooking(
 		return { success: false, error: "Vous n'êtes pas autorisé à annuler cette réservation", status: 403 };
 	}
 
-	await db.delete(booking).where(eq(booking.id, bookingId));
+	if (existing.status === 'cancelled') {
+		return { success: false, error: 'Cette réservation est déjà annulée', status: 409 };
+	}
+
+	await db.update(booking).set({ status: 'cancelled' }).where(eq(booking.id, bookingId));
 	return { success: true };
 }
 
 /**
- * Update a booking's time range (only by owner)
+ * Update a booking's time range and/or spot (only by owner or admin).
+ * A spot move targets a shared spot; same-spot is a no-op for that dimension.
  */
 export async function updateBooking(
 	bookingId: number,
 	flatNumber: string,
-	updates: { startTime: string; endTime: string }
+	updates: { startTime?: string; endTime?: string; note?: string | null; spotNumber?: string },
+	isAdmin: boolean
 ): Promise<{ success: true; booking: BookingWithFlat } | { success: false; error: string; status: number }> {
 	const existing = await db.select().from(booking).where(eq(booking.id, bookingId)).get();
 
@@ -214,7 +242,7 @@ export async function updateBooking(
 		return { success: false, error: 'Réservation introuvable', status: 404 };
 	}
 
-	if (existing.flatNumber !== flatNumber) {
+	if (existing.flatNumber !== flatNumber && !isAdmin) {
 		return { success: false, error: "Vous n'êtes pas autorisé à modifier cette réservation", status: 403 };
 	}
 
@@ -225,22 +253,64 @@ export async function updateBooking(
 		return { success: false, error: 'Impossible de modifier une réservation passée', status: 400 };
 	}
 
-	// Cannot move a booking to start in the past
-	if (updates.startTime < now) {
-		return { success: false, error: 'Impossible de placer une réservation dans le passé', status: 400 };
+	// Cancelled bookings are void — edit them never, rebook instead
+	if (existing.status === 'cancelled') {
+		return { success: false, error: 'Impossible de modifier une réservation annulée', status: 400 };
 	}
 
-	const timesError = validateBookingTimes(updates.startTime, updates.endTime);
-	if (timesError) return timesError;
+	const moveTimes = updates.startTime !== undefined || updates.endTime !== undefined;
+	const moveSpot = updates.spotNumber !== undefined && updates.spotNumber !== existing.spotNumber;
+	const editNote = updates.note !== undefined;
+	if (!moveTimes && !moveSpot && !editNote) {
+		return { success: false, error: 'Aucune modification fournie', status: 400 };
+	}
 
-	const conflict = await hasConflict(existing.spotNumber, updates.startTime, updates.endTime, bookingId);
-	if (conflict) {
-		return { success: false, error: 'Ce créneau est déjà réservé', status: 409 };
+	// Spot moves land on shared spots only (same rule as booking creation's
+	// bookable pool) — verified before times so a bad target fails fast.
+	let targetSpot = existing.spotNumber;
+	if (moveSpot) {
+		const target = await db.select().from(spot).where(eq(spot.number, updates.spotNumber!)).get();
+		if (!target) {
+			return { success: false, error: 'Place de parking introuvable', status: 404 };
+		}
+		if (target.status !== 'shared') {
+			return { success: false, error: "Cette place n'est pas réservable", status: 400 };
+		}
+		targetSpot = target.number;
+	}
+
+	const nextStart = updates.startTime ?? existing.startTime;
+	// Midnight-frontier fold, same as createBooking: an end at 00:00 closes the
+	// previous day and is stored folded (`…T24:00:00`).
+	const nextEnd = foldMidnightEnd(nextStart, updates.endTime ?? existing.endTime);
+
+	// Cannot move a booking to start in the past (times and/or spot — an
+	// ongoing booking is immovable in every dimension, consistent with re-timing).
+	// Spot-only moves reuse the stored times, so only time moves must supply both.
+	if (moveTimes || moveSpot) {
+		if (moveTimes && (!updates.startTime || !updates.endTime)) {
+			return { success: false, error: 'Heures de début et de fin requises', status: 400 };
+		}
+		if (nextStart < now) {
+			return { success: false, error: 'Impossible de placer une réservation dans le passé', status: 400 };
+		}
+
+		const timesError = validateBookingTimes(nextStart, nextEnd);
+		if (timesError) return timesError;
+
+		const conflict = await hasConflict(targetSpot, nextStart, nextEnd, bookingId);
+		if (conflict) {
+			return { success: false, error: 'Ce créneau est déjà réservé', status: 409 };
+		}
 	}
 
 	await db
 		.update(booking)
-		.set({ startTime: updates.startTime, endTime: updates.endTime })
+		.set({
+			...(moveTimes ? { startTime: nextStart, endTime: nextEnd } : {}),
+			...(moveSpot ? { spotNumber: targetSpot } : {}),
+			...(editNote ? { note: updates.note?.trim() || null } : {})
+		})
 		.where(eq(booking.id, bookingId));
 
 	const updated = await getBookingById(bookingId);

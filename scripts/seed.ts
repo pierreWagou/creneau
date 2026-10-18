@@ -2,7 +2,8 @@
  * Seed script for creneau-preview.
  *
  * Generates drizzle/seed.db with realistic test data.
- * Run: DATABASE_URL=file:./drizzle/seed.db npx tsx scripts/seed.ts
+ * Run: npx tsx scripts/seed.ts (defaults to ./data/creneau.db, like `npm run db:seed:dev`;
+ * override with DATABASE_URL=file:./drizzle/seed.db for the Docker-baked seed)
  *
  * Idempotent: uses onConflictDoNothing() throughout.
  */
@@ -26,12 +27,13 @@ import {
 	spot
 } from '../src/lib/server/db/schema.js';
 import { formatPhone } from '../src/lib/utils/phone.js';
+import { foldMidnightEnd } from '../src/lib/utils/time.js';
 
 // ---------------------------------------------------------------------------
 // DB setup
 // ---------------------------------------------------------------------------
 
-const DB_PATH = process.env.DATABASE_URL ?? `file:${resolve('drizzle/seed.db')}`;
+const DB_PATH = process.env.DATABASE_URL ?? `file:${resolve('data/creneau.db')}`;
 
 const fileMatch = DB_PATH.match(/^file:(.+)$/);
 if (fileMatch) {
@@ -248,7 +250,9 @@ console.log('Inserting bookings…');
 // Bookings have autoincrement IDs — no conflict possible; skip if table already populated
 const existingCount = await db.$count(booking);
 if (existingCount === 0) {
-	await db.insert(booking).values(bookings);
+	// Midnight-frontier fold, same as the API write path: an end at 00:00
+	// closes the previous day (`dt()` emits T00 for hour 24).
+	await db.insert(booking).values(bookings.map((b) => ({ ...b, endTime: foldMidnightEnd(b.startTime, b.endTime) })));
 } else {
 	console.log(`  Skipping bookings — ${existingCount} already present.`);
 }

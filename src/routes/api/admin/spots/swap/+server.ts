@@ -3,7 +3,9 @@ import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { spot } from '$lib/server/db/schema';
 import { requireAdmin } from '$lib/server/guards';
-import { handleHandlerError } from '$lib/server/handler';
+import { errorJson, handleHandlerError } from '$lib/server/handler';
+import { assertNoStrand } from '$lib/server/rebind';
+import { canTransition } from '$lib/server/spot-state';
 import type { RequestHandler } from './$types';
 
 /**
@@ -13,7 +15,7 @@ import type { RequestHandler } from './$types';
  *
  * - spotNumber:        the shared spot to assign (flatNumber IS NULL)
  * - flatNumber:        the target flat
- * - targetSpotNumber:  the flat's spot to unbind (becomes shared)
+ * - targetSpotNumber:  the flat's spot to unbind (lands limbo)
  *
  * If the flat has no bound spots, the shared spot is simply assigned (no unbind).
  */
@@ -25,31 +27,39 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		const { spotNumber, flatNumber, targetSpotNumber } = await request.json();
 
 		if (!spotNumber || !flatNumber) {
-			return json({ error: 'Paramètres manquants' }, { status: 400 });
+			return errorJson('Paramètres manquants', 400);
 		}
 
 		// Validate the shared spot exists and is actually shared
 		const sharedSpot = await db.select().from(spot).where(eq(spot.number, spotNumber)).get();
 		if (!sharedSpot) {
-			return json({ error: 'Place de parking introuvable' }, { status: 404 });
+			return errorJson('Place de parking introuvable', 404);
 		}
 		if (sharedSpot.flatNumber !== null) {
-			return json({ error: "Cette place de parking n'est pas partagée" }, { status: 400 });
+			return errorJson("Cette place de parking n'est pas partagée", 400);
 		}
 
 		// If a target spot is specified, validate it belongs to the flat
 		if (targetSpotNumber) {
 			const targetSpot = await db.select().from(spot).where(eq(spot.number, targetSpotNumber)).get();
 			if (!targetSpot) {
-				return json({ error: 'Place de parking cible introuvable' }, { status: 404 });
+				return errorJson('Place de parking cible introuvable', 404);
 			}
 			if (targetSpot.flatNumber !== flatNumber) {
-				return json({ error: "Cette place de parking n'est pas assignée à ce lot" }, { status: 400 });
+				return errorJson("Cette place de parking n'est pas assignée à ce lot", 400);
 			}
+			// Transition guard: target goes assigned → unassigned (LIMBO)
+			if (!canTransition(targetSpot.status, 'limbo', { hasFlat: true })) {
+				return errorJson('Place de parking cible introuvable', 404);
+			}
+			// Strand guard: swapping away the flat's last spot is refused (409),
+			// like every other detach path — a swap must never strand a lot at 0 spots.
+			const stranded = await assertNoStrand(db, targetSpotNumber, flatNumber);
+			if (stranded) return stranded;
 
-			// Atomic swap: unbind target (lands shared), bind shared
+			// Atomic swap: unbind target (lands limbo), bind shared
 			await db.transaction(async (tx) => {
-				await tx.update(spot).set({ flatNumber: null, status: 'shared' }).where(eq(spot.number, targetSpotNumber));
+				await tx.update(spot).set({ flatNumber: null, status: 'unassigned' }).where(eq(spot.number, targetSpotNumber));
 				await tx.update(spot).set({ flatNumber, status: 'assigned' }).where(eq(spot.number, spotNumber));
 			});
 		} else {

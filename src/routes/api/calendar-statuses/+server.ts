@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { getCalendarStatuses } from '$lib/server/availability';
+import { getCalendarStatuses, validateRangeWindow } from '$lib/server/availability';
 import { requireAuth } from '$lib/server/guards';
+import { errorJson, handleHandlerError, parseOptionalNumericQuery } from '$lib/server/handler';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
@@ -10,16 +11,34 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 	const from = url.searchParams.get('from');
 	const to = url.searchParams.get('to');
 	const spot = url.searchParams.get('spot');
+	const excludeParam = url.searchParams.get('exclude');
+	const parsedExclude = parseOptionalNumericQuery(excludeParam, 'exclude');
+	if (parsedExclude instanceof Response) return parsedExclude;
+	const excludeId = parsedExclude;
 
 	if (!from || !to) {
-		return json({ error: 'Paramètres from/to requis' }, { status: 400 });
+		return errorJson('Paramètres from/to requis', 400);
+	}
+
+	const rangeError = validateRangeWindow(from, to);
+	if (rangeError) {
+		return errorJson(rangeError, 400);
 	}
 
 	try {
-		const statuses = await getCalendarStatuses(from, to, spot || undefined);
+		// Edit mode: the booking being moved must not paint its own day.
+		// Owner-or-admin — admins may edit any booking, so the param ghosts
+		// their target too; anyone else can only hide their own booking.
+		const statuses = await getCalendarStatuses(
+			from,
+			to,
+			spot || undefined,
+			excludeId,
+			locals.flat?.number,
+			locals.flat?.isAdmin
+		);
 		return json({ statuses });
 	} catch (e) {
-		console.error('[GET /api/calendar-statuses]', e);
-		return json({ error: 'Erreur interne' }, { status: 500 });
+		return handleHandlerError('GET /api/calendar-statuses', e);
 	}
 };

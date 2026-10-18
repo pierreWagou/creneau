@@ -1,7 +1,4 @@
-export interface SpotConflict {
-	spotNumber: string;
-	currentFlat: string;
-}
+import type { SpotConflict } from '$lib/types';
 
 export interface DescribedSpotConflict extends SpotConflict {
 	/** Spots the holder keeps if this one is reassigned */
@@ -12,7 +9,7 @@ export interface DescribedSpotConflict extends SpotConflict {
 	kind?: 'assigned' | 'shared-pool';
 }
 
-export interface SpotHolding {
+interface SpotHolding {
 	number: string;
 	flatNumber: string | null;
 }

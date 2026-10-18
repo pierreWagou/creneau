@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { mode } from 'mode-watcher';
-	import { getFlatColor, latte, mocha } from '$lib/colors';
+	import { getFlatColor } from '$lib/colors';
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { DISPLAY_NAME_MAX_LENGTH } from '$lib/constants';
-	import AdminShield from './admin-shield.svelte';
-	import EditableField from './editable-field.svelte';
+import AdminShield from './admin-shield.svelte';
+import AvatarCircle from './detail/avatar-circle.svelte';
+import DetailCard from './detail/card.svelte';
+import EditableField from './editable-field.svelte';
 
 	interface Props {
 		number: string;
@@ -13,8 +15,6 @@
 		/** Badge hidden when absent — only machine-derived statuses may pass a label */
 		stateLabel?: string | null;
 		stateBadgeClass?: string | null;
-		/** Viewer's own flat number — own flat renders primary blue like its calendar bookings */
-		ownFlatNumber?: string | null;
 		isAdmin?: boolean;
 		/** Inline name-edit state (controlled by parent); pencil shown when `onStartEditName` is provided */
 		editingName?: boolean;
@@ -42,7 +42,6 @@
 		displayName,
 		stateLabel = null,
 		stateBadgeClass = null,
-		ownFlatNumber = null,
 		isAdmin = false,
 		editingName = false,
 		nameDraft = $bindable(''),
@@ -68,27 +67,15 @@
 	const toggleAdminLabel = $derived(isAdmin ? 'Retirer les droits administrateur' : 'Rendre administrateur');
 
 	const isDark = $derived(mode.current === 'dark');
-	const avatarColor = $derived(
-		ownFlatNumber !== null && number === ownFlatNumber
-			? isDark
-				? mocha.blue
-				: latte.blue
-			: getFlatColor(number, isDark)
-	);
+	// Lot identity always wins: no "own = blue" exception (one lot = one color, whoever looks).
+	const avatarColor = $derived(getFlatColor(number, isDark));
 </script>
 
-<div class="rounded-xl border border-border p-4">
+<DetailCard>
 	<div class="flex items-center gap-4">
-		<div
-			class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-lg font-bold {number
-				? ''
-				: 'bg-muted text-muted-foreground'}"
-			style={number
-				? `background-color: color-mix(in srgb, ${avatarColor} 18%, transparent); color: ${avatarColor}`
-				: undefined}
-		>
+		<AvatarCircle tint={number ? avatarColor : null}>
 			{number || '?'}
-		</div>
+		</AvatarCircle>
 		<div class="flex-1 min-w-0">
 			<EditableField
 				editing={editingNumber}
@@ -99,14 +86,14 @@
 				bind:value={numberDraft}
 				initial={number}
 				placeholder="ex. B12"
-				ariaLabel="Numéro d'appartement"
+				ariaLabel="Numéro de lot"
 				uppercase
 				inputClass="text-sm font-semibold"
 				error={numberError}
 				errorDisplay="inline"
 				committable={canCommitNumber}
 				disabled={savingNumber}
-				autofocus={editingNumber}
+				focusOnOpen={editingNumber}
 				onCommit={() => onCommitNumber?.()}
 				onCancel={() => onCancelEditNumber?.()}
 			>
@@ -171,7 +158,7 @@
 				inputClass="text-sm"
 				committable={!savingName}
 				disabled={savingName}
-				autofocus={editingName}
+				focusOnOpen={editingName}
 				onCommit={() => onCommitName?.()}
 				onCancel={() => onCancelEditName?.()}
 			>
@@ -192,4 +179,4 @@
 			</EditableField>
 		</div>
 	</div>
-</div>
+</DetailCard>

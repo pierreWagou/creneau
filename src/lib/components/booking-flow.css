@@ -1,0 +1,35 @@
+/* bits-ui RangeCalendar cell overrides for booking status indicators */
+[data-booking-status]:not([data-range-middle]) {
+	background-color: color-mix(in srgb, hsl(var(--booking-busy)) var(--fill, 100%), transparent);
+}
+/* Legend scale: low end matches RATIO_FLOOR so the bar reads true. */
+.booking-scale-legend {
+	background: linear-gradient(
+		to right,
+		color-mix(in srgb, hsl(var(--booking-busy)) 15%, transparent),
+		hsl(var(--booking-busy))
+	);
+}
+[data-booking-status]:not([data-selected]):hover {
+	background-color: hsl(var(--primary) / 0.15);
+}
+[data-booking-status][data-range-start],
+[data-booking-status][data-range-end] {
+	background-color: hsl(var(--primary));
+	color: hsl(var(--primary-foreground));
+}
+
+/* Inset every day paint (tints, range pills, today, hover) for gutters while
+   the box — and its touch target — stays full-cell. background-clip shrinks
+   the paint, not the layout; the range-middle wash lives on the cell and
+   stays continuous. Beats the day's p-0 (0,2,0 vs 0,1,0). */
+.group\/calendar [data-bits-day] {
+	padding: 3px;
+	background-clip: content-box;
+}
+
+@media (min-width: 640px) {
+	.group\/calendar [data-bits-day] {
+		padding: 4px;
+	}
+}

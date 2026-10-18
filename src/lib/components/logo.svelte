@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { latte, mocha } from '$lib/colors';
+
 	let { class: className = 'h-8 w-8' }: { class?: string } = $props();
 </script>
 
@@ -13,8 +15,8 @@
 >
 	<defs>
 		<linearGradient id="c-bg" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-			<stop offset="0%" stop-color="#1e66f5" />
-			<stop offset="100%" stop-color="#89b4fa" />
+			<stop offset="0%" stop-color={latte.blue} />
+			<stop offset="100%" stop-color={mocha.blue} />
 		</linearGradient>
 		<linearGradient id="c-shine" x1="24" y1="0" x2="26" y2="48" gradientUnits="userSpaceOnUse">
 			<stop stop-color="white" stop-opacity="0" />

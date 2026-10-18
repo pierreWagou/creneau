@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { latte } from '$lib/colors';
 
 	let { value, size = 256 }: { value: string; size?: number } = $props();
 
@@ -31,8 +32,9 @@
 		// White background circle to clear QR modules behind logo
 		const clearBg = `<rect x="${logoX - 4}" y="${logoY - 4}" width="${logoSize + 8}" height="${logoSize + 8}" rx="${logoRadius + 2}" fill="#ffffff" />`;
 
-		// Logo: blue rounded square with white "C" (same as favicon, scaled)
-		const logoRect = `<rect x="${logoX}" y="${logoY}" width="${logoSize}" height="${logoSize}" rx="${logoRadius}" fill="#1e66f5" />`;
+		// QR modules stay pure black/white (scannability requirement, not theming);
+		// only the brand logo square follows the palette.
+		const logoRect = `<rect x="${logoX}" y="${logoY}" width="${logoSize}" height="${logoSize}" rx="${logoRadius}" fill="${latte.blue}" />`;
 
 		// Simplified "C" as a text element centered in the logo
 		const fontSize = Math.round(logoSize * 0.6);

@@ -122,10 +122,21 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		phones: flatPhonesByFlat.get(f.number) ?? []
 	}));
 
-	// Load contacts and spots for requests
-	const allReqEmails = await db.select().from(requestEmail).all();
-	const allReqPhones = await db.select().from(requestPhone).all();
-	const allReqSpots = await db.select().from(requestSpot).all();
+	// Load contacts and spots for pending requests only (history grows
+	// unboundedly — approved/rejected rows are never displayed here)
+	const pendingIds = pendingRequests.map((r) => r.id);
+	const allReqEmails =
+		pendingIds.length > 0
+			? await db.select().from(requestEmail).where(inArray(requestEmail.requestId, pendingIds)).all()
+			: [];
+	const allReqPhones =
+		pendingIds.length > 0
+			? await db.select().from(requestPhone).where(inArray(requestPhone.requestId, pendingIds)).all()
+			: [];
+	const allReqSpots =
+		pendingIds.length > 0
+			? await db.select().from(requestSpot).where(inArray(requestSpot.requestId, pendingIds)).all()
+			: [];
 
 	const reqEmailsByReq = new Map<number, string[]>();
 	const reqPhonesByReq = new Map<number, string[]>();

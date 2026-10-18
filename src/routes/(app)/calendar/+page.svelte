@@ -2,20 +2,27 @@
 	import { Calendar, DayGrid, Interaction, TimeGrid } from '@event-calendar/core';
 	import { computePosition, flip, offset, shift } from '@floating-ui/dom';
 	import './calendar.css';
-	import CirclePlus from '@lucide/svelte/icons/circle-plus';
-	import { format, isSameDay, parseISO } from 'date-fns';
-	import { fr } from 'date-fns/locale';
+import CirclePlus from '@lucide/svelte/icons/circle-plus';
+	import { format, parseISO } from 'date-fns';
 	import { mode } from 'mode-watcher';
 	import { onDestroy, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { getFlatColor } from '$lib/colors';
+	import { getFlatColor, latte, mocha } from '$lib/colors';
+	import BookingCancelDialog from '$lib/components/booking-cancel-dialog.svelte';
+	import BookingDrawer from '$lib/components/booking-drawer.svelte';
+	import BookingEditDialog from '$lib/components/booking-edit-dialog.svelte';
+	import EmptyState from '$lib/components/empty-state.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { TOAST_DURATION_MS } from '$lib/constants';
+	import { MOBILE_BREAKPOINT_PX, POPOVER_OFFSET_PX, TOAST_DURATION_MS, TOOLTIP_DELAY_MS, TOOLTIP_OFFSET_PX } from '$lib/constants';
+	import { spotChipProps } from '$lib/spot-containers';
 	import { type BookingWithFlat, DAY_END, DAY_START } from '$lib/types';
+	import { apiFetch } from '$lib/utils/api';
+	import { findBookingById } from '$lib/utils/bookings';
 	import { createBookingSSE } from '$lib/utils/sse';
-	import { formatDateISO, formatDuration, padH } from '$lib/utils/time';
+import { formatDateISO, getHourFromISO, padH, toISOLocal } from '$lib/utils/time';
+	import { notifyResult } from '$lib/utils/toasts';
 	import '@event-calendar/core/index.css';
 
 	let { data } = $props();
@@ -26,11 +33,37 @@
 	// Track dark mode for the calendar container class
 	let isDark = $derived(mode.current === 'dark');
 
-	// --- Popover state ---
-	let popoverBooking = $state<BookingWithFlat | null>(null);
-	let popoverEl = $state<HTMLDivElement | null>(null);
-	let popoverAnchorEl: HTMLElement | null = null;
-	let confirmingCancel = $state(false);
+	// Visible range for the stacked month/year header title (pushed onto the
+	// library h2 as data attributes — see calendar.css — since event-calendar
+	// exposes no custom title renderer).
+	const initialDateParam = $page.url.searchParams.get('date');
+	let viewStart = $state<Date>(initialDateParam ? new Date(initialDateParam) : new Date());
+	let viewEnd = $state<Date>(initialDateParam ? new Date(initialDateParam) : new Date());
+	// Anchor for the stacked month/year header title: the range midpoint, so month
+	// view (whose range starts on a Monday of the previous month) titles the
+	// viewed month instead of the leading week.
+	const titleAnchor = $derived(new Date((viewStart.getTime() + viewEnd.getTime()) / 2));
+	const titleMonth = $derived(titleAnchor.toLocaleDateString('fr-FR', { month: 'long' }));
+	const titleYear = $derived(titleAnchor.getFullYear());
+
+	function syncTitleAttributes() {
+		const title = document.querySelector('.ec-container .ec-title');
+		if (!title) return;
+		title.setAttribute('data-month', titleMonth);
+		title.setAttribute('data-year', String(titleYear));
+	}
+
+	$effect(() => {
+		// Track both so the attributes refresh on any range change.
+		titleMonth;
+		titleYear;
+		syncTitleAttributes();
+	});
+
+	// --- Drawer state (shared booking detail) ---
+	let selectedBookingId = $state<number | null>(null);
+	let editingBookingId = $state<number | null>(null);
+	let cancellingBookingId = $state<number | null>(null);
 
 	// --- Tooltip state ---
 	let tooltipBooking = $state<BookingWithFlat | null>(null);
@@ -52,8 +85,8 @@
 				startEditable: isOwn && !isPast,
 				durationEditable: isOwn && !isPast,
 				classNames: isPast ? ['ec-event-past'] : [],
-				backgroundColor: isOwn ? (isDark ? '#89b4fa' : '#1e66f5') : getFlatColor(b.flatNumber, isDark),
-				textColor: isDark ? '#1e1e2e' : '#eff1f5',
+				backgroundColor: getFlatColor(b.flatNumber, isDark),
+				textColor: isDark ? mocha.base : latte.base,
 				extendedProps: { booking: b }
 			};
 		});
@@ -63,23 +96,10 @@
 	let events = $derived(bookingsToEvents(bookings));
 
 	function checkMobile() {
-		isMobile = window.innerWidth < 768;
+		isMobile = window.innerWidth < MOBILE_BREAKPOINT_PX;
 	}
 
 	// --- Formatting helpers ---
-	function formatPopoverTime(start: string, end: string): string {
-		const s = parseISO(start);
-		const e = parseISO(end);
-		if (isSameDay(s, e)) {
-			return `${format(s, "HH'h'mm")} → ${format(e, "HH'h'mm")}`;
-		}
-		return `${format(s, "EEE d, HH'h'mm", { locale: fr })} → ${format(e, "EEE d, HH'h'mm", { locale: fr })}`;
-	}
-
-	function formatPopoverDuration(start: string, end: string): string {
-		return formatDuration(start, end);
-	}
-
 	function formatTooltipLine(booking: BookingWithFlat): string {
 		const name = booking.flatDisplayName
 			? `${booking.flatNumber} — ${booking.flatDisplayName}`
@@ -90,21 +110,11 @@
 	}
 
 	// --- Popover positioning ---
-	async function positionPopover() {
-		if (!popoverEl || !popoverAnchorEl) return;
-		const { x, y } = await computePosition(popoverAnchorEl, popoverEl, {
-			placement: 'top',
-			middleware: [offset(8), flip(), shift({ padding: 8 })]
-		});
-		popoverEl.style.left = `${x}px`;
-		popoverEl.style.top = `${y}px`;
-	}
-
 	async function positionTooltip() {
 		if (!tooltipEl || !tooltipAnchorEl) return;
 		const { x, y } = await computePosition(tooltipAnchorEl, tooltipEl, {
 			placement: 'top',
-			middleware: [offset(6), flip(), shift({ padding: 8 })]
+			middleware: [offset(TOOLTIP_OFFSET_PX), flip(), shift({ padding: POPOVER_OFFSET_PX })]
 		});
 		tooltipEl.style.left = `${x}px`;
 		tooltipEl.style.top = `${y}px`;
@@ -120,18 +130,10 @@
 		if (tooltipTimeout) clearTimeout(tooltipTimeout);
 
 		const booking = info.event.extendedProps.booking as BookingWithFlat;
-		popoverAnchorEl = info.el;
-		popoverBooking = booking;
-		confirmingCancel = false;
-
-		// Position after render
-		requestAnimationFrame(() => positionPopover());
+		selectedBookingId = booking.id;
 	}
 
 	function handleEventMouseEnter(info: any) {
-		// Don't show tooltip if popover is open
-		if (popoverBooking) return;
-
 		const booking = info.event.extendedProps.booking as BookingWithFlat;
 		tooltipAnchorEl = info.el;
 
@@ -140,7 +142,7 @@
 		tooltipTimeout = setTimeout(() => {
 			tooltipBooking = booking;
 			requestAnimationFrame(() => positionTooltip());
-		}, 300);
+		}, TOOLTIP_DELAY_MS);
 	}
 
 	function handleEventMouseLeave() {
@@ -148,48 +150,26 @@
 		tooltipBooking = null;
 	}
 
-	function closePopover() {
-		popoverBooking = null;
-		confirmingCancel = false;
+	const selectedBooking = $derived(findBookingById(bookings, selectedBookingId) ?? null);
+	const editBooking = $derived(findBookingById(bookings, editingBookingId) ?? null);
+
+	function confirmCancel(id: number) {
+		cancellingBookingId = id;
 	}
 
-	function handleClickOutside(e: MouseEvent) {
-		if (!popoverBooking) return;
-		if (popoverEl && !popoverEl.contains(e.target as Node)) {
-			closePopover();
-		}
-	}
-
-	async function cancelBooking() {
-		if (!popoverBooking) return;
-		const res = await fetch(`/api/bookings/${popoverBooking.id}`, { method: 'DELETE' });
-		if (res.ok) {
-			toast.success('Réservation annulée');
-			closePopover();
-			invalidateAll();
-		} else {
-			const result = await res.json();
-			toast.error(result.error || "Impossible d'annuler");
-		}
+	/** Modifier opens the edit dialog over the open drawer (drawer untouched — cf. conflict dialog). */
+	function openEditDialog(id: number) {
+		editingBookingId = id;
 	}
 
 	// --- Drag & Resize ---
-	function toISOLocal(d: Date): string {
-		const year = d.getFullYear();
-		const month = String(d.getMonth() + 1).padStart(2, '0');
-		const day = String(d.getDate()).padStart(2, '0');
-		const hours = String(d.getHours()).padStart(2, '0');
-		const minutes = String(d.getMinutes()).padStart(2, '0');
-		return `${year}-${month}-${day}T${hours}:${minutes}:00`;
-	}
-
 	async function handleEventUpdate(info: any) {
 		const booking = info.event.extendedProps.booking as BookingWithFlat;
 
 		// Reject if not own booking
 		if (booking.flatNumber !== data.flat.number) {
 			info.revert();
-			toast.error("Vous ne pouvez déplacer que vos propres réservations");
+			toast.error('Vous ne pouvez déplacer que vos propres réservations');
 			return;
 		}
 
@@ -213,43 +193,49 @@
 		const oldStart = booking.startTime;
 		const oldEnd = booking.endTime;
 
-		const res = await fetch(`/api/bookings/${booking.id}`, {
-			method: 'PATCH',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ startTime: newStart, endTime: newEnd })
-		});
+		const result = await apiFetch<{ booking: BookingWithFlat }>(
+			`/api/bookings/${booking.id}`,
+			{
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ startTime: newStart, endTime: newEnd })
+			},
+			'Impossible de modifier la réservation'
+		);
 
-		if (res.ok) {
-			const { booking: updated } = await res.json();
+		if (result.ok && result.data) {
+			const { booking: updated } = result.data;
 			bookings = bookings.map((b) => (b.id === updated.id ? updated : b));
-			toast.success('Réservation mise à jour', {
+			toast.success('Réservation modifiée', {
 				action: {
 					label: 'Annuler',
 					onClick: () => undoMove(booking.id, oldStart, oldEnd)
 				},
 				duration: TOAST_DURATION_MS
 			});
-		} else {
+		} else if (!result.ok) {
 			info.revert();
-			const result = await res.json();
-			toast.error(result.error || 'Impossible de mettre à jour la réservation');
+			notifyResult(result, null, 'Impossible de modifier la réservation');
 		}
 	}
 
 	async function undoMove(bookingId: number, startTime: string, endTime: string) {
-		const res = await fetch(`/api/bookings/${bookingId}`, {
-			method: 'PATCH',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ startTime, endTime })
-		});
+		const result = await apiFetch<{ booking: BookingWithFlat }>(
+			`/api/bookings/${bookingId}`,
+			{
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ startTime, endTime })
+			},
+			"Le créneau original n'est plus disponible"
+		);
 
-		if (res.ok) {
-			const { booking: updated } = await res.json();
+		if (result.ok && result.data) {
+			const { booking: updated } = result.data;
 			bookings = bookings.map((b) => (b.id === updated.id ? updated : b));
 			toast.success('Modification annulée');
-		} else {
-			const result = await res.json();
-			toast.error(result.error || "Le créneau original n'est plus disponible");
+		} else if (!result.ok) {
+			notifyResult(result, null, "Le créneau original n'est plus disponible");
 			invalidateAll();
 		}
 	}
@@ -258,7 +244,12 @@
 	onMount(() => {
 		checkMobile();
 		window.addEventListener('resize', checkMobile);
-		document.addEventListener('click', handleClickOutside, true);
+
+		fitSlotHeight();
+		if (gridWrap && typeof ResizeObserver !== 'undefined') {
+			fitObserver = new ResizeObserver(() => fitSlotHeight());
+			fitObserver.observe(gridWrap);
+		}
 
 		sse = createBookingSSE({
 			onCreated: (booking) => {
@@ -266,11 +257,10 @@
 			},
 			onCancelled: (data) => {
 				bookings = bookings.filter((b) => b.id !== data.id);
-				if (popoverBooking?.id === data.id) closePopover();
+				if (selectedBookingId === data.id) selectedBookingId = null;
 			},
 			onUpdated: (updated) => {
 				bookings = bookings.map((b) => (b.id === updated.id ? updated : b));
-				if (popoverBooking?.id === updated.id) popoverBooking = updated;
 			}
 		});
 	});
@@ -278,9 +268,9 @@
 	onDestroy(() => {
 		if (typeof window !== 'undefined') {
 			window.removeEventListener('resize', checkMobile);
-			document.removeEventListener('click', handleClickOutside, true);
 		}
 		sse?.destroy();
+		fitObserver?.disconnect();
 		if (tooltipTimeout) clearTimeout(tooltipTimeout);
 	});
 
@@ -304,9 +294,8 @@
 
 		const startDate = start instanceof Date ? formatDateISO(start) : String(start).split('T')[0];
 		let endDate = end instanceof Date ? formatDateISO(end) : String(end).split('T')[0];
-		const startHour =
-			start instanceof Date ? start.getHours() : parseInt(String(start).split('T')[1]?.substring(0, 2) || '0', 10);
-		let endHour = end instanceof Date ? end.getHours() : parseInt(String(end).split('T')[1]?.substring(0, 2) || String(DAY_END), 10);
+		const startHour = start instanceof Date ? start.getHours() : getHourFromISO(String(start));
+		let endHour = end instanceof Date ? end.getHours() : getHourFromISO(String(end), DAY_END);
 
 		// Midnight (00:00 next day) means end-of-day (24:00) on the previous day
 		if (endHour === 0) {
@@ -328,6 +317,37 @@
 
 	let plugins = [TimeGrid, DayGrid, Interaction];
 
+	// --- Auto-fit slot height (no body scroll) ---
+	// The wrapper height is viewport-fixed, so measuring it never loops back
+	// into slotHeight. Refit on resize (observer) + view/date changes (datesSet).
+	const FIT_SLOTS = DAY_END - DAY_START;
+	const MIN_SLOT_HEIGHT_PX = 12;
+	let gridWrap = $state<HTMLDivElement | null>(null);
+	let slotHeight = $state(24);
+
+	function fitSlotHeight() {
+		if (!gridWrap) return;
+		const main = gridWrap.querySelector('.ec-main');
+		const header = gridWrap.querySelector('.ec-header');
+		if (!main || !header) return;
+		const avail = main.clientHeight - header.clientHeight;
+		if (avail <= 0) return;
+		slotHeight = Math.max(MIN_SLOT_HEIGHT_PX, Math.floor(avail / FIT_SLOTS));
+		// Absorb the 0–23px floor remainder into the all-day row (whose own
+		// minimum already holds one slotHeight — hence 25 shares), keeping the
+		// hour grid flush with the card bottom on whole pixels only.
+		const allday = header.querySelector('.ec-all-day');
+		if (!allday) {
+			gridWrap.style.setProperty('--ec-allday-extra', '0px');
+			return;
+		}
+		const headerRest = header.clientHeight - allday.clientHeight;
+		const extra = main.clientHeight - headerRest - (FIT_SLOTS + 1) * slotHeight;
+		gridWrap.style.setProperty('--ec-allday-extra', `${Math.max(0, Math.round(extra))}px`);
+	}
+
+	let fitObserver: ResizeObserver | null = null;
+
 	let calendarOptions = $derived({
 		view: isMobile ? 'timeGridDay' : 'timeGridWeek',
 		date: $page.url.searchParams.get('date') ?? undefined,
@@ -337,9 +357,12 @@
 			end: isMobile ? 'dayGridMonth,timeGridDay' : 'dayGridMonth,timeGridWeek,timeGridDay'
 		},
 		locale: 'fr',
+		allDayContent: 'Journée',
+		slotHeight,
 		slotMinTime: `${padH(DAY_START)}:00:00`,
 		slotMaxTime: `${padH(DAY_END)}:00:00`,
 		slotDuration: '01:00:00',
+		slotLabelInterval: '04:00:00',
 		firstDay: 1,
 		nowIndicator: true,
 		editable: false,
@@ -352,6 +375,14 @@
 		eventMouseLeave: handleEventMouseLeave,
 		eventDrop: handleEventUpdate,
 		eventResize: handleEventUpdate,
+		datesSet: (info: any) => {
+			viewStart = info.start;
+			viewEnd = info.end;
+			// Post-library-update path (covers h2 node replacement on view change).
+			syncTitleAttributes();
+			// Header height may have changed with the view — refit the slots.
+			requestAnimationFrame(() => fitSlotHeight());
+		},
 		eventContent: (info: any) => {
 			// Let EC use default rendering for internal preview/pointer events (selection feedback)
 			if (info.event.display === 'preview' || info.event.display === 'pointer') return undefined;
@@ -365,15 +396,27 @@
 			timeGridWeek: 'Semaine',
 			dayGridMonth: 'Mois',
 			timeGridDay: 'Jour'
+		},
+		// Same day-header format on both time-grid views (the library defaults
+		// `lun. 12/10` on week and bare `lundi` on day — inconsistent).
+		views: {
+			dayGridMonth: { dayMaxEvents: true },
+			timeGridWeek: { dayHeaderFormat: { weekday: 'short', day: 'numeric' } },
+			timeGridDay: { dayHeaderFormat: { weekday: 'short', day: 'numeric' } }
 		}
 	});
 </script>
 
-<div class="space-y-4">
-	<div class="flex items-center justify-between">
+<!-- Viewport fill: column flex, grid absorbs the remainder (57px toolbar; ~60px
+	mobile bottom nav). Bottom keeps 57px of air, mirroring the top bar.
+	Horizontal gutters come from main's p-4. -->
+<div
+	class="-my-4 flex h-[calc(100dvh-57px-57px)] flex-col max-md:h-[calc(100dvh-57px-60px-57px)]"
+>
+	<div class="flex items-center justify-between pt-4">
 		<h2 class="page-title">Planning Parking</h2>
 		<a href="/book">
-			<Button size="sm" class="cursor-pointer gap-1.5">
+			<Button variant="default" size="sm" class="cursor-pointer gap-1.5">
 				<CirclePlus class="h-4 w-4" />
 				Réserver
 			</Button>
@@ -381,16 +424,15 @@
 	</div>
 
 	{#if data.spots.length === 0}
-		<div class="bg-card rounded-lg border p-8 text-center">
-			<p class="text-muted-foreground">Aucune place de parking configurée.</p>
+		<EmptyState title="Aucune place de parking configurée.">
 			{#if data.flat.isAdmin}
-				<p class="text-muted-foreground mt-2 text-sm">
+				<p class="text-muted-foreground text-sm">
 					Allez dans <a href="/admin/spots" class="inline-link">Admin</a> pour ajouter des places de parking.
 				</p>
 			{/if}
-		</div>
+		</EmptyState>
 	{:else}
-		<div class="ec-container" class:ec-dark={isDark}>
+		<div bind:this={gridWrap} class="ec-container mt-4 min-h-0 flex-1" class:ec-dark={isDark}>
 			<Calendar {plugins} options={calendarOptions} />
 		</div>
 	{/if}
@@ -406,37 +448,32 @@
 	</div>
 {/if}
 
-<!-- Click popover -->
-{#if popoverBooking}
-	<div
-		bind:this={popoverEl}
-		class="bg-popover text-popover-foreground fixed z-50 w-64 rounded-lg border p-4 shadow-lg"
-	>
-		<div class="space-y-2">
-			<p class="font-medium">
-				{popoverBooking.flatNumber}{popoverBooking.flatDisplayName ? ` — ${popoverBooking.flatDisplayName}` : ''}
-			</p>
-			<p class="text-muted-foreground text-sm">
-				{formatPopoverTime(popoverBooking.startTime, popoverBooking.endTime)} · {formatPopoverDuration(popoverBooking.startTime, popoverBooking.endTime)}
-			</p>
-			{#if popoverBooking.note}
-				<p class="text-muted-foreground text-sm">{popoverBooking.note}</p>
-			{/if}
+<BookingCancelDialog
+	bookingId={cancellingBookingId}
+	onClose={() => (cancellingBookingId = null)}
+	onCancelled={() => invalidateAll()}
+/>
 
-			{#if popoverBooking.flatNumber === data.flat.number && new Date(popoverBooking.endTime) > new Date()}
-				<div class="border-border border-t pt-2">
-					{#if confirmingCancel}
-						<div class="flex items-center gap-2">
-							<Button size="sm" variant="default" class="bg-destructive text-white hover:bg-destructive/80 dark:text-[#1e1e2e]" onclick={cancelBooking}>Confirmer</Button>
-							<Button size="sm" variant="ghost" onclick={() => (confirmingCancel = false)}>Non</Button>
-						</div>
-					{:else}
-						<Button size="sm" variant="default" class="w-full bg-destructive text-white hover:bg-destructive/80 dark:text-[#1e1e2e]" onclick={() => (confirmingCancel = true)}>
-							Annuler la réservation
-						</Button>
-					{/if}
-				</div>
-			{/if}
-		</div>
-	</div>
-{/if}
+<!-- Edit dialog stacks over the open drawer (drawer untouched — cf. conflict dialog) -->
+<BookingEditDialog
+	booking={editBooking}
+	spots={data.spotDirectory}
+	{isDark}
+	onClose={() => (editingBookingId = null)}
+	onSaved={() => invalidateAll()}
+/>
+
+<!-- Shared booking drawer (detail + Modifier/Annuler for own upcoming bookings) -->
+<BookingDrawer
+	open={selectedBookingId !== null}
+	onClose={(o) => {
+		if (!o) {
+			selectedBookingId = null;
+		}
+	}}
+	booking={selectedBooking}
+	canModify={selectedBooking?.flatNumber === data.flat.number}
+	onEdit={openEditDialog}
+	onCancel={confirmCancel}
+	onNoteChanged={() => invalidateAll()}
+/>

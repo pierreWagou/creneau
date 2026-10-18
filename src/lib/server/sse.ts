@@ -3,7 +3,7 @@ type SSEClient = {
 	controller: ReadableStreamDefaultController;
 };
 
-class SSEManager {
+export class SSEManager {
 	private clients: Map<string, SSEClient> = new Map();
 
 	addClient(id: string, controller: ReadableStreamDefaultController): void {
@@ -24,6 +24,7 @@ class SSEManager {
 				client.controller.enqueue(encoded);
 			} catch {
 				// Client disconnected, remove it
+				console.warn(`[sse] dropping disconnected client ${id}`);
 				this.clients.delete(id);
 			}
 		}

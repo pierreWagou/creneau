@@ -21,5 +21,11 @@ export const load: PageServerLoad = async () => {
 	const allBookings = await getBookingsInRange(from, to);
 	const bookings = allBookings.filter((b) => sharedSpotNumbers.includes(b.spotNumber));
 
-	return { bookings, spots };
+	// Lightweight directory for ticket chip lifecycle colors
+	const spotDirectory = await db
+		.select({ number: spot.number, status: spot.status, flatNumber: spot.flatNumber })
+		.from(spot)
+		.all();
+
+	return { bookings, spots, spotDirectory };
 };

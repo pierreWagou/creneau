@@ -1,0 +1,14 @@
+pre-commit:
+  jobs:
+    - name: biome
+      run: npx biome check --write .
+      stage_fixed: true
+    - name: svelte-check
+      run: npm run check
+
+pre-push:
+  jobs:
+    - name: gitleaks
+      run: gitleaks git .
+    - name: unit-tests
+      run: npm run test

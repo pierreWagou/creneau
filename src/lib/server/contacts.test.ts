@@ -67,4 +67,16 @@ describe('validatePhones', () => {
 		const phones = ['+33612345678', '', '  ', '+33698765432'];
 		expect(validatePhones(phones)).toEqual(['+33612345678', '+33698765432']);
 	});
+
+	it('counts what is stored: dups collapsing below the limit pass', () => {
+		const phones = [
+			'+33612345678',
+			'+33698765432',
+			'+33611111111',
+			'+33622222222',
+			'06 12 34 56 78',
+			'+33 6 12 34 56 78'
+		];
+		expect(validatePhones(phones)).toEqual(['+33612345678', '+33698765432', '+33611111111', '+33622222222']);
+	});
 });

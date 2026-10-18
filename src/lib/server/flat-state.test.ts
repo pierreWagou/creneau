@@ -52,6 +52,16 @@ describe('machineCan (XState source of truth)', () => {
 		expect(machineCan('pending', 'REVOKE', { hasCode: false })).toBe(false);
 	});
 
+	it('CONSUME advances pending → active (unguarded)', () => {
+		expect(machineCan('pending', 'CONSUME', { hasCode: true })).toBe(true);
+		expect(machineCan('pending', 'CONSUME', { hasCode: false })).toBe(true);
+	});
+
+	it('REVOKE is illegal outside pending', () => {
+		expect(machineCan('inactive', 'REVOKE', { hasCode: false })).toBe(false);
+		expect(machineCan('active', 'REVOKE', { hasCode: false })).toBe(false);
+	});
+
 	it('illegal events leave the value (not legal)', () => {
 		expect(machineCan('active', 'INVITE', { hasCode: false })).toBe(false);
 		expect(machineCan('inactive', 'CONSUME', { hasCode: false })).toBe(false);

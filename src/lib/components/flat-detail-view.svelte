@@ -4,13 +4,14 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { isValidFlatNumber, isValidSpotNumber } from '$lib/constants';
 	import type { DescribedSpotConflict } from '$lib/utils/spots';
-	import { isValidEmail, isValidPhone } from '$lib/validation';
+	import { isValidEmail, isValidPhone, normalizeFlatNumber } from '$lib/validation';
+	import DetailSection from './detail/section.svelte';
 	import FlatContactsCard from './flat-contacts-card.svelte';
 	import FlatLifecycleCard from './flat-lifecycle-card.svelte';
 	import FlatProfileCard from './flat-profile-card.svelte';
 	import FlatSpotCards from './flat-spot-cards.svelte';
 import type { SpotDirectory } from './spot-picker.svelte';
-	import ValidationTip from './validation-tip.svelte';
+	import ValidatedSubmit from './validated-submit.svelte';
 
 	export interface InlineEditState {
 		editing: boolean;
@@ -32,8 +33,6 @@ import type { SpotDirectory } from './spot-picker.svelte';
 		/** Badge hidden when absent — only machine-derived statuses may pass a label */
 		stateLabel?: string | null;
 		stateBadgeClass?: string | null;
-		/** Viewer's own flat number — own flat renders primary blue like its calendar bookings */
-		ownFlatNumber?: string | null;
 		isAdmin?: boolean;
 		spots?: string[];
 		descriptions?: Record<string, string | null>;
@@ -46,6 +45,8 @@ import type { SpotDirectory } from './spot-picker.svelte';
 		maskHolder?: boolean;
 		/** Directory enabling the constrained picker (omitted = legacy free typing) */
 		spotDirectory?: SpotDirectory | null;
+		/** Cards branch: link builder turning spot numbers into links (admin-only destinations) */
+		spotHref?: ((spotNumber: string) => string) | null;
 		/** Rendered just below the spots section (e.g. conflict solve entry) */
 		spotsFooter?: Snippet;
 		emails?: string[];
@@ -98,7 +99,6 @@ import type { SpotDirectory } from './spot-picker.svelte';
 		displayName = $bindable(null),
 		stateLabel = null,
 		stateBadgeClass = null,
-		ownFlatNumber = null,
 		isAdmin = false,
 		spots = $bindable([]),
 		descriptions = {},
@@ -106,6 +106,7 @@ import type { SpotDirectory } from './spot-picker.svelte';
 		spotConflicts = [],
 		maskHolder = false,
 		spotDirectory = null,
+		spotHref = null,
 		spotsFooter,
 		emails = $bindable([]),
 		phones = $bindable([]),
@@ -138,7 +139,7 @@ import type { SpotDirectory } from './spot-picker.svelte';
 		stickyHeader ? 'sticky top-0 z-10 -mx-6 bg-popover px-6 pt-6 pb-3' : 'contents'
 	);
 
-	const normalizedNumber = $derived(number.trim().toUpperCase());
+	const normalizedNumber = $derived(normalizeFlatNumber(number));
 	const numberValid = $derived(normalizedNumber.length > 0 && isValidFlatNumber(normalizedNumber));
 	const spotsValid = $derived(
 		spots.length > 0 && spots.every((s) => isValidSpotNumber(s))
@@ -153,7 +154,7 @@ import type { SpotDirectory } from './spot-picker.svelte';
 
 	const missingFields = $derived(
 		[
-			!numberValid && "Numéro d'appartement invalide",
+			!numberValid && "Numéro de lot invalide",
 			!spotsValid && 'Au moins une place de parking valide',
 			!emailsValid && 'Au moins un e-mail valide',
 			!phonesValid && 'Au moins un téléphone valide'
@@ -203,7 +204,6 @@ import type { SpotDirectory } from './spot-picker.svelte';
 			{displayName}
 			{stateLabel}
 			{stateBadgeClass}
-			{ownFlatNumber}
 			{isAdmin}
 			editingName={nameEdit?.editing ?? false}
 			bind:nameDraft
@@ -225,8 +225,7 @@ import type { SpotDirectory } from './spot-picker.svelte';
 {/snippet}
 
 {#snippet infoSections()}
-	<div class="mt-4">
-		<p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Places de parking</p>
+	<DetailSection title="Places de parking">
 		<FlatSpotCards
 			bind:spots
 			{descriptions}
@@ -236,16 +235,16 @@ import type { SpotDirectory } from './spot-picker.svelte';
 			conflicts={spotConflicts}
 			{maskHolder}
 			{spotDirectory}
+			{spotHref}
 		/>
 		{#if spotsFooter}
 			<div class="mt-2">
 				{@render spotsFooter()}
 			</div>
 		{/if}
-	</div>
+	</DetailSection>
 
-	<div class="mt-4">
-		<p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Contacts</p>
+	<DetailSection title="Contacts">
 		<FlatContactsCard
 			bind:emails
 			bind:phones
@@ -254,13 +253,12 @@ import type { SpotDirectory } from './spot-picker.svelte';
 			onEmailsChange={onEmailsChange}
 			onPhonesChange={onPhonesChange}
 		/>
-	</div>
+	</DetailSection>
 
 	{#if showLifecycle}
-		<div class="mt-4">
-			<p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Cycle de vie</p>
+		<DetailSection title="Cycle de vie">
 			<FlatLifecycleCard {createdAt} {activatedAt} {createdLabel} />
-		</div>
+		</DetailSection>
 	{/if}
 
 	{#if alert}
@@ -332,18 +330,17 @@ import type { SpotDirectory } from './spot-picker.svelte';
 	{@render infoSections()}
 {/if}
 
-{#if submitLabel}
-	<div class="mt-4">
-		{#if !internalValid}
-			<ValidationTip
-				show={missingFields.length > 0}
-				title="Éléments manquants :"
-				items={missingFields}
-			>
-				<Button type="button" class="w-full" disabled>{submitLabel}</Button>
-			</ValidationTip>
-		{:else}
-			<Button type="button" class="w-full" disabled={submitting} onclick={onSubmit}>{submitLabel}</Button>
+		{#if submitLabel}
+			<div class="mt-4">
+				<ValidatedSubmit
+					valid={internalValid}
+					showTip={missingFields.length > 0}
+					tipItems={missingFields}
+					type="button"
+					{submitLabel}
+					disabled={submitting}
+					loading={submitting}
+					onclick={onSubmit}
+				/>
+			</div>
 		{/if}
-	</div>
-{/if}

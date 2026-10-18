@@ -2,8 +2,10 @@ import { json } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { spot } from '$lib/server/db/schema';
-import { FlatTransitionError, inviteFlat, revokeFlatInvite } from '$lib/server/flat-state';
+import { inviteFlat, revokeFlatInvite } from '$lib/server/flat-state';
 import { requireAdmin } from '$lib/server/guards';
+import { errorJson, handleHandlerError } from '$lib/server/handler';
+import { normalizeFlatNumber } from '$lib/validation';
 import type { RequestHandler } from './$types';
 
 /**
@@ -15,18 +17,18 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 
 	try {
 		// A lot without spots must not be invited
-		const held = await db.select({ number: spot.number }).from(spot).where(eq(spot.flatNumber, params.number)).all();
+		const held = await db
+			.select({ number: spot.number })
+			.from(spot)
+			.where(eq(spot.flatNumber, normalizeFlatNumber(params.number ?? '')))
+			.all();
 		if (held.length === 0) {
-			return json({ error: `Attribuez d'abord une place de parking au lot ${params.number}` }, { status: 400 });
+			return errorJson(`Attribuez d'abord une place de parking au lot ${params.number}`, 400);
 		}
-		const updated = await inviteFlat(params.number);
+		const updated = await inviteFlat(normalizeFlatNumber(params.number ?? ''));
 		return json({ flat: updated });
 	} catch (e) {
-		if (e instanceof FlatTransitionError) {
-			return json({ error: e.message }, { status: e.statusCode });
-		}
-		console.error('[POST /api/admin/flats/:number/activation]', e);
-		return json({ error: 'Erreur interne' }, { status: 500 });
+		return handleHandlerError('POST /api/admin/flats/:number/activation', e);
 	}
 };
 
@@ -38,13 +40,9 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 	if (guard) return guard;
 
 	try {
-		const updated = await revokeFlatInvite(params.number);
+		const updated = await revokeFlatInvite(normalizeFlatNumber(params.number ?? ''));
 		return json({ flat: updated });
 	} catch (e) {
-		if (e instanceof FlatTransitionError) {
-			return json({ error: e.message }, { status: e.statusCode });
-		}
-		console.error('[DELETE /api/admin/flats/:number/activation]', e);
-		return json({ error: 'Erreur interne' }, { status: 500 });
+		return handleHandlerError('DELETE /api/admin/flats/:number/activation', e);
 	}
 };

@@ -4,10 +4,12 @@
 	import EditableField from '$lib/components/editable-field.svelte';
 	import FlatDetailView from '$lib/components/flat-detail-view.svelte';
 	import FlatPinForm from '$lib/components/flat-pin-form.svelte';
-	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
-	import ValidationTip from '$lib/components/validation-tip.svelte';
-	import { ACTIVATION_CODE_LENGTH, isValidFlatNumber } from '$lib/constants';
+	import ValidatedSubmit from '$lib/components/validated-submit.svelte';
+	import { ACTIVATION_CODE_LENGTH, isValidFlatNumber, SEARCH_DEBOUNCE_MS } from '$lib/constants';
+	import { apiFetch } from '$lib/utils/api';
+	import { notifyResult } from '$lib/utils/toasts';
+	import { normalizeFlatNumber } from '$lib/validation';
 
 	let { data } = $props();
 
@@ -21,7 +23,7 @@
 	// PINs are never prefilled: editor open by default, collapses on commit
 	let pinEditing = $state(true);
 
-	const normalizedFlat = $derived(flatNumber.trim().toUpperCase());
+	const normalizedFlat = $derived(normalizeFlatNumber(flatNumber));
 	const flatValid = $derived(normalizedFlat.length > 0 && isValidFlatNumber(normalizedFlat));
 
 	// Local pencil flows (draft-only, no server call pre-activation).
@@ -35,7 +37,7 @@
 			numberEditing = true;
 		},
 		onCommit: (v: string) => {
-			flatNumber = v.trim().toUpperCase();
+			flatNumber = normalizeFlatNumber(v);
 			// New number = new flat context: drop the stale name, lookup refills it if known
 			displayName = '';
 			numberEditing = false;
@@ -95,23 +97,20 @@
 		if (!flatValid || nameEditing) return;
 		const id = ++lookupId;
 		const timer = setTimeout(async () => {
-			try {
-				const res = await fetch(`/api/flats/${encodeURIComponent(target)}`);
-				if (id !== lookupId) return;
-				if (!res.ok) return;
-				const data = await res.json();
-				if (id !== lookupId || nameEditing) return;
-				displayName = data.displayName ?? '';
-			} catch {
-				// Offline/transient failure: keep current value
-			}
-		}, 300);
+			const result = await apiFetch<{ displayName?: string | null }>(
+				`/api/flats/${encodeURIComponent(target)}`
+			);
+			if (id !== lookupId) return;
+			if (!result.ok || !result.data) return;
+			if (nameEditing) return;
+			displayName = result.data.displayName ?? '';
+		}, SEARCH_DEBOUNCE_MS);
 		return () => clearTimeout(timer);
 	});
 	const canSubmit = $derived(flatValid && activationCode.trim().length > 0 && pinFormValid && !loading);
 	const missingFields = $derived(
 		[
-			!flatValid && "Numéro d'appartement invalide",
+			!flatValid && "Numéro de lot invalide",
 			!activationCode.trim() && "Code d'activation manquant",
 			!pinFormValid && 'Code PIN invalide'
 		].filter((r): r is string => r !== false)
@@ -122,26 +121,23 @@
 
 		loading = true;
 
-		try {
-			const res = await fetch('/api/auth/activate', {
+		const result = await apiFetch(
+			'/api/auth/activate',
+			{
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ flatNumber: normalizedFlat, activationCode, displayName, pin })
-			});
+			},
+			"Échec de l'activation"
+		);
 
-			const result = await res.json();
-
-			if (res.ok) {
-				toast.success('Appartement activé avec succès !');
-				goto('/calendar');
-			} else {
-				toast.error(result.error || "Échec de l'activation");
-			}
-		} catch {
-			toast.error('Erreur de connexion');
-		} finally {
-			loading = false;
+		if (result.ok) {
+			toast.success('Lot activé avec succès');
+			goto('/calendar');
+		} else {
+			notifyResult(result, null, "Échec de l'activation");
 		}
+		loading = false;
 	}
 </script>
 
@@ -163,7 +159,7 @@
 				{#snippet security()}
 					<div class="space-y-4">
 						<div>
-							<p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Invitation</p>
+							<p class="dialog-section-label mb-2">Invitation</p>
 							<div class="rounded-xl border border-border p-4">
 								<EditableField
 									editing={codeEditing}
@@ -177,7 +173,7 @@
 									mono
 									inputClass="text-sm font-semibold"
 									committable={codeDraft.trim().length > 0}
-									autofocus={codeAutofocus}
+									focusOnOpen={codeAutofocus}
 									onCommit={commitCodeEdit}
 									onCancel={cancelCodeEdit}
 								>
@@ -201,19 +197,16 @@
 					</div>
 				{/snippet}
 			</FlatDetailView>
-			{#if !canSubmit}
-				<ValidationTip
-					show={missingFields.length > 0}
-					title="Éléments manquants :"
-					items={missingFields}
-				>
-					<Button class="w-full" disabled>Activer</Button>
-				</ValidationTip>
-			{:else}
-				<Button class="w-full" disabled={loading} onclick={handleActivate}>
-					{loading ? 'Activation...' : 'Activer'}
-				</Button>
-			{/if}
+			<ValidatedSubmit
+				valid={canSubmit}
+				showTip={missingFields.length > 0}
+				tipItems={missingFields}
+				submitLabel="Activer"
+				loadingLabel="Activation…"
+				disabled={loading}
+				{loading}
+				onclick={handleActivate}
+			/>
 		</div>
 	</Card.Content>
 	<Card.Footer class="flex-col gap-2">

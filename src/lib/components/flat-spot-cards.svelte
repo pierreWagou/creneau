@@ -3,10 +3,13 @@
 	import Plus from '@lucide/svelte/icons/plus';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
+	import { mode } from 'mode-watcher';
+	import { getFlatColor } from '$lib/colors';
 	import * as Popover from '$lib/components/ui/popover';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { formatSpotNumber, isValidSpotNumber } from '$lib/constants';
 	import type { DescribedSpotConflict } from '$lib/utils/spots';
+	import IconButton from './icon-button.svelte';
 	import InlineEditField from './inline-edit-field.svelte';
 	import SpotPicker, { type SpotDirectory } from './spot-picker.svelte';
 
@@ -22,8 +25,10 @@
 		onSelect?: (number: string) => void;
 		/** Chips branch: render a dashed plus-chip cell that calls `onAdd` */
 		onAdd?: () => void;
-		/** Chips branch: optional subtext per spot (e.g. holder lot) */
-		subtexts?: Record<string, string | null>;
+	/** Chips branch: optional subtext per spot (e.g. holder lot) */
+	subtexts?: Record<string, string | null>;
+	/** Cards branch: link builder turning the spot number into a link (e.g. lot drawer → spot details) */
+	spotHref?: ((spotNumber: string) => string) | null;
 		/** Chips branch: lifecycle status per spot (accent bar + data-status; absent = neutral) */
 		statuses?: Record<string, 'shared' | 'assigned' | 'unassigned'>;
 		/** Conflicting spots get a corner warning badge + tooltip (no layout change otherwise) */
@@ -45,6 +50,7 @@
 		onAdd,
 		subtexts = {},
 		statuses = {},
+		spotHref = null,
 		conflicts = [],
 		maskHolder = false,
 		spotDirectory = null
@@ -54,8 +60,10 @@
 		return conflicts.find((c) => c.spotNumber === spotNum);
 	}
 
+	const isDark = $derived(mode.current === 'dark');
+
 	function conflictTip(c: DescribedSpotConflict): string {
-		if (c.kind === 'shared-pool') return 'Place partagée — la demander la retire du pool commun';
+		if (c.kind === 'shared-pool') return 'Place partagée — la demander la retire des places partagées';
 		if (maskHolder) return "Déjà attribuée — l'administrateur arbitrera";
 		return c.blocked
 			? `Déjà attribuée à ${c.currentFlat} — réaffectation impossible (${c.currentFlat} n'aurait plus de place)`
@@ -108,28 +116,32 @@
 	{#if variant === 'chips'}
 		{#if spots.length > 0 || onAdd}
 			<div class="grid grid-cols-4 gap-2">
-				{#each spots as spotNum}
+				{#each spots as spotNum (spotNum)}
 					{@const subtext = subtexts[spotNum]}
 					{@const chipStatus = statuses[spotNum]}
-					{@const pillLabel = subtext ?? (chipStatus === 'shared' ? 'Partagée' : chipStatus === 'unassigned' ? 'En attente' : null)}
-					{@const pillClass = subtext
-						? 'bg-muted-foreground text-[#1e1e2e]'
-						: chipStatus === 'shared'
-							? 'bg-primary text-white dark:text-[#1e1e2e]'
-							: 'bg-warning text-[#1e1e2e]'}
+					{@const pillLabel = subtext ?? (chipStatus === 'shared' ? 'Partagée' : chipStatus === 'unassigned' ? 'Non affectée' : null)}
+						{@const subtextTint = subtext ? getFlatColor(subtext, isDark) : null}
+						{@const pillClass = subtext
+							? ''
+							: chipStatus === 'shared'
+								? 'bg-primary on-solid'
+								: 'bg-foreground on-solid'}
+						{@const pillStyle = subtextTint
+							? `background-color: color-mix(in srgb, ${subtextTint} 18%, transparent); color: ${subtextTint}`
+							: undefined}
 					<button
 						type="button"
 						onclick={() => onSelect?.(spotNum)}
 						aria-label={subtext ? `Voir la place ${spotNum} (lot ${subtext})` : `Voir la place ${spotNum}`}
 						data-status={chipStatus === 'assigned' ? undefined : chipStatus}
-						class="rounded-lg border border-border min-h-16 px-3 flex flex-col items-center justify-center gap-0.5 transition-colors hover:border-foreground/30 hover:bg-muted/50"
+						class="rounded-lg border border-border min-h-16 px-3 flex flex-col items-center justify-center gap-0.5 hoverable-card"
 					>
 						<span class="flex items-center gap-2">
 							<CarFront class="h-4 w-4 shrink-0 text-muted-foreground" />
 							<span class="text-base font-semibold truncate">{spotNum}</span>
 						</span>
 						{#if pillLabel}
-							<span class="rounded-full px-2 py-px text-[11px] font-medium truncate {pillClass}">{pillLabel}</span>
+							<span class="rounded-full px-2 py-px text-[11px] font-medium truncate {pillClass}" style={pillStyle}>{pillLabel}</span>
 						{/if}
 					</button>
 				{/each}
@@ -150,37 +162,44 @@
 		{/if}
 	{:else if spots.length > 0 || editable}
 		<div class="grid grid-cols-2 gap-2">
-			{#each spots as spotNum, i}
+			{#each spots as spotNum, i (spotNum)}
 					{@const cardConflict = conflictFor(spotNum)}
 					{#snippet cardBody()}
 						{#if cardConflict}
 							<span class="sr-only">{conflictLabel(cardConflict)}</span>
 						{/if}
 						{#if cardConflict || (editable && spots.length > minItems)}
-							<div class="absolute top-1 right-1 flex items-center gap-0.5">
-								{#if cardConflict}
-									<span class="p-1 text-warning" aria-hidden="true">
-										<TriangleAlert class="h-3 w-3" />
-									</span>
-								{/if}
+							<div class="absolute top-1 right-1 z-10 flex items-center gap-0.5">
 								{#if editable && spots.length > minItems}
-									<button
-										type="button"
-										class="rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-										aria-label="Supprimer la place {spotNum}"
+									<IconButton
+										icon={Trash2}
+										label="Supprimer la place {spotNum}"
+										tone="destructive"
+										class="[&>svg]:h-3 [&>svg]:w-3"
 										onclick={() => remove(i)}
-									>
-										<Trash2 class="h-3 w-3" />
-									</button>
+									/>
 								{/if}
 							</div>
 						{/if}
 						<div class="flex items-center justify-center gap-2">
-							<CarFront class="h-5 w-5 shrink-0 {cardConflict ? 'text-warning' : 'text-muted-foreground'}" />
-							<p class="text-2xl font-semibold {cardConflict ? 'text-warning' : ''}">{spotNum}</p>
+							{#if cardConflict}
+								<TriangleAlert class="h-6 w-6 shrink-0 text-warning" aria-hidden="true" />
+							{:else}
+								<CarFront class="h-6 w-6 shrink-0 text-muted-foreground" aria-hidden="true" />
+							{/if}
+							{#if spotHref}
+								<a
+									href={spotHref(spotNum)}
+									class="text-2xl font-semibold truncate after:absolute after:inset-0 after:content-['']"
+								>
+									{spotNum}
+								</a>
+							{:else}
+								<p class="text-2xl font-semibold {cardConflict ? 'text-warning' : ''}">{spotNum}</p>
+							{/if}
 						</div>
 						{#if descriptions[spotNum]}
-							<p class="text-xs text-muted-foreground truncate max-w-full mt-0.5">{descriptions[spotNum]}</p>
+							<p class="text-sm text-muted-foreground truncate max-w-full mt-0.5">{descriptions[spotNum]}</p>
 						{/if}
 					{/snippet}
 					{#if cardConflict}
@@ -190,10 +209,12 @@
 									{#snippet child({ props })}
 										<div
 											{...props}
-											class="rounded-lg border border-warning/40 bg-warning/10 p-3 text-center relative min-h-[88px] flex flex-col items-center justify-center"
+											class="notice-warning text-center relative min-h-[88px] flex flex-col items-center justify-center {spotHref
+												? 'hoverable-card'
+												: ''}"
 										>
-											{@render cardBody()}
-										</div>
+										{@render cardBody()}
+									</div>
 									{/snippet}
 								</Tooltip.Trigger>
 								<Tooltip.Content>
@@ -203,7 +224,9 @@
 						</Tooltip.Provider>
 					{:else}
 						<div
-							class="rounded-lg border border-border p-3 text-center relative min-h-[88px] flex flex-col items-center justify-center"
+							class="rounded-lg border border-border p-3 text-center relative min-h-[88px] flex flex-col items-center justify-center {spotHref
+								? 'hoverable-card'
+								: ''}"
 						>
 							{@render cardBody()}
 						</div>
@@ -231,13 +254,13 @@
 							<div class="flex items-center gap-1">
 								<InlineEditField
 									bind:value={draft}
-									placeholder="ex. 01"
+									placeholder="ex. 36"
 									ariaLabel="Numéro de place"
 									inputClass="text-center"
 									error={draft.length > 0 && !draftValid ? 'Format requis : 1 ou 2 chiffres (ex. 3, 01, 36)' : null}
 									errorDisplay="tooltip"
 								committable={draftValid}
-								autofocus={pickerOpen}
+								focusOnOpen={pickerOpen}
 									onCommit={commit}
 									onCancel={cancel}
 								/>

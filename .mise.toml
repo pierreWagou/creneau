@@ -1,6 +1,7 @@
 [tools]
 node = "22"
 mprocs = "0.7"
+gitleaks = "8"
 
 [tasks.setup]
 description = "Install dependencies and Playwright browsers"

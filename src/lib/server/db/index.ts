@@ -7,7 +7,10 @@ import { readMigrationFiles } from 'drizzle-orm/migrator';
 import { applyPendingMigrations } from './migrate';
 import * as schema from './schema';
 
-const DB_PATH = process.env.DATABASE_URL || `file:${resolve('data/creneau.db')}`;
+/** Local fallback when DATABASE_URL is unset (tests/dev default). */
+const DEFAULT_DB_PATH = `file:${resolve('data/creneau.db')}`;
+
+const DB_PATH = process.env.DATABASE_URL || DEFAULT_DB_PATH;
 
 // Ensure the directory exists for local file databases
 const fileMatch = DB_PATH.match(/^file:(.+)$/);

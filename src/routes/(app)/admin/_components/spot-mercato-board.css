@@ -1,0 +1,15 @@
+/* Third-party drag-and-drop overrides for the mercato board (svelte-dnd-action).
+ * The library exposes the element being dragged as #dnd-action-dragged-el:
+ * lift it off the board so a drag reads as intentional instead of glitchy.
+ * Note: `scale` (not `transform`) is used on purpose — the library drives the
+ * ghost position through inline `transform`, which would override it. */
+
+#dnd-action-dragged-el {
+	opacity: 0.92;
+	scale: 1.06;
+	box-shadow:
+		0 10px 24px rgb(0 0 0 / 0.35),
+		0 2px 6px rgb(0 0 0 / 0.3);
+	cursor: grabbing;
+	z-index: 60;
+}

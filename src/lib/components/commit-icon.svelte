@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Check from '@lucide/svelte/icons/check';
 	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
-	import { Button } from '$lib/components/ui/button';
+	import IconButton from './icon-button.svelte';
 	import ValidationTip from './validation-tip.svelte';
 
 	/**
@@ -21,16 +21,7 @@
 
 <span class="inline-flex h-7 w-7 shrink-0 items-center justify-center">
 	{#if state === 'ready'}
-		<Button
-			type="button"
-			variant="ghost"
-			size="icon-sm"
-			class="text-success hover:text-success hover:!bg-success/10"
-			aria-label="Valider"
-			onclick={onCommit}
-		>
-			<Check class="h-3.5 w-3.5" />
-		</Button>
+		<IconButton icon={Check} label="Valider" tone="success" onclick={onCommit} />
 	{:else if state === 'invalid'}
 		{#if warningTip}
 			<ValidationTip show message={warningTip}>
@@ -44,8 +35,6 @@
 			</span>
 		{/if}
 	{:else if state === 'busy'}
-		<Button type="button" variant="ghost" size="icon-sm" class="shrink-0" disabled aria-label="Valider">
-			<Check class="h-3.5 w-3.5" />
-		</Button>
+		<IconButton icon={Check} label="Valider" disabled />
 	{/if}
 </span>

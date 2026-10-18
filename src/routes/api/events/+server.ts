@@ -10,6 +10,8 @@ export const GET: RequestHandler = async ({ locals }) => {
 	const clientId = randomUUID();
 
 	const stream = new ReadableStream({
+		// No try/catch by design: setup failures propagate to the stream itself
+		// (errored stream → closed connection), and cancel() owns teardown.
 		start(controller) {
 			sseManager.addClient(clientId, controller);
 

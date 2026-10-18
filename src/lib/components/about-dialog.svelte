@@ -5,6 +5,7 @@
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
+	import { REPO_URL } from '$lib/constants';
 
 	let { open = $bindable(false) } = $props();
 
@@ -40,7 +41,7 @@
 				</div>
 
 				<div class="flex justify-center">
-					<Button size="sm" onclick={goToAbout}>
+					<Button variant="default" size="sm" onclick={goToAbout}>
 						En savoir plus
 					</Button>
 				</div>
@@ -49,7 +50,7 @@
 
 				<div class="space-y-2">
 					<a
-						href="https://github.com/pierrewagou/creneau"
+						href={REPO_URL}
 						target="_blank"
 						rel="noopener noreferrer"
 						class="text-foreground flex items-center gap-2 font-medium hover:underline"

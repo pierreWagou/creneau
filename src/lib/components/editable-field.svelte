@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Pencil from '@lucide/svelte/icons/pencil';
 	import type { Snippet } from 'svelte';
-	import { Button } from '$lib/components/ui/button';
+	import IconButton from './icon-button.svelte';
 	import InlineEditField from './inline-edit-field.svelte';
 
 	/**
@@ -21,7 +21,9 @@
 		rowClass?: string;
 		/** Static content incl. empty states (text, prefixes, links, open-buttons) */
 		display: Snippet;
-		/** Fixed label before the input in editing mode (e.g. "Appartement") */
+		/** Leading adornment (e.g. field icon), rendered before the content in both modes */
+		leading?: Snippet;
+		/** Fixed label before the input in editing mode (e.g. "Lot") */
 		prefix?: Snippet;
 		/** Extra idle actions rendered after the pencil (e.g. trash) */
 		actions?: Snippet;
@@ -40,9 +42,14 @@
 		inputClass?: string;
 		error?: string | null;
 		errorDisplay?: 'inline' | 'tooltip';
-		committable: boolean;
-		disabled?: boolean;
-		autofocus?: boolean;
+	committable: boolean;
+	disabled?: boolean;
+	/** Multiline editing (Textarea instead of Input); Enter stays a newline */
+	multiline?: boolean;
+	rows?: number;
+	/** Hide the commit icon (parent owns commit affordance elsewhere) */
+	hideCommitIcon?: boolean;
+	focusOnOpen?: boolean;
 		onCommit: () => void;
 		onCancel: () => void;
 	}
@@ -54,6 +61,7 @@
 		onStart,
 		rowClass = 'gap-1',
 		display,
+		leading,
 		prefix,
 		actions,
 		editingActions,
@@ -71,7 +79,10 @@
 		errorDisplay = 'inline',
 		committable,
 		disabled = false,
-		autofocus = false,
+		multiline = false,
+		rows = 3,
+		hideCommitIcon = false,
+		focusOnOpen = false,
 		onCommit,
 		onCancel
 	}: Props = $props();
@@ -79,6 +90,9 @@
 
 {#if editing}
 	<div class="flex items-center min-w-0 min-h-8 flex-1 {rowClass}">
+		{#if leading}
+			<span class="flex shrink-0 items-center">{@render leading()}</span>
+		{/if}
 		{#if prefix}
 			{@render prefix()}
 		{/if}
@@ -99,27 +113,30 @@
 			{editingActions}
 			{committable}
 			{disabled}
-			{autofocus}
+			{multiline}
+			{rows}
+			{hideCommitIcon}
+			{focusOnOpen}
 			{onCommit}
 			{onCancel}
 		/>
 	</div>
 {:else}
 	<div class="flex items-center min-w-0 min-h-8 flex-1 {rowClass}">
-		<div class="flex-1 min-w-0">
-			{@render display()}
-		</div>
+		{#if leading}
+			<div class="flex min-w-0 flex-1 items-center gap-2">
+				{@render leading()}
+				<div class="flex-1 min-w-0">
+					{@render display()}
+				</div>
+			</div>
+		{:else}
+			<div class="flex-1 min-w-0">
+				{@render display()}
+			</div>
+		{/if}
 		{#if editable}
-			<Button
-				type="button"
-				variant="ghost"
-				size="icon-sm"
-				class="shrink-0 text-muted-foreground hover:text-foreground hover:!bg-muted"
-				aria-label={editLabel}
-				onclick={onStart}
-			>
-				<Pencil class="h-3.5 w-3.5" />
-			</Button>
+			<IconButton icon={Pencil} label={editLabel} onclick={onStart} />
 		{/if}
 		{#if actions}
 			{@render actions()}

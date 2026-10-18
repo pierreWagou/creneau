@@ -1,11 +1,13 @@
 <script lang="ts">
-	import { toast } from 'svelte-sonner';
 	import FlatDetailView from '$lib/components/flat-detail-view.svelte';
 	import Logo from '$lib/components/logo.svelte';
 	import type { SpotDirectory } from '$lib/components/spot-picker.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
+		import { apiFetch } from '$lib/utils/api';
 		import { describeSharedPoolConflicts, describeSpotConflicts, findSpotConflicts } from '$lib/utils/spots';
+	import { notifyResult } from '$lib/utils/toasts';
+	import { normalizeFlatNumber } from '$lib/validation';
 
 	let { data } = $props();
 
@@ -28,7 +30,7 @@
 			reqNumberEditing = true;
 		},
 		onCommit: (v: string) => {
-			flatNumber = v.trim().toUpperCase();
+			flatNumber = normalizeFlatNumber(v);
 			reqNumberEditing = false;
 		},
 		onCancel: () => {
@@ -50,7 +52,7 @@
 		}
 	});
 
-	const normalizedFlat = $derived(flatNumber.trim().toUpperCase());
+	const normalizedFlat = $derived(normalizeFlatNumber(flatNumber));
 
 	const spotDirectory: SpotDirectory = $derived({
 		all: data.spots,
@@ -65,8 +67,9 @@
 		if (!formValid || loading) return;
 		loading = true;
 
-		try {
-			const res = await fetch('/api/requests', {
+		const result = await apiFetch(
+			'/api/requests',
+			{
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
@@ -76,20 +79,16 @@
 					emails: reqEmails,
 					phones: reqPhones
 				})
-			});
+			},
+			"Erreur lors de l'envoi"
+		);
 
-			const result = await res.json();
-
-			if (res.ok) {
-				submitted = true;
-			} else {
-				toast.error(result.error || "Erreur lors de l'envoi");
-			}
-		} catch {
-			toast.error('Erreur de connexion');
-		} finally {
-			loading = false;
+		if (result.ok) {
+			submitted = true;
+		} else {
+			notifyResult(result, null, "Erreur lors de l'envoi");
 		}
+		loading = false;
 	}
 </script>
 
@@ -132,7 +131,7 @@
 				{spotConflicts}
 				maskHolder
 				bind:valid={formValid}
-				submitLabel={loading ? 'Envoi...' : 'Envoyer la demande'}
+				submitLabel={loading ? 'Envoi…' : 'Envoyer la demande'}
 				submitting={loading}
 				onSubmit={handleSubmit}
 			/>
