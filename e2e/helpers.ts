@@ -249,3 +249,26 @@ export async function fillAndCommit(locator: Locator, value: string) {
 	await locator.fill(value);
 	await locator.press('Enter').catch(() => {});
 }
+
+/**
+ * Click an "Ajouter un e-mail / téléphone" button and fill the revealed input.
+ * The add-row can unmount before fill lands (tap-outside collapse wins the
+ * race under load, or hydration lags the click on cold servers) — reopen it
+ * instead of timing out. Commits with Enter like the manual flow.
+ */
+export async function addContactViaUI(
+	page: Page,
+	scope: Page | Locator,
+	buttonName: string,
+	inputSelector: string,
+	value: string
+) {
+	await scope.getByRole('button', { name: buttonName }).click();
+	const input = scope.locator(inputSelector);
+	await input.waitFor({ timeout: 5000 }).catch(async () => {
+		await scope.getByRole('button', { name: buttonName }).click();
+		await input.waitFor({ timeout: 5000 });
+	});
+	await input.fill(value);
+	await page.keyboard.press('Enter');
+}

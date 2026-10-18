@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { ADMIN_FLAT, ADMIN_PIN, ensureSpots, navigateTo, TEST_SPOT } from './helpers';
+import { ADMIN_FLAT, ADMIN_PIN, addContactViaUI, ensureSpots, navigateTo, TEST_SPOT } from './helpers';
 
 test.describe
 	.serial('Setup wizard', () => {
@@ -16,12 +16,8 @@ test.describe
 			// components; contact lists need an "Ajouter" click first)
 			await page.getByPlaceholder('ex. B12').fill(ADMIN_FLAT);
 			await page.getByPlaceholder('ex. Famille Dupont').fill('Admin');
-			await page.getByRole('button', { name: 'Ajouter un e-mail' }).click();
-			await page.locator('input[type="email"]').fill('admin@test.com');
-			await page.keyboard.press('Enter');
-			await page.getByRole('button', { name: 'Ajouter un téléphone' }).click();
-			await page.locator('input[type="tel"]').fill('+33612345678');
-			await page.keyboard.press('Enter');
+			await addContactViaUI(page, page, 'Ajouter un e-mail', 'input[type="email"]', 'admin@test.com');
+			await addContactViaUI(page, page, 'Ajouter un téléphone', 'input[type="tel"]', '+33612345678');
 			await page.fill('[id="pin"]', ADMIN_PIN);
 			await page.fill('[id="pin-confirm"]', ADMIN_PIN);
 

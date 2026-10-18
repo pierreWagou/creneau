@@ -2,6 +2,7 @@ import { type APIRequestContext, expect, test } from '@playwright/test';
 import {
 	ADMIN_FLAT,
 	ADMIN_PIN,
+	addContactViaUI,
 	addSpotViaPicker,
 	boardDrag,
 	createFlatViaAPI,
@@ -258,14 +259,10 @@ test.describe
 				await addSpotViaPicker(page, page, '50');
 
 				// Add email
-				await page.getByRole('button', { name: 'Ajouter un e-mail' }).click();
-				await page.locator('input[type="email"]').fill('b05@test.com');
-				await page.keyboard.press('Enter');
+				await addContactViaUI(page, page, 'Ajouter un e-mail', 'input[type="email"]', 'b05@test.com');
 
 				// Add phone
-				await page.getByRole('button', { name: 'Ajouter un téléphone' }).click();
-				await page.locator('input[type="tel"]').fill('+33612345678');
-				await page.keyboard.press('Enter');
+				await addContactViaUI(page, page, 'Ajouter un téléphone', 'input[type="tel"]', '+33612345678');
 
 				// Submit
 				await page.getByRole('button', { name: 'Envoyer la demande' }).click();
@@ -304,12 +301,8 @@ test.describe
 				await page.getByPlaceholder('ex. B12').fill('A99');
 				await page.getByPlaceholder('ex. B12').press('Enter');
 				await addSpotViaPicker(page, page, '70');
-				await page.getByRole('button', { name: 'Ajouter un e-mail' }).click();
-				await page.locator('input[type="email"]').fill('a99@test.com');
-				await page.keyboard.press('Enter');
-				await page.getByRole('button', { name: 'Ajouter un téléphone' }).click();
-				await page.locator('input[type="tel"]').fill('+33698765432');
-				await page.keyboard.press('Enter');
+				await addContactViaUI(page, page, 'Ajouter un e-mail', 'input[type="email"]', 'a99@test.com');
+				await addContactViaUI(page, page, 'Ajouter un téléphone', 'input[type="tel"]', '+33698765432');
 				await page.getByRole('button', { name: 'Envoyer la demande' }).click();
 				await expect(page.getByText('Demande envoyée')).toBeVisible({ timeout: 5000 });
 
@@ -347,12 +340,8 @@ test.describe
 				const createDialog = page.locator('[role="dialog"]').filter({ hasText: 'Ajouter un lot' });
 				await expect(createDialog).toBeVisible({ timeout: 5000 });
 				await fillAndCommit(createDialog.getByPlaceholder('ex. B12'), 'B26');
-				await createDialog.getByRole('button', { name: 'Ajouter un e-mail' }).click();
-				await createDialog.locator('input[type="email"]').fill('b26@test.com');
-				await page.keyboard.press('Enter');
-				await createDialog.getByRole('button', { name: 'Ajouter un téléphone' }).click();
-				await createDialog.locator('input[type="tel"]').fill('+33612345622');
-				await page.keyboard.press('Enter');
+				await addContactViaUI(page, createDialog, 'Ajouter un e-mail', 'input[type="email"]', 'b26@test.com');
+				await addContactViaUI(page, createDialog, 'Ajouter un téléphone', 'input[type="tel"]', '+33612345622');
 				await addSpotViaPicker(page, createDialog, '96');
 				await createDialog.getByRole('button', { name: 'Ajouter', exact: true }).click();
 				// Submit must succeed outright (unassigned spot, no resolver) —
