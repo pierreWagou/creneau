@@ -169,6 +169,7 @@ exec node build
 
 - **Preview**: `SEED_ON_INIT=true` set in Dokploy service env vars → seeds on first boot with fake flats + bookings (PIN `1234` for all)
 - **Production**: no `SEED_ON_INIT` → starts with empty DB → redirects to `/setup` for first-time admin creation
+- **Preview mail catch-all**: `SMTP_REDIRECT_ALL_TO` set in preview env (compose + Dokploy service) → every recipient swapped for it (`X-Original-To` + `[Preview]` subject). **Production must never set it** — unset means real delivery.
 
 ### Resetting the production DB
 

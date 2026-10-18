@@ -3,6 +3,9 @@ services:
     # Preview-only combo: :canary image + SEED_ON_INIT seeds the named volume
     # with demo data on first boot. Production uses :X.Y.Z/:latest WITHOUT
     # SEED_ON_INIT (see AGENTS.md Deployment).
+    # SMTP_REDIRECT_ALL_TO is the preview mail catch-all: every recipient is
+    # swapped for it (originals kept in X-Original-To + [Preview] subject).
+    # Production must NEVER set it.
     image: ghcr.io/pierrewagou/creneau:canary
     ports:
       - '3000:3000'
@@ -17,6 +20,7 @@ services:
       - SMTP_USER=pierrewagou
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - SMTP_FROM=noreply-creneau@wagou.fr
+      - SMTP_REDIRECT_ALL_TO=preview@wagou.fr
     restart: unless-stopped
 
 volumes:
