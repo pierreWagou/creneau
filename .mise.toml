@@ -3,6 +3,9 @@ node = "22"
 mprocs = "0.7"
 gitleaks = "8"
 
+[settings]
+idiomatic_version_file_enable_tools = ["node"]
+
 [tasks.setup]
 description = "Install dependencies and Playwright browsers"
 run = "npm install && npx playwright install chromium"
