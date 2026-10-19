@@ -15,9 +15,9 @@ services:
       - NODE_ENV=production
       - DATABASE_URL=file:/app/data/creneau.db
       - SEED_ON_INIT=true
-      - SMTP_HOST=stalwart
+      - SMTP_HOST=mail.wagou.fr
       - SMTP_PORT=465
-      - SMTP_USER=pierrewagou
+      - SMTP_USER=noreply-creneau@wagou.fr
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - SMTP_FROM=noreply-creneau@wagou.fr
       - SMTP_REDIRECT_ALL_TO=preview@wagou.fr

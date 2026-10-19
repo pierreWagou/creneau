@@ -169,7 +169,9 @@ exec node build
 
 - **Preview**: `SEED_ON_INIT=true` set in Dokploy service env vars → seeds on first boot with fake flats + bookings (PIN `1234` for all)
 - **Production**: no `SEED_ON_INIT` → starts with empty DB → redirects to `/setup` for first-time admin creation
-- **Preview mail catch-all**: `SMTP_REDIRECT_ALL_TO` set in preview env (compose + Dokploy service) → every recipient swapped for it (`X-Original-To` + `[Preview]` subject). **Production must never set it** — unset means real delivery.
+- **SMTP env lives in the Dokploy service UI** (not in `docker-compose.yml` — that file documents the shape but Dokploy doesn't use it). Stalwart runs on wagoulab with hostname `mail.wagou.fr` (ports 25/465/587); the podman-only name `stalwart` does **not** resolve from Dokploy containers.
+  - Preview: `SMTP_HOST=mail.wagou.fr`, `SMTP_PORT=465`, `SMTP_USER`/`SMTP_FROM=noreply-creneau@wagou.fr`, `SMTP_PASSWORD`, plus the catch-all `SMTP_REDIRECT_ALL_TO=preview@wagou.fr` → every recipient swapped for it (`X-Original-To` + `[Preview]` subject)
+  - Production: same SMTP creds, **no `SMTP_REDIRECT_ALL_TO`** — production must never set it (unset means real delivery)
 
 ### Resetting the production DB
 
